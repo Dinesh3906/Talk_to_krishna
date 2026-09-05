@@ -15,6 +15,7 @@
     "build": "npm run build:packages && npm --workspace=services/api run build && npm --workspace=apps/mobile run build",
     "build:packages": "npm --workspace=packages/shared run build",
     "build:api": "npm run build:packages && npm --workspace=services/api run build",
+    "build:web": "npm run build:packages && npm --workspace=apps/mobile run build",
     "test": "npm --workspace=services/api run test",
     "lint": "npm --workspaces run lint",
     "db:up": "docker compose up -d",
