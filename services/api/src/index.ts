@@ -58,6 +58,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Load balancer & ping endpoints
+app.get('/', (_req: Request, res: Response) => {
+  return res.status(200).send('Talk to Krishna API is running.');
+});
+
+app.get('/health', (_req: Request, res: Response) => {
+  return res.status(200).json({ status: 'healthy', service: 'talk-to-krishna-api' });
+});
+
 // Health check endpoint
 app.get('/api/v1/health', async (_req: Request, res: Response) => {
   try {
