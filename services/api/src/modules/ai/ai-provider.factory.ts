@@ -1,6 +1,7 @@
 import { AIProvider } from './ai-provider.interface.js';
 import { GeminiProvider } from './providers/gemini.provider.js';
 import { OpenAIProvider } from './providers/openai.provider.js';
+import { GroqProvider } from './providers/groq.provider.js';
 
 export class AIProviderFactory {
   private static instance: AIProvider | null = null;
@@ -10,9 +11,14 @@ export class AIProviderFactory {
       return this.instance;
     }
 
-    const providerType = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+    const providerType = (
+      process.env.AI_PROVIDER || (process.env.GROQ_API_KEY ? 'groq' : 'gemini')
+    ).toLowerCase();
 
     switch (providerType) {
+      case 'groq':
+        this.instance = new GroqProvider();
+        break;
       case 'openai':
         this.instance = new OpenAIProvider();
         break;
@@ -22,7 +28,7 @@ export class AIProviderFactory {
         break;
     }
 
-    return this.instance;
+    return this.instance!;
   }
 
   public static setProvider(provider: AIProvider): void {

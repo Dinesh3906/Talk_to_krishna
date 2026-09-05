@@ -18,7 +18,7 @@ export interface CompletionResult {
 }
 
 export interface AIProvider {
-  readonly providerName: 'gemini' | 'openai' | 'anthropic';
+  readonly providerName: 'gemini' | 'openai' | 'anthropic' | 'groq';
   generateCompletion(options: CompletionOptions): Promise<CompletionResult>;
   streamCompletion(
     options: CompletionOptions,

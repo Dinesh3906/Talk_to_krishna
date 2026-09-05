@@ -4,7 +4,7 @@ export interface AIRequestTelemetry {
   userId: string;
   conversationId?: string;
   model: string;
-  provider: 'gemini' | 'openai' | 'anthropic';
+  provider: 'gemini' | 'openai' | 'anthropic' | 'groq';
   totalLatencyMs: number;
   retrievalLatencyMs: number;
   generationLatencyMs: number;
