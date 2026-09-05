@@ -10,8 +10,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
-    "build": "expo export --platform web",
-    "build:web": "expo export --platform web"
+    "build": "npx expo export --platform web && node scripts/prepare-dist.mjs",
+    "build:web": "npx expo export --platform web && node scripts/prepare-dist.mjs"
   },
   "dependencies": {
     "@talk-to-krisna/shared": "*",
