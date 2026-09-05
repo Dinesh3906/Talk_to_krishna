@@ -1,0 +1,103 @@
+[
+  {
+    "id": "yaksha-prashna",
+    "parva": "Vana Parva",
+    "chapter": "313-314",
+    "title": "The Yaksha Prashna (The Questions of the Crane / Dharma)",
+    "characters": ["Yudhishthira", "Yaksha / Yama (Dharma)", "Nakula", "Sahadeva", "Arjuna", "Bhima"],
+    "themes": ["wisdom", "grief", "patience", "life questions", "anger", "pride", "greatest wonder"],
+    "summary": "When the Pandava brothers drink from an enchanted pool without answering the Yaksha's questions, they fall dead. Yudhishthira approaches with restraint, control of senses, and answers all of the Yaksha's profound inquiries regarding life, death, mind, and sorrow.",
+    "keyDialogues": [
+      {
+        "question": "What is swifter than the wind? What is more numerous than blades of grass?",
+        "answer": "The mind is swifter than the wind; the thoughts of the heart are more numerous than blades of grass."
+      },
+      {
+        "question": "What is the greatest wonder in the world?",
+        "answer": "Every single day, countless living beings depart to the abode of death, yet those who remain believe they will live forever. What can be a greater wonder than this?"
+      },
+      {
+        "question": "By abandoning what does a man become loved? By abandoning what does he suffer no grief? By abandoning what does he become rich? By abandoning what does he become happy?",
+        "answer": "By abandoning pride, a man becomes loved. By abandoning anger, he grieves no more. By abandoning desire, he becomes wealthy. By abandoning greed, he becomes truly happy."
+      },
+      {
+        "question": "What is the true enemy of man? What is the incurable disease?",
+        "answer": "Anger is the unyielding enemy; greed is the disease that has no end."
+      }
+    ],
+    "relevanceForGuidance": "Directly relevant when users ask about the meaning of life, why anger ruins relationships, how pride prevents love, or how to process sudden tragedy."
+  },
+  {
+    "id": "krishna-karna-dialogue",
+    "parva": "Udyoga Parva",
+    "chapter": "140-143",
+    "title": "Krishna's Secret Counsel with Karna (The Tragedy of Loyalty)",
+    "characters": ["Krishna", "Karna"],
+    "themes": ["loyalty", "destiny", "moral conflict", "gratitude", "identity", "social rejection"],
+    "summary": "Before the war, Krishna invites Karna into his chariot and reveals Karna's true birth as Kunti's eldest son. Krishna offers him the empire, the allegiance of all five Pandavas, and Draupadi. Karna weeps in acknowledgment of Krishna's love and truth, but gently refuses.",
+    "keyDialogues": [
+      {
+        "speaker": "Karna",
+        "listener": "Krishna",
+        "text": "O Janardana, I know that righteousness rests with the Pandavas, and I know that defeat awaits Duryodhana. Yet when the whole world mocked me as a charioteer's son, Duryodhana gave me honor, a crown, and unconditional friendship. How can I abandon him now when the hour of his ruin approaches? Let me fall upon the field with my honor intact rather than rule an empire gained through betrayal."
+      },
+      {
+        "speaker": "Krishna",
+        "listener": "Karna",
+        "text": "Krishna embraces Karna with profound tenderness: 'Karna, your noble heart is your glory, and your bond is your destiny. The world will forever remember your generosity and steadfastness.'"
+      }
+    ],
+    "relevanceForGuidance": "Crucial for users trapped between personal loyalty and moral principles, people feeling rejected by origin/society, or those honoring debts of gratitude in difficult circumstances."
+  },
+  {
+    "id": "bhishma-shanti-parva-grief",
+    "parva": "Shanti Parva",
+    "chapter": "27-28",
+    "title": "Bhishma Comforts Yudhishthira on Grief and Guilt",
+    "characters": ["Bhishma", "Yudhishthira", "Krishna"],
+    "themes": ["guilt", "trauma", "post-conflict grief", "responsibility", "time and healing"],
+    "summary": "After the slaughter of the war, Yudhishthira is crushed by survivor's guilt, weeping that he destroyed his own family for a patch of earth. Krishna leads him to grandfather Bhishma on his bed of arrows, who explains the nature of human grief and the necessity of action over despondency.",
+    "keyDialogues": [
+      {
+        "speaker": "Bhishma",
+        "listener": "Yudhishthira",
+        "text": "Grief cannot be dispelled by weeping, nor can sorrow bring back those who have passed beyond the river of Time. Grief only burns the body of the one who cherishes it. As pieces of driftwood meet in the vast ocean for a brief moment and are parted by the waves, so do parents, children, spouses, and companions meet on this earth and part. Know that you did not cause their departure; Time (Kala) works through instruments. Arise and wipe your tears; your duty now is to protect those who live."
+      }
+    ],
+    "relevanceForGuidance": "Directly applicable to survivor guilt, grief after bereavement, divorce, or regret over past decisions that cannot be undone."
+  },
+  {
+    "id": "duryodhana-envy-vidura",
+    "parva": "Sabha Parva",
+    "chapter": "49-50",
+    "title": "Duryodhana's Envy and Vidura's Warning",
+    "characters": ["Duryodhana", "Dhritarashtra", "Vidura", "Shakuni"],
+    "themes": ["envy", "comparison", "jealousy", "insatiability", "unhappiness"],
+    "summary": "Returning from the magnificent Maya Sabha of the Pandavas, Duryodhana burns with jealousy, unable to sleep or eat despite owning immense wealth in Hastinapura. Vidura warns King Dhritarashtra that envy is a fire that consumes its own container.",
+    "keyDialogues": [
+      {
+        "speaker": "Vidura",
+        "listener": "Dhritarashtra",
+        "text": "He who compares his own abundance with the good fortune of his brother will find that his own palace turns to ashes in his mouth. Envy is the thief of contentment. No kingdom in the three worlds can satisfy a man who measures his happiness by the misery of others."
+      }
+    ],
+    "relevanceForGuidance": "Pivotal when a user says 'I hate my friend who got the job I wanted' or struggles with social comparison, jealousy, and feeling that others are succeeding unfairly."
+  },
+  {
+    "id": "draupadi-sharanagati",
+    "parva": "Sabha Parva",
+    "chapter": "68",
+    "title": "Draupadi's Complete Surrender (Śaraṇāgati)",
+    "characters": ["Draupadi", "Dushasana", "Bhishma", "Krishna"],
+    "themes": ["helplessness", "surrender", "faith", "dignity", "limits of human institutions"],
+    "summary": "In the assembly hall where elders, husbands, and kings sit silently, Draupadi realizes that all mortal institutions and human strength have failed to protect her dignity. Letting go of her own desperate grip on her garments, she raises both hands and surrenders entirely to Krishna with the plea: 'Govinda! Dwarkavasin! Save me.' Instantly, an infinite stream of cloth manifests, frustrating the oppressor.",
+    "keyDialogues": [
+      {
+        "speaker": "Draupadi",
+        "listener": "Krishna",
+        "text": "Hā Govinda! Hā Dwārakāvāsin! When the elders fail, when strength fails, when the world looks away—You alone are the refuge of the helpless!"
+      }
+    ],
+    "relevanceForGuidance": "For users experiencing total abandonment, betrayal by institutions/family, or hitting rock bottom where human efforts have completely collapsed."
+  }
+]

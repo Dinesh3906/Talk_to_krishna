@@ -1,0 +1,200 @@
+[
+  {
+    "id": 1,
+    "name": "Adi Parva",
+    "transliteration": "Ādi Parva",
+    "englishMeaning": "The Book of the Beginning",
+    "subParvasCount": 19,
+    "chaptersCount": 236,
+    "description": "Introduces the genealogy of the Bharata dynasty, the births of the Pandavas and Kauravas, the early rivalries, and the burning of the lac palace.",
+    "keyThemes": ["destiny", "origins", "righteousness", "jealousy", "lineage"],
+    "keyFigures": ["Vyasa", "Bhishma", "Drona", "Pandavas", "Kauravas", "Kunti", "Vidura"]
+  },
+  {
+    "id": 2,
+    "name": "Sabha Parva",
+    "transliteration": "Sabhā Parva",
+    "englishMeaning": "The Book of the Assembly Hall",
+    "subParvasCount": 9,
+    "chaptersCount": 78,
+    "description": "Details the construction of the Maya Sabha, the Rajasuya sacrifice of Yudhishthira, the fatal game of dice, the humiliation of Draupadi, and the exile of the Pandavas.",
+    "keyThemes": ["greed", "gambling", "dignity", "injustice", "power", "loss"],
+    "keyFigures": ["Yudhishthira", "Duryodhana", "Shakuni", "Draupadi", "Dushasana", "Krishna"]
+  },
+  {
+    "id": 3,
+    "name": "Vana Parva",
+    "transliteration": "Vana Parva",
+    "englishMeaning": "The Book of the Forest (Aranya Parva)",
+    "subParvasCount": 16,
+    "chaptersCount": 269,
+    "description": "Chronicles the twelve years of forest exile of the Pandavas, containing philosophical dialogues, pilgrimages, the Yaksha Prashna, and the story of Savitri and Nala.",
+    "keyThemes": ["adversity", "patience", "philosophical inquiry", "endurance", "wisdom"],
+    "keyFigures": ["Yudhishthira", "Arjuna", "Bhima", "Draupadi", "Yaksha / Dharma", "Markandeya"]
+  },
+  {
+    "id": 4,
+    "name": "Virata Parva",
+    "transliteration": "Virāṭa Parva",
+    "englishMeaning": "The Book of Virata",
+    "subParvasCount": 4,
+    "chaptersCount": 67,
+    "description": "The thirteenth year of exile spent in disguise at the court of King Virata. The Pandavas navigate hidden identities, dignity in servitude, and the defense of the kingdom.",
+    "keyThemes": ["humility", "identity", "duty", "restraint", "loyalty"],
+    "keyFigures": ["Arjuna (Brihannala)", "Bhima (Ballava)", "Draupadi (Sairandhri)", "Kichaka", "King Virata"]
+  },
+  {
+    "id": 5,
+    "name": "Udyoga Parva",
+    "transliteration": "Udyoga Parva",
+    "englishMeaning": "The Book of the Effort",
+    "subParvasCount": 11,
+    "chaptersCount": 186,
+    "description": "Preparations for war after the failed return of the kingdom. Krishna undertakes the peace embassy to Hastinapura, trying to prevent war, and has a secret, poignant dialogue with Karna.",
+    "keyThemes": ["peace diplomacy", "fate vs free will", "loyalty", "stubbornness", "moral responsibility"],
+    "keyFigures": ["Krishna", "Duryodhana", "Karna", "Sanjaya", "Dhritarashtra", "Vidura"]
+  },
+  {
+    "id": 6,
+    "name": "Bhishma Parva",
+    "transliteration": "Bhīṣma Parva",
+    "englishMeaning": "The Book of Bhishma",
+    "subParvasCount": 5,
+    "chaptersCount": 117,
+    "description": "The commencement of the Kurukshetra war. Contains the Bhagavad Gita as Krishna instructs Arjuna, and concludes with Bhishma falling upon the bed of arrows.",
+    "keyThemes": ["dharma", "moral crisis", "detachment", "duty", "cosmic vision"],
+    "keyFigures": ["Krishna", "Arjuna", "Bhishma", "Sanjaya", "Dhritarashtra"]
+  },
+  {
+    "id": 7,
+    "name": "Drona Parva",
+    "transliteration": "Droṇa Parva",
+    "englishMeaning": "The Book of Drona",
+    "subParvasCount": 8,
+    "chaptersCount": 170,
+    "description": "Drona takes command of the Kaurava forces. Features the tragic death of young Abhimanyu in the Chakravyuha, intense sorrow, and Drona's demise.",
+    "keyThemes": ["grief", "loss of youth", "war ethics", "despair", "inevitability"],
+    "keyFigures": ["Drona", "Abhimanyu", "Arjuna", "Jayadratha", "Yudhishthira", "Ashwatthama"]
+  },
+  {
+    "id": 8,
+    "name": "Karna Parva",
+    "transliteration": "Karṇa Parva",
+    "englishMeaning": "The Book of Karna",
+    "subParvasCount": 2,
+    "chaptersCount": 69,
+    "description": "Karna assumes leadership of the Kaurava army. Details the climactic duel between Arjuna and Karna, exploring destiny, vows, social rejection, and ultimate sacrifice.",
+    "keyThemes": ["destiny", "pride", "chivalry", "tragic nobility", "consequence of choices"],
+    "keyFigures": ["Karna", "Arjuna", "Shalya", "Krishna"]
+  },
+  {
+    "id": 9,
+    "name": "Shalya Parva",
+    "transliteration": "Śalya Parva",
+    "englishMeaning": "The Book of Shalya",
+    "subParvasCount": 4,
+    "chaptersCount": 59,
+    "description": "The final day of open battle. Shalya's brief command, the mace duel between Bhima and Duryodhana at Samantapanchaka, and the collapse of the Kauravas.",
+    "keyThemes": ["retribution", "fall of pride", "completion of oaths", "vanity of ego"],
+    "keyFigures": ["Shalya", "Duryodhana", "Bhima", "Balarama", "Krishna"]
+  },
+  {
+    "id": 10,
+    "name": "Sauptika Parva",
+    "transliteration": "Sauptika Parva",
+    "englishMeaning": "The Book of the Sleeping Warriors",
+    "subParvasCount": 2,
+    "chaptersCount": 18,
+    "description": "Ashwatthama, consumed by grief and fury over his father's death, unleashes a midnight raid on the sleeping Pandava camp, slaughtering the remaining warriors and children.",
+    "keyThemes": ["anger", "revenge", "blind fury", "tragedy of hatred", "irreparable loss"],
+    "keyFigures": ["Ashwatthama", "Kripa", "Kritavarma", "Dhrishtadyumna", "Pandavas", "Krishna"]
+  },
+  {
+    "id": 11,
+    "name": "Stri Parva",
+    "transliteration": "Strī Parva",
+    "englishMeaning": "The Book of the Women",
+    "subParvasCount": 2,
+    "chaptersCount": 27,
+    "description": "The women of both sides grieve upon the devastated battlefield. Queen Gandhari confronts Krishna with immense grief and places a curse upon the Yadava clan.",
+    "keyThemes": ["universal grief", "futility of war", "maternal sorrow", "karma", "acceptance"],
+    "keyFigures": ["Gandhari", "Kunti", "Draupadi", "Dhritarashtra", "Krishna", "Yudhishthira"]
+  },
+  {
+    "id": 12,
+    "name": "Shanti Parva",
+    "transliteration": "Śānti Parva",
+    "englishMeaning": "The Book of Peace",
+    "subParvasCount": 3,
+    "chaptersCount": 353,
+    "description": "The longest book of the epic. Yudhishthira, traumatized by the war's slaughter, seeks to renounce the throne. Krishna brings him to the dying Bhishma for exhaustive teachings on statecraft, ethics, and liberation.",
+    "keyThemes": ["peace", "healing after trauma", "leadership", "ethics in adversity (Apad Dharma)", "renunciation"],
+    "keyFigures": ["Bhishma", "Yudhishthira", "Krishna", "Vyasa", "Vidura"]
+  },
+  {
+    "id": 13,
+    "name": "Anushasana Parva",
+    "transliteration": "Anuśāsana Parva",
+    "englishMeaning": "The Book of Instructions",
+    "subParvasCount": 2,
+    "chaptersCount": 154,
+    "description": "Continuation of Bhishma's discourses on duty, charity, the sanctity of life, the Vishnu Sahasranama, and the moment of Bhishma's willing departure (Iccha Mrityu).",
+    "keyThemes": ["charity", "compassion", "transcendence", "devotion", "peaceful transition"],
+    "keyFigures": ["Bhishma", "Yudhishthira", "Krishna"]
+  },
+  {
+    "id": 14,
+    "name": "Ashvamedhika Parva",
+    "transliteration": "Aśvamedhika Parva",
+    "englishMeaning": "The Book of the Horse Sacrifice",
+    "subParvasCount": 2,
+    "chaptersCount": 96,
+    "description": "The performance of the Ashvamedha sacrifice by Yudhishthira to heal the realm. Contains the Anugita, where Krishna reiterates philosophical truths to Arjuna.",
+    "keyThemes": ["renewal", "restoration", "second chances", "re-learning truth"],
+    "keyFigures": ["Yudhishthira", "Arjuna", "Krishna", "Uttara", "Parikshit"]
+  },
+  {
+    "id": 15,
+    "name": "Ashramavasika Parva",
+    "transliteration": "Āśramavāsika Parva",
+    "englishMeaning": "The Book of the Hermitage",
+    "subParvasCount": 3,
+    "chaptersCount": 42,
+    "description": "Dhritarashtra, Gandhari, Kunti, and Vidura renounce palace life to retire to the forest as ascetics, eventually perishing peacefully in a forest fire.",
+    "keyThemes": ["aging", "letting go", "forgiveness", "renunciation of worldly ties"],
+    "keyFigures": ["Dhritarashtra", "Gandhari", "Kunti", "Vidura", "Yudhishthira"]
+  },
+  {
+    "id": 16,
+    "name": "Mausala Parva",
+    "transliteration": "Mausala Parva",
+    "englishMeaning": "The Book of the Clubs",
+    "subParvasCount": 1,
+    "chaptersCount": 9,
+    "description": "The self-destruction of the Vrishni/Yadava dynasty through infighting, fulfilling Gandhari's curse, followed by Krishna's quiet departure from the earthly realm.",
+    "keyThemes": ["inevitability of time (Kala)", "entropy of clans", "detachment from outcome", "transience"],
+    "keyFigures": ["Krishna", "Balarama", "Arjuna", "Jara"]
+  },
+  {
+    "id": 17,
+    "name": "Mahaprasthanika Parva",
+    "transliteration": "Mahāprasthānika Parva",
+    "englishMeaning": "The Book of the Great Journey",
+    "subParvasCount": 1,
+    "chaptersCount": 3,
+    "description": "The Pandavas and Draupadi renounce their kingdom to walk towards the Himalayas. One by one they fall due to subtle personal flaws, leaving Yudhishthira accompanied only by a faithful dog.",
+    "keyThemes": ["final pilgrimage", "subtle ego", "loyalty", "unconditional compassion"],
+    "keyFigures": ["Yudhishthira", "Draupadi", "Bhima", "Arjuna", "Nakula", "Sahadeva", "The Dog / Dharma"]
+  },
+  {
+    "id": 18,
+    "name": "Svargarohana Parva",
+    "transliteration": "Svargārohaṇa Parva",
+    "englishMeaning": "The Book of the Ascent to Heaven",
+    "subParvasCount": 1,
+    "chaptersCount": 5,
+    "description": "Yudhishthira's final test in the afterlife, the unveiling of Maya, the reconciliation of all warriors, and the ultimate transcendence beyond hatred and rivalry.",
+    "keyThemes": ["ultimate truth", "transcendence of duality", "reconciliation", "peace beyond earth"],
+    "keyFigures": ["Yudhishthira", "Indra", "Dharma", "Krishna", "Kauravas", "Pandavas"]
+  }
+]

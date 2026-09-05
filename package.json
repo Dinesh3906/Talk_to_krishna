@@ -1,0 +1,36 @@
+{
+  "name": "talk-to-krisna",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-quality mobile application & RAG conversational AI inspired by Lord Krishna and the Mahabharata",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "npm --workspace=services/api run dev",
+    "dev:mobile": "npm --workspace=apps/mobile run dev",
+    "build": "npm run build:packages && npm --workspace=services/api run build && npm --workspace=apps/mobile run build",
+    "build:packages": "npm --workspace=packages/shared run build",
+    "test": "npm --workspace=services/api run test",
+    "lint": "npm --workspaces run lint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "ingest:corpus": "npm --workspace=services/api run ingest:corpus",
+    "ingest:pdf": "npm --workspace=services/api run ingest:pdf"
+  },
+  "keywords": [
+    "krishna",
+    "mahabharata",
+    "bhagavad-gita",
+    "rag",
+    "react-native",
+    "expo",
+    "pgvector",
+    "ai-companion"
+  ],
+  "author": "Talk to Krishna Engineering Team",
+  "license": "UNLICENSED"
+}

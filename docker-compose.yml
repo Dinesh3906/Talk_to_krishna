@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: talk_to_krisna_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: krisna_user
+      POSTGRES_PASSWORD: krisna_password
+      POSTGRES_DB: talk_to_krisna_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krisna_user -d talk_to_krisna_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
