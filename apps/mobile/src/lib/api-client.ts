@@ -1,6 +1,14 @@
 import { StreamChunk } from '@talk-to-krisna/shared';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const customUrl = window.localStorage.getItem('TALK_TO_KRISHNA_API_URL');
+    if (customUrl) return customUrl.replace(/\/+$/, '');
+  }
+  return (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 let authToken: string | null = null;
 
@@ -13,7 +21,8 @@ export function getApiAuthToken(): string | null {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${path}`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -54,7 +63,8 @@ export async function streamChatMessage(
   onDone: () => void
 ): Promise<() => void> {
   const controller = new AbortController();
-  const url = `${API_BASE_URL}/conversations/${conversationId}/messages`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/conversations/${conversationId}/messages`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

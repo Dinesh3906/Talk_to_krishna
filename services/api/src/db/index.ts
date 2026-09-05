@@ -9,13 +9,16 @@ const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://krisna_user:krisna_password@localhost:5432/talk_to_krisna_db';
 
-// Production connection pool with bounds and timeouts
+const isLocalDb = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
+
+// Production connection pool with bounds, timeouts, and cloud SSL support
 export const pool = new Pool({
   connectionString: databaseUrl,
+  ssl: isLocalDb ? false : { rejectUnauthorized: false },
   max: 20, // Connection budget for horizontal scaling
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  statement_timeout: 10000,
+  connectionTimeoutMillis: 10000,
+  statement_timeout: 15000,
 });
 
 pool.on('error', (err) => {

@@ -9,6 +9,7 @@ import userRouter from './modules/user/user.controller.js';
 import chatRouter from './modules/chat/chat.controller.js';
 import sourcesRouter from './modules/sources/sources.controller.js';
 import { pool } from './db/index.js';
+import { runMigrations } from './db/migrate.js';
 
 dotenv.config();
 
@@ -95,8 +96,14 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`[Talk to Krishna API] Server running on http://localhost:${PORT}`);
+  app.listen(PORT, async () => {
+    console.log(`[Talk to Krishna API] Server running on port ${PORT}`);
+    try {
+      await runMigrations();
+      console.log('[Talk to Krishna API] Database migrations applied successfully.');
+    } catch (migErr: any) {
+      console.warn('[Talk to Krishna API] Database migration warning (will retry on next connection):', migErr.message);
+    }
   });
 }
 
