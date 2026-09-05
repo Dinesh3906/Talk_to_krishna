@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
 import { darkTheme } from '../../theme/colors';
+import { getApiBaseUrl, setCustomApiUrl, checkBackendHealth } from '../../lib/api-client';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,6 +26,27 @@ export default function LoginScreen() {
   const [displayName, setDisplayName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const [showConfig, setShowConfig] = useState(false);
+  const [currentApiUrl, setCurrentApiUrl] = useState(getApiBaseUrl());
+  const [apiUrlInput, setApiUrlInput] = useState(getApiBaseUrl());
+  const [healthStatus, setHealthStatus] = useState<string | null>(null);
+  const [isTestingHealth, setIsTestingHealth] = useState(false);
+
+  const handleTestAndSaveUrl = async () => {
+    setIsTestingHealth(true);
+    setHealthStatus('Testing connection...');
+    const result = await checkBackendHealth(apiUrlInput);
+    setIsTestingHealth(false);
+    if (result.healthy) {
+      setCustomApiUrl(apiUrlInput);
+      setCurrentApiUrl(apiUrlInput.trim().replace(/\/+$/, ''));
+      setHealthStatus(`✅ Connected to API. Database: ${result.database === 'connected' ? '✅ Connected' : '⚠️ Disconnected'}`);
+      setLocalError(null);
+    } else {
+      setHealthStatus(`❌ Failed to connect: ${result.error || 'Server unreachable'}`);
+    }
+  };
 
   const handleSubmit = async () => {
     setLocalError(null);
@@ -41,7 +63,13 @@ export default function LoginScreen() {
       }
       router.replace('/(tabs)');
     } catch (err: any) {
-      setLocalError(err.message || 'Authentication failed. Please verify credentials.');
+      const msg = err.message || 'Authentication failed.';
+      if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
+        setShowConfig(true);
+        setLocalError(`Cannot reach API at ${currentApiUrl}. Please verify your Render URL below.`);
+      } else {
+        setLocalError(msg);
+      }
     }
   };
 
@@ -51,7 +79,13 @@ export default function LoginScreen() {
       await loginAnonymous();
       router.replace('/(tabs)');
     } catch (err: any) {
-      setLocalError(err.message || 'Could not initiate session.');
+      const msg = err.message || 'Could not initiate session.';
+      if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
+        setShowConfig(true);
+        setLocalError(`Cannot reach API at ${currentApiUrl}. Please verify your Render URL below.`);
+      } else {
+        setLocalError(msg);
+      }
     }
   };
 
@@ -166,6 +200,50 @@ export default function LoginScreen() {
             <Text style={styles.anonymousNotice}>
               Creates a private database record. You can link an email later.
             </Text>
+
+            <View style={styles.endpointSection}>
+              <TouchableOpacity
+                style={styles.endpointBadge}
+                onPress={() => setShowConfig(!showConfig)}
+              >
+                <Text style={styles.endpointBadgeText}>
+                  API: <Text style={styles.endpointUrlHighlight}>{currentApiUrl}</Text>
+                </Text>
+                <Text style={styles.endpointToggleText}>{showConfig ? '▲ Hide' : '⚙ Configure'}</Text>
+              </TouchableOpacity>
+
+              {showConfig && (
+                <View style={styles.configCard}>
+                  <Text style={styles.configTitle}>Backend API Connection</Text>
+                  <Text style={styles.configSubtitle}>
+                    Point the app to your live Render backend service:
+                  </Text>
+                  <TextInput
+                    style={styles.configInput}
+                    value={apiUrlInput}
+                    onChangeText={setApiUrlInput}
+                    placeholder="https://your-service.onrender.com/api/v1"
+                    placeholderTextColor={darkTheme.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.testButton}
+                    onPress={handleTestAndSaveUrl}
+                    disabled={isTestingHealth}
+                  >
+                    {isTestingHealth ? (
+                      <ActivityIndicator size="small" color="#0B0F19" />
+                    ) : (
+                      <Text style={styles.testButtonText}>Save & Test Connection</Text>
+                    )}
+                  </TouchableOpacity>
+                  {healthStatus && (
+                    <Text style={styles.healthStatusText}>{healthStatus}</Text>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -297,5 +375,87 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 8,
+  },
+  endpointSection: {
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 16,
+  },
+  endpointBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  endpointBadgeText: {
+    fontSize: 12,
+    color: darkTheme.textSecondary,
+    flex: 1,
+  },
+  endpointUrlHighlight: {
+    color: darkTheme.primaryLight,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  endpointToggleText: {
+    fontSize: 12,
+    color: darkTheme.primaryLight,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  configCard: {
+    marginTop: 12,
+    backgroundColor: darkTheme.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: darkTheme.surfaceBorder,
+  },
+  configTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: darkTheme.textPrimary,
+    marginBottom: 4,
+  },
+  configSubtitle: {
+    fontSize: 12,
+    color: darkTheme.textSecondary,
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  configInput: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderWidth: 1,
+    borderColor: darkTheme.surfaceBorder,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: darkTheme.textPrimary,
+    fontSize: 13,
+    marginBottom: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  testButton: {
+    backgroundColor: darkTheme.primary,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: '#0B0F19',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  healthStatusText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: darkTheme.textPrimary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

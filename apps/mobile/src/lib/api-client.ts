@@ -8,7 +8,39 @@ export function getApiBaseUrl(): string {
   return (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
 }
 
-const API_BASE_URL = getApiBaseUrl();
+export function setCustomApiUrl(url: string): void {
+  const sanitized = url.trim().replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (sanitized) {
+      window.localStorage.setItem('TALK_TO_KRISHNA_API_URL', sanitized);
+    } else {
+      window.localStorage.removeItem('TALK_TO_KRISHNA_API_URL');
+    }
+  }
+}
+
+export async function checkBackendHealth(testUrl?: string): Promise<{
+  healthy: boolean;
+  database: 'connected' | 'disconnected' | 'unknown';
+  error?: string;
+}> {
+  const base = (testUrl || getApiBaseUrl()).replace(/\/+$/, '');
+  try {
+    const res = await fetch(`${base}/health`, { method: 'GET' });
+    const data = await res.json();
+    return {
+      healthy: res.ok && data.status === 'healthy',
+      database: data.database || (res.ok ? 'connected' : 'disconnected'),
+      error: data.error,
+    };
+  } catch (err: any) {
+    return {
+      healthy: false,
+      database: 'disconnected',
+      error: err.message || 'Cannot reach server',
+    };
+  }
+}
 
 let authToken: string | null = null;
 
