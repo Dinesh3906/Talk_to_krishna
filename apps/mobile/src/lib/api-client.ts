@@ -5,7 +5,7 @@ export function getApiBaseUrl(): string {
     const customUrl = window.localStorage.getItem('TALK_TO_KRISHNA_API_URL');
     if (customUrl) return customUrl.replace(/\/+$/, '');
   }
-  return (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/+$/, '');
+  return (process.env.EXPO_PUBLIC_API_URL || 'https://talk-to-krishna-w4tb.onrender.com/api/v1').replace(/\/+$/, '');
 }
 
 export function setCustomApiUrl(url: string): void {
@@ -94,70 +94,69 @@ export async function streamChatMessage(
   onError: (error: Error) => void,
   onDone: () => void
 ): Promise<() => void> {
-  const controller = new AbortController();
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}/conversations/${conversationId}/messages`;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', url, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
   if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+    xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
   }
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ content, preferredName }),
-      signal: controller.signal,
-    });
+  let seenBytes = 0;
+  let buffer = '';
 
-    if (!response.ok) {
-      let msg = `Server error ${response.status}`;
-      try {
-        const errData = await response.json();
-        if (errData?.error?.message) msg = errData.error.message;
-      } catch {}
-      throw new Error(msg);
-    }
+  xhr.onprogress = () => {
+    const newText = xhr.responseText.substring(seenBytes);
+    seenBytes = xhr.responseText.length;
+    buffer += newText;
 
-    if (!response.body) {
-      throw new Error('ReadableStream not supported or empty response');
-    }
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const dataStr = trimmed.replace('data: ', '');
-            const chunk: StreamChunk = JSON.parse(dataStr);
-            onChunk(chunk);
-          } catch {
-            // Partial chunk
-          }
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const dataStr = trimmed.replace('data: ', '');
+          const chunk: StreamChunk = JSON.parse(dataStr);
+          onChunk(chunk);
+        } catch {
+          // Partial JSON in stream buffer
         }
       }
     }
+  };
 
-    onDone();
-  } catch (err: any) {
-    if (err.name !== 'AbortError') {
-      onError(err);
+  xhr.onload = () => {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      if (buffer.trim().startsWith('data: ')) {
+        try {
+          const chunk: StreamChunk = JSON.parse(buffer.trim().replace('data: ', ''));
+          onChunk(chunk);
+        } catch {}
+      }
+      onDone();
+    } else {
+      let msg = `Server error ${xhr.status}`;
+      try {
+        const errData = JSON.parse(xhr.responseText);
+        if (errData?.error?.message) msg = errData.error.message;
+      } catch {}
+      onError(new Error(msg));
     }
-  }
+  };
 
-  return () => controller.abort();
+  xhr.onerror = () => {
+    onError(new Error('Network request failed'));
+  };
+
+  xhr.send(JSON.stringify({ content, preferredName }));
+
+  return () => {
+    try {
+      xhr.abort();
+    } catch {}
+  };
 }

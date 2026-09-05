@@ -1,5 +1,6 @@
 import { pool } from '../../db/index.js';
 import { AIProviderFactory } from './ai-provider.factory.js';
+import { LocalEmbeddingProvider } from './providers/local-emb.provider.js';
 
 export interface RetrievedPassage {
   id: string;
@@ -35,11 +36,18 @@ export class HybridRetriever {
     limit: number = 3
   ): Promise<HybridRetrievalResult> {
     const startTime = Date.now();
-    const aiProvider = AIProviderFactory.getProvider();
 
     try {
       // 1. Generate query embedding
-      const [queryEmbedding] = await aiProvider.generateEmbeddings([queryText]);
+      let queryEmbedding: number[];
+      try {
+        const aiProvider = AIProviderFactory.getProvider();
+        const [emb] = await aiProvider.generateEmbeddings([queryText]);
+        queryEmbedding = emb;
+      } catch {
+        const [emb] = await LocalEmbeddingProvider.generateEmbeddings([queryText]);
+        queryEmbedding = emb;
+      }
       const embeddingString = `[${queryEmbedding.join(',')}]`;
 
       // 2. Perform hybrid query with Reciprocal Rank Fusion & full-text search

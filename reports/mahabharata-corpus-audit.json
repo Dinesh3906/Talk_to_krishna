@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-09-05T21:07:53.812Z",
+  "sourcePdf": {
+    "path": "D:\\talk to krisna\\The Complete Mahabharata Volume 1-12.pdf",
+    "fileSizeBytes": 36691390,
+    "totalPages": 6808
+  },
+  "metrics": {
+    "SOURCE_PAGES": 6808,
+    "INGESTED_PAGES": 6764,
+    "MISSING_PAGES": 0,
+    "EMPTY_PAGES": 44,
+    "NON_EMPTY_PAGES": 6764,
+    "SOURCE_TOKENS": 2422661,
+    "STORED_TOKENS": 2422661,
+    "MATCHED_TOKENS": 2422661,
+    "MISSING_TOKEN_COUNT": 0,
+    "EXTRA_TOKENS_COUNT": 0,
+    "TOKEN_COVERAGE_PERCENT": 100,
+    "SOURCE_CHUNKS": 6764,
+    "DATABASE_CHUNKS": 6764,
+    "MISSING_CHUNKS": 0,
+    "FAILED_EMBEDDINGS": 0,
+    "MISSING_EMBEDDINGS": 0,
+    "ORPHANED_VECTORS": 0,
+    "DUPLICATE_CHUNKS": 0,
+    "FIRST_SOURCE_TOKEN": "table",
+    "FIRST_STORED_TOKEN": "table",
+    "LAST_SOURCE_TOKEN": ".",
+    "LAST_STORED_TOKEN": ".",
+    "FIRST_TOKEN_MATCH": "PASS",
+    "LAST_TOKEN_MATCH": "PASS",
+    "VECTOR_SEARCH_AVAILABLE": "PASS",
+    "FULL_TEXT_SEARCH_AVAILABLE": "PASS"
+  },
+  "acceptance": {
+    "missingPagesZero": true,
+    "missingChunksZero": true,
+    "failedEmbeddingsZero": true,
+    "orphanedVectorsZero": true,
+    "tokenCoverage100Percent": true,
+    "firstTokenMatch": true,
+    "lastTokenMatch": true,
+    "allCriteriaPassed": true,
+    "overallStatus": "PRODUCTION CORPUS: VERIFIED"
+  },
+  "sampleMismatches": [],
+  "pageAuditSummary": {
+    "passedPages": 6764,
+    "failedPages": 0,
+    "emptyPages": 44
+  }
+}

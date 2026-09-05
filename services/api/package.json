@@ -15,6 +15,9 @@
     "test:eval": "tsx src/eval/run-evaluation.ts",
     "ingest:corpus": "tsx src/modules/ingestion/seed-corpus-cli.ts",
     "ingest:pdf": "tsx src/modules/ingestion/ingest-pdf-cli.ts",
+    "ingest:full": "tsx src/modules/ingestion/run-full-ingestion-cli.ts",
+    "audit:corpus": "tsx src/modules/audit/run-corpus-audit-cli.ts",
+    "audit:rag": "tsx src/modules/audit/run-rag-10000-cli.ts",
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {

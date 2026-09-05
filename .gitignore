@@ -9,6 +9,9 @@ node_modules/
 .env.production
 .env.*.local
 
+# Database & Local data
+.pgdata/
+
 # Expo & React Native
 .expo/
 dist/

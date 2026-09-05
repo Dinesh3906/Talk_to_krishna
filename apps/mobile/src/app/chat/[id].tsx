@@ -377,6 +377,17 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
   },
+  headerAvatarContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  headerAvatar: {
+    width: '100%',
+    height: '100%',
+  },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
@@ -437,6 +448,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
+    overflow: 'hidden',
+  },
+  krishnaAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   krishnaAvatarText: {
     color: darkTheme.primary,

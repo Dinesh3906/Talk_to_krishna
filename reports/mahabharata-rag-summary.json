@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-09-05T21:09:45.437Z",
+  "total_tests": 10000,
+  "passed_tests": 9983,
+  "failed_tests": 17,
+  "blocked_tests": 0,
+  "pass_rate_percent": 99.83,
+  "average_latency_ms": 2.03,
+  "citation_validity_percent": 99.83,
+  "grounding_validity_percent": 99.83,
+  "zero_hallucination_rate_percent": 99.83,
+  "overall_status": "PRODUCTION CORPUS: VERIFIED",
+  "breakdown_by_type": {
+    "page_anchor": {
+      "total": 1702,
+      "passed": 1699,
+      "failed": 3,
+      "pass_rate": 99.82
+    },
+    "multi_anchor": {
+      "total": 1702,
+      "passed": 1701,
+      "failed": 1,
+      "pass_rate": 99.94
+    },
+    "entity_context": {
+      "total": 1702,
+      "passed": 1700,
+      "failed": 2,
+      "pass_rate": 99.88
+    },
+    "grounded_recall": {
+      "total": 1702,
+      "passed": 1697,
+      "failed": 5,
+      "pass_rate": 99.71
+    },
+    "lexical_retrieval": {
+      "total": 532,
+      "passed": 531,
+      "failed": 1,
+      "pass_rate": 99.81
+    },
+    "cross_context": {
+      "total": 532,
+      "passed": 530,
+      "failed": 2,
+      "pass_rate": 99.62
+    },
+    "speaker_context": {
+      "total": 532,
+      "passed": 531,
+      "failed": 1,
+      "pass_rate": 99.81
+    },
+    "event_context": {
+      "total": 532,
+      "passed": 531,
+      "failed": 1,
+      "pass_rate": 99.81
+    },
+    "knowledge_boundary": {
+      "total": 532,
+      "passed": 531,
+      "failed": 1,
+      "pass_rate": 99.81
+    },
+    "retrieval_precision": {
+      "total": 532,
+      "passed": 532,
+      "failed": 0,
+      "pass_rate": 100
+    }
+  }
+}
