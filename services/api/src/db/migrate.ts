@@ -19,8 +19,14 @@ export async function runMigrations() {
       );
     `);
 
-    const migrationsDir = path.join(__dirname, 'migrations');
-    if (!fs.existsSync(migrationsDir)) {
+    const possibleDirs = [
+      path.join(__dirname, 'migrations'),
+      path.join(__dirname, '../../src/db/migrations'),
+      path.join(process.cwd(), 'services/api/src/db/migrations'),
+      path.join(process.cwd(), 'src/db/migrations'),
+    ];
+    const migrationsDir = possibleDirs.find((d) => fs.existsSync(d));
+    if (!migrationsDir) {
       console.log('[Migration Runner] No migrations directory found.');
       return;
     }
