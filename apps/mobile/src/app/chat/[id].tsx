@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -108,7 +109,11 @@ export default function ChatScreen() {
       <View style={[styles.messageRow, isUser ? styles.userRow : styles.krishnaRow]}>
         {!isUser && (
           <View style={styles.krishnaAvatar}>
-            <Text style={styles.krishnaAvatarText}>ॐ</Text>
+            <Image
+              source={require('../../../assets/images/krishna-logo.png')}
+              style={styles.krishnaAvatarImage}
+              resizeMode="cover"
+            />
           </View>
         )}
 
@@ -159,6 +164,13 @@ export default function ChatScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <ArrowLeft color={darkTheme.textPrimary} size={20} />
         </TouchableOpacity>
+        <View style={styles.headerAvatarContainer}>
+          <Image
+            source={require('../../../assets/images/krishna-logo.png')}
+            style={styles.headerAvatar}
+            resizeMode="cover"
+          />
+        </View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {activeConversation?.title || 'Dialogue with Krishna'}
@@ -195,7 +207,11 @@ export default function ChatScreen() {
             isStreaming ? (
               <View style={[styles.messageRow, styles.krishnaRow]}>
                 <View style={styles.krishnaAvatar}>
-                  <Text style={styles.krishnaAvatarText}>ॐ</Text>
+                  <Image
+                    source={require('../../../assets/images/krishna-logo.png')}
+                    style={styles.krishnaAvatarImage}
+                    resizeMode="cover"
+                  />
                 </View>
                 <View style={[styles.bubble, styles.krishnaBubble]}>
                   <Text style={[styles.messageText, styles.krishnaText]}>

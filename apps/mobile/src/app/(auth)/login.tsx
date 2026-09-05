@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
@@ -97,6 +98,13 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../../../assets/images/krishna-logo.png')}
+                style={styles.appLogo}
+                resizeMode="cover"
+              />
+            </View>
             <Text style={styles.title}>{isRegistering ? 'Begin Your Walk' : 'Welcome Back'}</Text>
             <Text style={styles.subtitle}>
               {isRegistering
@@ -266,17 +274,38 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+    alignItems: 'center',
+  },
+  logoContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  appLogo: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: darkTheme.textPrimary,
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 15,
     color: darkTheme.textSecondary,
     lineHeight: 22,
+    textAlign: 'center',
   },
   errorBox: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { darkTheme } from '../../theme/colors';
 
@@ -49,6 +49,13 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.content}>
+          <View style={styles.heroImageContainer}>
+            <Image
+              source={require('../../../assets/images/krishna-logo.png')}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          </View>
           <View style={styles.accentBadge}>
             <Text style={styles.accentBadgeText}>Sādhana</Text>
           </View>
@@ -108,6 +115,25 @@ const styles = StyleSheet.create({
   },
   content: {
     marginVertical: 'auto',
+  },
+  heroImageContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    overflow: 'hidden',
+    marginBottom: 24,
+    alignSelf: 'center',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
   accentBadge: {
     alignSelf: 'flex-start',

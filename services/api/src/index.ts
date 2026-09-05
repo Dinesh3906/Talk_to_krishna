@@ -95,9 +95,11 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
+const portNum = Number(PORT);
+
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, async () => {
-    console.log(`[Talk to Krishna API] Server running on port ${PORT}`);
+  app.listen(portNum, '0.0.0.0', async () => {
+    console.log(`[Talk to Krishna API] Server listening on 0.0.0.0:${portNum}`);
     try {
       await runMigrations();
       console.log('[Talk to Krishna API] Database migrations applied successfully.');

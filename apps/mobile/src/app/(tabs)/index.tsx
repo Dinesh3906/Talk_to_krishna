@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
@@ -71,12 +72,23 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Header Greeting */}
         <View style={styles.header}>
-          <Text style={styles.greetingLabel}>Pranām,</Text>
-          <Text style={styles.greetingTitle}>
-            {user?.preferredName
-              ? `What weighs upon your heart, ${user.preferredName}?`
-              : 'What weighs upon your heart today?'}
-          </Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerAvatarContainer}>
+              <Image
+                source={require('../../../assets/images/krishna-logo.png')}
+                style={styles.headerAvatar}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greetingLabel}>Pranām,</Text>
+              <Text style={styles.greetingTitle}>
+                {user?.preferredName
+                  ? `What weighs upon your heart, ${user.preferredName}?`
+                  : 'What weighs upon your heart today?'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Quick Input Bar */}
@@ -197,6 +209,28 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 12,
     marginBottom: 20,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  headerAvatarContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    overflow: 'hidden',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  headerAvatar: {
+    width: '100%',
+    height: '100%',
   },
   greetingLabel: {
     fontSize: 14,
