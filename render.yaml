@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: talk-to-krishna-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run build:api
+    startCommand: npm run start:api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_MODEL_NAME
+        value: gemini-1.5-pro
+
+databases:
+  - name: talk-to-krisna-db
+    plan: free
+    region: singapore
+    databaseName: talk_to_krisna_db
+    user: talk_to_krisna_db_user
