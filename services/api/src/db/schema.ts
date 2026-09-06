@@ -73,7 +73,7 @@ export const mahabharataSources = pgTable('mahabharata_sources', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// Mahabharata Chunks Table (with Vector & Full-Text capabilities)
+// Mahabharata Chunks Table (with Vector & Full-Text capabilities - Canonical Parent Pages)
 export const mahabharataChunks = pgTable('mahabharata_chunks', {
   id: uuid('id').defaultRandom().primaryKey(),
   sourceId: uuid('source_id').references(() => mahabharataSources.id, { onDelete: 'set null' }),
@@ -92,6 +92,24 @@ export const mahabharataChunks = pgTable('mahabharata_chunks', {
   relevanceForGuidance: text('relevance_for_guidance'),
   sourceReference: varchar('source_reference', { length: 100 }).notNull(),
   embedding: vector('embedding'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Mahabharata Child Chunks Table (Fine-grained 150-250 token semantic retrieval units)
+export const mahabharataChildChunks = pgTable('mahabharata_child_chunks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  parentChunkId: uuid('parent_chunk_id').notNull().references(() => mahabharataChunks.id, { onDelete: 'cascade' }),
+  sourceId: uuid('source_id').references(() => mahabharataSources.id, { onDelete: 'set null' }),
+  sourceType: varchar('source_type', { length: 50 }).notNull().default('pdf_volume'),
+  parva: varchar('parva', { length: 100 }),
+  pageNumber: integer('page_number').notNull(),
+  chunkIndex: integer('chunk_index').notNull(),
+  section: varchar('section', { length: 50 }).notNull(),
+  sourceReference: varchar('source_reference', { length: 100 }).notNull(),
+  characters: text('characters').array(),
+  themes: text('themes').array(),
+  text: text('text').notNull(),
+  embedding: vector('embedding').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

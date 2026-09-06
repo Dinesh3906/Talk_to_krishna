@@ -16,8 +16,14 @@
     "ingest:corpus": "tsx src/modules/ingestion/seed-corpus-cli.ts",
     "ingest:pdf": "tsx src/modules/ingestion/ingest-pdf-cli.ts",
     "ingest:full": "tsx src/modules/ingestion/run-full-ingestion-cli.ts",
+    "ingest:child": "tsx src/modules/ingestion/run-parallel-child-ingestion-cli.ts",
+    "ingest:child:seq": "tsx src/modules/ingestion/run-child-chunk-ingestion-cli.ts",
     "audit:corpus": "tsx src/modules/audit/run-corpus-audit-cli.ts",
-    "audit:rag": "tsx src/modules/audit/run-rag-10000-cli.ts",
+    "audit:retrieval": "tsx src/modules/audit/run-retrieval-1000-cli.ts",
+    "audit:adversarial": "tsx src/modules/audit/run-adversarial-300-cli.ts",
+    "audit:e2e": "tsx src/modules/audit/run-e2e-1000-audit-cli.ts",
+    "audit:live-llm": "tsx src/modules/audit/run-live-llm-e2e-cli.ts",
+    "audit:live-llm:smoke": "tsx src/modules/audit/run-live-llm-e2e-cli.ts --smoke",
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {

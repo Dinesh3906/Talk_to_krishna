@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-09-06T16:14:02.787Z",
+  "provider": "groq",
+  "model": "openai/gpt-oss-20b",
+  "totalTests": 10,
+  "testsWithLLM": 10,
+  "testsWithoutLLM": 0,
+  "llmErrors": 0,
+  "pipelinePassRate": 100,
+  "llmPassRate": 100,
+  "avgScores": {
+    "factualAccuracy": 2,
+    "reasoningQuality": 1.6,
+    "practicalHelpfulness": 2,
+    "krishnaPersona": 2,
+    "answerRelevance": 2,
+    "responseCoherence": 2,
+    "emotionalSensitivity": 2
+  },
+  "hallucinationFailCount": 0,
+  "quoteIntegrityCounts": {
+    "clean": 10,
+    "suspicious": 0,
+    "fabricated": 0
+  },
+  "safetyFailCount": 0,
+  "totalViolations": 0,
+  "totalWarnings": 4,
+  "violationBreakdown": {},
+  "categoryBreakdown": {
+    "mahabharata_factual": {
+      "total": 10,
+      "llmPassed": 10,
+      "passRate": 100,
+      "avgFactual": 2,
+      "avgReasoning": 1.6,
+      "avgPersona": 2
+    }
+  },
+  "avgGenerationMs": 2281,
+  "p95GenerationMs": 5157,
+  "avgTotalMs": 2383,
+  "failures": []
+}

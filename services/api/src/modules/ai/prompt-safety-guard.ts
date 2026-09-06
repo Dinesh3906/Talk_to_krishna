@@ -52,11 +52,16 @@ Please speak to someone right now who can walk beside you in this hour.`,
 
     // 3. Prompt Injection Defense on User Input
     const injectionPatterns = [
-      /ignore (all )?(previous|above|system) instructions/i,
+      /ignore (all )?(previous|above|system|prior) (instructions|rules|directives|prompts|constraints)/i,
       /reveal the (internal )?(developer )?system prompt/i,
-      /you are now in developer mode/i,
-      /pretend you have no rules/i,
-      /bypass safety protocols/i,
+      /(you are now in|activate|enable) developer mode/i,
+      /you are now (evil|unfiltered|dan|jailbroken)/i,
+      /pretend (you have no rules|to be evil|there are no rules)/i,
+      /bypass (all )?(safety|ethical)? (protocols|checks|filters|guardrails)/i,
+      /system (message|prompt)? (override|overwrite|reset)/i,
+      /disregard (all )?(ethical|safety|system)? (filters|rules|instructions|constraints)/i,
+      /\b(dan mode|jailbreak)\b/i,
+      /<script\b|<system_override\b|\[system_instruction\]/i,
     ];
 
     if (injectionPatterns.some((p) => p.test(text))) {

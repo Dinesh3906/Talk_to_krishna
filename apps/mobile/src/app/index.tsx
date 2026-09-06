@@ -11,11 +11,11 @@ export default function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (token) {
-        router.replace('/(tabs)');
+        router.replace('/chat');
       } else {
-        router.replace('/(auth)/onboarding');
+        router.replace('/(auth)/login');
       }
-    }, 1200);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [token]);

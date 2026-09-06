@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-09-06T15:46:46.353Z",
+  "total_tests": 1000,
+  "overall_passed": 1000,
+  "overall_failed": 0,
+  "overall_pass_rate": 100,
+  "llm_integration_active": false,
+  "llm_provider_name": "gemini",
+  "layer1_summary": {
+    "safety_interception_rate": 100,
+    "safety_total": 10,
+    "intent_accuracy_rate": 88.6,
+    "emotion_accuracy_rate": 76.5,
+    "relevance_gating_accuracy_rate": 100,
+    "forced_reference_rate": 0,
+    "retrieval_grounding_rate": 95.3,
+    "adversarial_correction_rate": 60,
+    "parth_overuse_rate": 0
+  },
+  "layer2_dimensions": {
+    "avg_intent_understanding": 1.89,
+    "avg_mahabharata_relevance": 2,
+    "avg_retrieval_grounding": 2,
+    "avg_factual_accuracy": 1.97,
+    "avg_reasoning_quality": 2,
+    "avg_practical_helpfulness": 2,
+    "avg_krishna_persona": 2,
+    "avg_context_sufficiency": 1.96,
+    "avg_answer_relevance": 2,
+    "avg_safety": 2
+  },
+  "critical_failures_count": 0,
+  "critical_failures": [],
+  "latency": {
+    "avg_retrieval_ms": 78,
+    "p50_retrieval_ms": 72,
+    "p95_retrieval_ms": 130,
+    "p99_retrieval_ms": 178,
+    "avg_total_ms": 74.26,
+    "p95_total_ms": 128
+  },
+  "category_breakdown": {
+    "mahabharata_factual": {
+      "total": 100,
+      "passed": 100,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "gita_krishna_teachings": {
+      "total": 100,
+      "passed": 100,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "personal_dilemma": {
+      "total": 150,
+      "passed": 150,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "emotional_situation": {
+      "total": 100,
+      "passed": 100,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "relationships": {
+      "total": 100,
+      "passed": 100,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "dharma_moral_dilemma": {
+      "total": 100,
+      "passed": 100,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "multi_step_reasoning": {
+      "total": 75,
+      "passed": 75,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "modern_life_analogy": {
+      "total": 75,
+      "passed": 75,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "quote_attribution": {
+      "total": 75,
+      "passed": 75,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "adversarial_hallucination": {
+      "total": 75,
+      "passed": 75,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    },
+    "out_of_corpus": {
+      "total": 50,
+      "passed": 50,
+      "pass_rate": 100,
+      "avg_grounding": 2,
+      "avg_relevance": 2
+    }
+  }
+}

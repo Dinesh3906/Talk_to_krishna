@@ -1,0 +1,1645 @@
+{
+  "ranking_miss_top_10": [
+    {
+      "test_id": 1,
+      "category": "semantic_concept",
+      "query": "In Udyoga Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding the Pandavas.",
+      "expected_parva": "Udyoga Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2109 [Part 1]",
+          "score": 0.8328455814259211,
+          "preview": "roots, fruit, milk, ghee, obligin g a Brahmana' s request, obeying a guru's command and good medicine. One should never "
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2219 [Part 1]",
+          "score": 0.8231757697564254,
+          "preview": "result of his past lives, he can be rid of all other karma if he so pleases; the Smritis and the Srutis testify to this."
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2331 [Part 2]",
+          "score": 0.8195613207994279,
+          "preview": "Bharatarishabha, you want to employ sin to obtain sole sovereignty over this vast and flourishing empire . The man who d"
+        }
+      ]
+    },
+    {
+      "test_id": 191,
+      "category": "semantic_concept",
+      "query": "In Udyoga Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding the Pandavas.",
+      "expected_parva": "Udyoga Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2109 [Part 1]",
+          "score": 0.8328455814259211,
+          "preview": "roots, fruit, milk, ghee, obligin g a Brahmana' s request, obeying a guru's command and good medicine. One should never "
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2219 [Part 1]",
+          "score": 0.8231757697564254,
+          "preview": "result of his past lives, he can be rid of all other karma if he so pleases; the Smritis and the Srutis testify to this."
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2331 [Part 2]",
+          "score": 0.8195613207994279,
+          "preview": "Bharatarishabha, you want to employ sin to obtain sole sovereignty over this vast and flourishing empire . The man who d"
+        }
+      ]
+    },
+    {
+      "test_id": 255,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 295,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 365,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 375,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 425,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 435,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4382 [Part 1]",
+          "score": 0.7921054212670293,
+          "preview": "THE COMPLETE MAHABHARATA Santi Parva\n\nTHE COMPLETE MAHABHARATA Santi Parva"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 6354 [Part 2]",
+          "score": 0.7918556559946235,
+          "preview": "On another occasion , when Angiras became enraged with me, I fled, leaving the world, and dwelt for a long time conceale"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4476 [Part 2]",
+          "score": 0.7916681930420688,
+          "preview": "O Brahmana! I will curse you for this. You did not tell me that the charms of the maiden Sukumari have pierced your hear"
+        }
+      ]
+    },
+    {
+      "test_id": 844,
+      "category": "cross_context",
+      "query": "What was Gandhari's curse upon Krishna and the Vrishni race after the war? Mentioned in Vana Parva.",
+      "expected_parva": "Vana Parva",
+      "gold_anchors": [
+        "gandhari",
+        "curse",
+        "krishna",
+        "slain",
+        "vrishni"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "ranking_miss_top_10",
+      "explanation": "Gold passage was retrieved at rank #4 (within top 10), but outside top-3 cutoff.",
+      "top_retrieved": [
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1586 [Part 2]",
+          "score": 0.8263831371640045,
+          "preview": "Now all the Gandharva forces come to the fight against the Kauravas, and the encounter that takes place between the oppo"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1585 [Part 1]",
+          "score": 0.815087597856342,
+          "preview": "V CANTO 239 G HOSHA Y ATRA P ARVA CONTINUED aisampayana said, \"Rajan, those soldiers return to Duryodhana and tell him w"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1369 [Part 1]",
+          "score": 0.8149123047004763,
+          "preview": "He cried, \"Whe re are you? \" and dread grippe d me as well to see him panic. Then, he said to me, \"Partha, the Devas and"
+        }
+      ]
+    }
+  ],
+  "cross_page_or_boundary": [],
+  "lexical_fts_failure": [
+    {
+      "test_id": 7,
+      "category": "semantic_concept",
+      "query": "In Stri Parva, How does the wise person control anger, desire, and the restless senses? Especially regarding the Pandavas.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "senses",
+        "anger",
+        "desire",
+        "restrained",
+        "wisdom"
+      ],
+      "rank_in_top_10": 1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 4941 [Part 3]",
+          "score": 0.829547843811833,
+          "preview": "Relying on an understanding of this, the man of intelligence and wisdom lives at ease. A man should disregard all his de"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 5126 [Part 3]",
+          "score": 0.8261567291628734,
+          "preview": "The man of wisdom is truly annoyed by regard, as if it were poison. He who is freed from all faults sleeps fearlessly bo"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 5057 [Part 2]",
+          "score": 0.8257867117914544,
+          "preview": "He who, influenced by greed, follows the dictates of desire and anger, and transgresse s the path of dharma to turn to a"
+        }
+      ]
+    },
+    {
+      "test_id": 8,
+      "category": "semantic_concept",
+      "query": "In Stri Parva, What are the three gunas or qualities of material nature binding the self? Especially regarding the Pandavas.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "qualities",
+        "nature",
+        "goodness",
+        "passion",
+        "darkness"
+      ],
+      "rank_in_top_10": 2,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Stri Parva",
+          "section": "Page 5027 [Part 2]",
+          "score": 0.835501491114899,
+          "preview": "With the tongue withdrawn from tastes, the nose from scents, the ears from touch and the eyes from forms, one succeeds i"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 5480 [Part 1]",
+          "score": 0.8277563575273477,
+          "preview": "Paramatman as he manifests himself in different forms, in the beginning, the middle and the end. Prakriti, as if for spo"
+        },
+        {
+          "parva": "Stri Parva",
+          "section": "Page 5802 [Part 3]",
+          "score": 0.8252856620592611,
+          "preview": "You wear garlands that extend from your neck to your feet. You are that Hara who has the moon for his eye. Y ou are the "
+        }
+      ]
+    },
+    {
+      "test_id": 10,
+      "category": "semantic_concept",
+      "query": "In Sabha Parva, What does the sage say about destiny versus human effort in life? Especially regarding the Pandavas.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "destiny",
+        "exertion",
+        "fate",
+        "acts",
+        "effort"
+      ],
+      "rank_in_top_10": 1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 277 [Part 2]",
+          "score": 0.8449586237930287,
+          "preview": "Such men shall surely find heaven. Let him who acquires great wealth not exult; let not the man who has studied the Veda"
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 833 [Part 2]",
+          "score": 0.8148784556912662,
+          "preview": "On the other hand, he who is content with what he has, and engages in his svadharma diligently , he is the happy man. Ne"
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 981 [Part 3]",
+          "score": 0.8127575128656594,
+          "preview": "He who does nothing, believ ing just in destiny is soon destroyed, even like an unburnt earthen pot in water. Also, he t"
+        }
+      ]
+    },
+    {
+      "test_id": 254,
+      "category": "lexical_entity",
+      "query": "Where is the great chariot fighter Ghatotkacha describing his battle? Specifically in Sabha Parva.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "ghatotkacha",
+        "rakshasa",
+        "battle"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 758 [Part 1]",
+          "score": 0.8178021794688679,
+          "preview": "Riding in that chariot, now Krishna comes out of the hill-fort. That ratha has the lustre of molten gold; it is lined wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 2924 [Part 1]",
+          "score": 0.4825097971429999,
+          "preview": "Ghatotkacha, the sons of Draupadi, and Satyadhriti, and Kshatradeva, and the rulers of the Chedis, and V asudana, and th"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3646 [Part 1]",
+          "score": 0.48149036456328853,
+          "preview": "When he learnt that Arjuna had gone to acquire the devastras, Ghatotkacha came to me in the Kamyaka vana and lived with "
+        }
+      ]
+    },
+    {
+      "test_id": 334,
+      "category": "lexical_entity",
+      "query": "Where is the great chariot fighter Ghatotkacha describing his battle? Specifically in Sabha Parva.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "ghatotkacha",
+        "rakshasa",
+        "battle"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 758 [Part 1]",
+          "score": 0.8178021794688679,
+          "preview": "Riding in that chariot, now Krishna comes out of the hill-fort. That ratha has the lustre of molten gold; it is lined wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 2924 [Part 1]",
+          "score": 0.4825097971429999,
+          "preview": "Ghatotkacha, the sons of Draupadi, and Satyadhriti, and Kshatradeva, and the rulers of the Chedis, and V asudana, and th"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3646 [Part 1]",
+          "score": 0.48149036456328853,
+          "preview": "When he learnt that Arjuna had gone to acquire the devastras, Ghatotkacha came to me in the Kamyaka vana and lived with "
+        }
+      ]
+    },
+    {
+      "test_id": 360,
+      "category": "lexical_entity",
+      "query": "Where does Dhrishtadyumna lead the Pandava army as commander? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "dhrishtadyumna",
+        "commander",
+        "army",
+        "panchala"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4131 [Part 1]",
+          "score": 0.48001889705545403,
+          "preview": "After routing the Kuru king and seeing him flee on horseback, Dhrishtadyumna sees the Pandavas still surrounded by the K"
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2445 [Part 1]",
+          "score": 0.47642246310309316,
+          "preview": "\"S CANT O 165 U LUKA D UTA G AMANA P ARVA CONTINUED anjaya says, 'After listening to Uluka' s messages from Duryodhana, "
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 892 [Part 2]",
+          "score": 0.4700245171712363,
+          "preview": "Helped by the Rishis Yaja and Upayaja, Drupada did have a son, Dhrisht adyumna, born from the sacrificial fire, and also"
+        }
+      ]
+    },
+    {
+      "test_id": 390,
+      "category": "lexical_entity",
+      "query": "Where does Dhrishtadyumna lead the Pandava army as commander? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "dhrishtadyumna",
+        "commander",
+        "army",
+        "panchala"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4131 [Part 1]",
+          "score": 0.48001889705545403,
+          "preview": "After routing the Kuru king and seeing him flee on horseback, Dhrishtadyumna sees the Pandavas still surrounded by the K"
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2445 [Part 1]",
+          "score": 0.47642246310309316,
+          "preview": "\"S CANT O 165 U LUKA D UTA G AMANA P ARVA CONTINUED anjaya says, 'After listening to Uluka' s messages from Duryodhana, "
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 892 [Part 2]",
+          "score": 0.4700245171712363,
+          "preview": "Helped by the Rishis Yaja and Upayaja, Drupada did have a son, Dhrisht adyumna, born from the sacrificial fire, and also"
+        }
+      ]
+    },
+    {
+      "test_id": 400,
+      "category": "lexical_entity",
+      "query": "Where does Dhrishtadyumna lead the Pandava army as commander? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "dhrishtadyumna",
+        "commander",
+        "army",
+        "panchala"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4131 [Part 1]",
+          "score": 0.48001889705545403,
+          "preview": "After routing the Kuru king and seeing him flee on horseback, Dhrishtadyumna sees the Pandavas still surrounded by the K"
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2445 [Part 1]",
+          "score": 0.47642246310309316,
+          "preview": "\"S CANT O 165 U LUKA D UTA G AMANA P ARVA CONTINUED anjaya says, 'After listening to Uluka' s messages from Duryodhana, "
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 892 [Part 2]",
+          "score": 0.4700245171712363,
+          "preview": "Helped by the Rishis Yaja and Upayaja, Drupada did have a son, Dhrisht adyumna, born from the sacrificial fire, and also"
+        }
+      ]
+    },
+    {
+      "test_id": 414,
+      "category": "lexical_entity",
+      "query": "Where is the great chariot fighter Ghatotkacha describing his battle? Specifically in Sabha Parva.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "ghatotkacha",
+        "rakshasa",
+        "battle"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 758 [Part 1]",
+          "score": 0.8178021794688679,
+          "preview": "Riding in that chariot, now Krishna comes out of the hill-fort. That ratha has the lustre of molten gold; it is lined wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 2924 [Part 1]",
+          "score": 0.4825097971429999,
+          "preview": "Ghatotkacha, the sons of Draupadi, and Satyadhriti, and Kshatradeva, and the rulers of the Chedis, and V asudana, and th"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3646 [Part 1]",
+          "score": 0.48149036456328853,
+          "preview": "When he learnt that Arjuna had gone to acquire the devastras, Ghatotkacha came to me in the Kamyaka vana and lived with "
+        }
+      ]
+    },
+    {
+      "test_id": 424,
+      "category": "lexical_entity",
+      "query": "Where is the great chariot fighter Ghatotkacha describing his battle? Specifically in Sabha Parva.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "ghatotkacha",
+        "rakshasa",
+        "battle"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 758 [Part 1]",
+          "score": 0.8178021794688679,
+          "preview": "Riding in that chariot, now Krishna comes out of the hill-fort. That ratha has the lustre of molten gold; it is lined wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 2924 [Part 1]",
+          "score": 0.4825097971429999,
+          "preview": "Ghatotkacha, the sons of Draupadi, and Satyadhriti, and Kshatradeva, and the rulers of the Chedis, and V asudana, and th"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3646 [Part 1]",
+          "score": 0.48149036456328853,
+          "preview": "When he learnt that Arjuna had gone to acquire the devastras, Ghatotkacha came to me in the Kamyaka vana and lived with "
+        }
+      ]
+    },
+    {
+      "test_id": 444,
+      "category": "lexical_entity",
+      "query": "Where is the great chariot fighter Ghatotkacha describing his battle? Specifically in Sabha Parva.",
+      "expected_parva": "Sabha Parva",
+      "gold_anchors": [
+        "ghatotkacha",
+        "rakshasa",
+        "battle"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 758 [Part 1]",
+          "score": 0.8178021794688679,
+          "preview": "Riding in that chariot, now Krishna comes out of the hill-fort. That ratha has the lustre of molten gold; it is lined wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 2924 [Part 1]",
+          "score": 0.4825097971429999,
+          "preview": "Ghatotkacha, the sons of Draupadi, and Satyadhriti, and Kshatradeva, and the rulers of the Chedis, and V asudana, and th"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3646 [Part 1]",
+          "score": 0.48149036456328853,
+          "preview": "When he learnt that Arjuna had gone to acquire the devastras, Ghatotkacha came to me in the Kamyaka vana and lived with "
+        }
+      ]
+    },
+    {
+      "test_id": 450,
+      "category": "lexical_entity",
+      "query": "Where does Dhrishtadyumna lead the Pandava army as commander? Specifically in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "dhrishtadyumna",
+        "commander",
+        "army",
+        "panchala"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4131 [Part 1]",
+          "score": 0.48001889705545403,
+          "preview": "After routing the Kuru king and seeing him flee on horseback, Dhrishtadyumna sees the Pandavas still surrounded by the K"
+        },
+        {
+          "parva": "Udyoga Parva",
+          "section": "Page 2445 [Part 1]",
+          "score": 0.47642246310309316,
+          "preview": "\"S CANT O 165 U LUKA D UTA G AMANA P ARVA CONTINUED anjaya says, 'After listening to Uluka' s messages from Duryodhana, "
+        },
+        {
+          "parva": "Sabha Parva",
+          "section": "Page 892 [Part 2]",
+          "score": 0.4700245171712363,
+          "preview": "Helped by the Rishis Yaja and Upayaja, Drupada did have a son, Dhrisht adyumna, born from the sacrificial fire, and also"
+        }
+      ]
+    },
+    {
+      "test_id": 610,
+      "category": "key_episode",
+      "query": "Describe the final duel between Karna and Arjuna and the sinking chariot wheel As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "karna",
+        "arjuna",
+        "wheel",
+        "earth",
+        "anjalika"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4049 [Part 2]",
+          "score": 0.4874017104389322,
+          "preview": "Seeing his chance, Karna jumps down again from his chariot to try and draw out the wheel that is stuck so firmly in the "
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4102 [Part 2]",
+          "score": 0.4856994305311624,
+          "preview": "Rapidly , the track mired with blood and flesh becomes impassable, O Kurudvaha, like Rudra' s playground. Like the apoca"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4060 [Part 2]",
+          "score": 0.48449410955555244,
+          "preview": "After his victory over Karna, Arjuna, the favourite of the Devas, the Gandharvas, and Manavas, is magnificent in his tej"
+        }
+      ]
+    },
+    {
+      "test_id": 620,
+      "category": "key_episode",
+      "query": "Describe the final duel between Karna and Arjuna and the sinking chariot wheel As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "karna",
+        "arjuna",
+        "wheel",
+        "earth",
+        "anjalika"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4049 [Part 2]",
+          "score": 0.4874017104389322,
+          "preview": "Seeing his chance, Karna jumps down again from his chariot to try and draw out the wheel that is stuck so firmly in the "
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4102 [Part 2]",
+          "score": 0.4856994305311624,
+          "preview": "Rapidly , the track mired with blood and flesh becomes impassable, O Kurudvaha, like Rudra' s playground. Like the apoca"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4060 [Part 2]",
+          "score": 0.48449410955555244,
+          "preview": "After his victory over Karna, Arjuna, the favourite of the Devas, the Gandharvas, and Manavas, is magnificent in his tej"
+        }
+      ]
+    },
+    {
+      "test_id": 660,
+      "category": "key_episode",
+      "query": "Describe the final duel between Karna and Arjuna and the sinking chariot wheel As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "karna",
+        "arjuna",
+        "wheel",
+        "earth",
+        "anjalika"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4049 [Part 2]",
+          "score": 0.4874017104389322,
+          "preview": "Seeing his chance, Karna jumps down again from his chariot to try and draw out the wheel that is stuck so firmly in the "
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4102 [Part 2]",
+          "score": 0.4856994305311624,
+          "preview": "Rapidly , the track mired with blood and flesh becomes impassable, O Kurudvaha, like Rudra' s playground. Like the apoca"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4060 [Part 2]",
+          "score": 0.48449410955555244,
+          "preview": "After his victory over Karna, Arjuna, the favourite of the Devas, the Gandharvas, and Manavas, is magnificent in his tej"
+        }
+      ]
+    },
+    {
+      "test_id": 667,
+      "category": "key_episode",
+      "query": "Describe the fall of Pitamaha Bhishma on the tenth day of battle As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "bhishma",
+        "tenth",
+        "shikhandi",
+        "arjuna",
+        "arrows"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3016 [Part 2]",
+          "score": 0.4921102523803851,
+          "preview": "On the tenth day of the war, he stands between the two armies, bow in hand, and none of the kings can even look at him, "
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3022 [Part 3]",
+          "score": 0.48512084560410523,
+          "preview": "On that tenth day of the great war, when Bhishma and Arjuna face each other in that final contention, the two armies, wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3000 [Part 1]",
+          "score": 0.48457813010878037,
+          "preview": "Indeed, on that fateful tenth day, first of the fell Kali Yuga, age of vileness and wrath, in that brutal game of war, b"
+        }
+      ]
+    },
+    {
+      "test_id": 677,
+      "category": "key_episode",
+      "query": "Describe the fall of Pitamaha Bhishma on the tenth day of battle As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "bhishma",
+        "tenth",
+        "shikhandi",
+        "arjuna",
+        "arrows"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3016 [Part 2]",
+          "score": 0.4921102523803851,
+          "preview": "On the tenth day of the war, he stands between the two armies, bow in hand, and none of the kings can even look at him, "
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3022 [Part 3]",
+          "score": 0.48512084560410523,
+          "preview": "On that tenth day of the great war, when Bhishma and Arjuna face each other in that final contention, the two armies, wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3000 [Part 1]",
+          "score": 0.48457813010878037,
+          "preview": "Indeed, on that fateful tenth day, first of the fell Kali Yuga, age of vileness and wrath, in that brutal game of war, b"
+        }
+      ]
+    },
+    {
+      "test_id": 687,
+      "category": "key_episode",
+      "query": "Describe the fall of Pitamaha Bhishma on the tenth day of battle As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "bhishma",
+        "tenth",
+        "shikhandi",
+        "arjuna",
+        "arrows"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3016 [Part 2]",
+          "score": 0.4921102523803851,
+          "preview": "On the tenth day of the war, he stands between the two armies, bow in hand, and none of the kings can even look at him, "
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3022 [Part 3]",
+          "score": 0.48512084560410523,
+          "preview": "On that tenth day of the great war, when Bhishma and Arjuna face each other in that final contention, the two armies, wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3000 [Part 1]",
+          "score": 0.48457813010878037,
+          "preview": "Indeed, on that fateful tenth day, first of the fell Kali Yuga, age of vileness and wrath, in that brutal game of war, b"
+        }
+      ]
+    },
+    {
+      "test_id": 698,
+      "category": "key_episode",
+      "query": "Describe the trapped hero Abhimanyu fighting inside the Chakravyuha As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "abhimanyu",
+        "chakravyuha",
+        "chariot",
+        "wheel",
+        "slain"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3185 [Part 1]",
+          "score": 0.4754421405098961,
+          "preview": "\"D CANT O 43 A BHIMANYU - VADHA P ARVA CONTINUED hritarashtra says, 'What you tell me, O Suta, about the battle between "
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3184 [Part 2]",
+          "score": 0.47321987689556316,
+          "preview": "Now unleashing it at his enemies Abhimanyu bewilders them. He is a circle of fire and we see him sometimes as one prince"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3159 [Part 1]",
+          "score": 0.4727258779786284,
+          "preview": "Yudhishtira places the intolerable burden on the young shoulders of Abhimanyu. Yudhishtira, who is not less than Vasudev"
+        }
+      ]
+    },
+    {
+      "test_id": 710,
+      "category": "key_episode",
+      "query": "Describe the final duel between Karna and Arjuna and the sinking chariot wheel As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "karna",
+        "arjuna",
+        "wheel",
+        "earth",
+        "anjalika"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4049 [Part 2]",
+          "score": 0.4874017104389322,
+          "preview": "Seeing his chance, Karna jumps down again from his chariot to try and draw out the wheel that is stuck so firmly in the "
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4102 [Part 2]",
+          "score": 0.4856994305311624,
+          "preview": "Rapidly , the track mired with blood and flesh becomes impassable, O Kurudvaha, like Rudra' s playground. Like the apoca"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4060 [Part 2]",
+          "score": 0.48449410955555244,
+          "preview": "After his victory over Karna, Arjuna, the favourite of the Devas, the Gandharvas, and Manavas, is magnificent in his tej"
+        }
+      ]
+    },
+    {
+      "test_id": 717,
+      "category": "key_episode",
+      "query": "Describe the fall of Pitamaha Bhishma on the tenth day of battle As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "bhishma",
+        "tenth",
+        "shikhandi",
+        "arjuna",
+        "arrows"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3016 [Part 2]",
+          "score": 0.4921102523803851,
+          "preview": "On the tenth day of the war, he stands between the two armies, bow in hand, and none of the kings can even look at him, "
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3022 [Part 3]",
+          "score": 0.48512084560410523,
+          "preview": "On that tenth day of the great war, when Bhishma and Arjuna face each other in that final contention, the two armies, wi"
+        },
+        {
+          "parva": "Bhishma Parva",
+          "section": "Page 3000 [Part 1]",
+          "score": 0.48457813010878037,
+          "preview": "Indeed, on that fateful tenth day, first of the fell Kali Yuga, age of vileness and wrath, in that brutal game of war, b"
+        }
+      ]
+    },
+    {
+      "test_id": 758,
+      "category": "key_episode",
+      "query": "Describe the trapped hero Abhimanyu fighting inside the Chakravyuha As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "abhimanyu",
+        "chakravyuha",
+        "chariot",
+        "wheel",
+        "slain"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3185 [Part 1]",
+          "score": 0.4754421405098961,
+          "preview": "\"D CANT O 43 A BHIMANYU - VADHA P ARVA CONTINUED hritarashtra says, 'What you tell me, O Suta, about the battle between "
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3184 [Part 2]",
+          "score": 0.47321987689556316,
+          "preview": "Now unleashing it at his enemies Abhimanyu bewilders them. He is a circle of fire and we see him sometimes as one prince"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3159 [Part 1]",
+          "score": 0.4727258779786284,
+          "preview": "Yudhishtira places the intolerable burden on the young shoulders of Abhimanyu. Yudhishtira, who is not less than Vasudev"
+        }
+      ]
+    },
+    {
+      "test_id": 790,
+      "category": "key_episode",
+      "query": "Describe the final duel between Karna and Arjuna and the sinking chariot wheel As related in Stri Parva.",
+      "expected_parva": "Stri Parva",
+      "gold_anchors": [
+        "karna",
+        "arjuna",
+        "wheel",
+        "earth",
+        "anjalika"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "lexical_fts_failure",
+      "explanation": "FTS websearch_to_tsquery produced 0 lexical matches due to complex syntax/vocabulary; relied solely on dense vector search.",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4049 [Part 2]",
+          "score": 0.4874017104389322,
+          "preview": "Seeing his chance, Karna jumps down again from his chariot to try and draw out the wheel that is stuck so firmly in the "
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4102 [Part 2]",
+          "score": 0.4856994305311624,
+          "preview": "Rapidly , the track mired with blood and flesh becomes impassable, O Kurudvaha, like Rudra' s playground. Like the apoca"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4060 [Part 2]",
+          "score": 0.48449410955555244,
+          "preview": "After his victory over Karna, Arjuna, the favourite of the Devas, the Gandharvas, and Manavas, is magnificent in his tej"
+        }
+      ]
+    }
+  ],
+  "semantic_vector_failure": [],
+  "bad_gold_target_or_test_def": [
+    {
+      "test_id": 9,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What is the true nature of time that destroys all worlds? Especially regarding Krishna.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "time",
+        "destroyer",
+        "worlds",
+        "slain",
+        "death"
+      ],
+      "rank_in_top_10": 2,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Udyoga Parva, Virata Parva, Sabha Parva, Stri Parva, Mausala Parva, Bhishma Parva, Vana Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3204 [Part 1]",
+          "score": 0.8655921786141371,
+          "preview": "\"S CANT O 50 A BHIMANYU - VADHA P ARVA CONTINUED iva replied, 'O Lord, you took great pains to create and nourish creatu"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3698 [Part 2]",
+          "score": 0.8599870447779725,
+          "preview": "Yet we killed our acharya for the sake of a short- lived, meaningless kingdom. Dhritarashtra, Rajan, gave Bhishma and Dr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3204 [Part 2]",
+          "score": 0.8062185162687838,
+          "preview": "Indeed, the fire devours all the universe and reduces it to ashes. Be merciful, O Illustrious! Do not give way to anger."
+        }
+      ]
+    },
+    {
+      "test_id": 38,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What are the three gunas or qualities of material nature binding the self? Especially regarding Arjuna.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "qualities",
+        "nature",
+        "goodness",
+        "passion",
+        "darkness"
+      ],
+      "rank_in_top_10": 6,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Udyoga Parva, Stri Parva, Vana Parva, Sabha Parva, Bhishma Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3728 [Part 4]",
+          "score": 0.8057885976845881,
+          "preview": "O son of Kunti, seek the protection of this boon-giving Lord of the universe, the Lord of Uma, the God with three eyes, "
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3728 [Part 3]",
+          "score": 0.8043634117246752,
+          "preview": "Bow down to him who is of manifest form; who is called Sarva; who wears truly agreeable attire; who wears a wonderful cr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3322 [Part 2]",
+          "score": 0.8038253027721731,
+          "preview": "Even if the three worlds with the Asuras, the Devas, the Yakshas, the Uragas and the Rakshasas, together with all Manava"
+        }
+      ]
+    },
+    {
+      "test_id": 41,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding Krishna.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Stri Parva, Udyoga Parva, Bhishma Parva, Sabha Parva, Virata Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3698 [Part 2]",
+          "score": 0.8703522527637906,
+          "preview": "Yet we killed our acharya for the sake of a short- lived, meaningless kingdom. Dhritarashtra, Rajan, gave Bhishma and Dr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3140 [Part 2]",
+          "score": 0.8082692588407251,
+          "preview": "But Krishna sways into the path of that fatal weapon and, shielding Arjuna, receives the Vaishnavastra himself. Striking"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3527 [Part 2]",
+          "score": 0.8079937917592009,
+          "preview": "Be firm in deeds of humility , in self-restraint, in satya and dharma. Observe dharma, artha, and kama, but, most of all"
+        }
+      ]
+    },
+    {
+      "test_id": 91,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding Krishna.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Stri Parva, Udyoga Parva, Bhishma Parva, Sabha Parva, Virata Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3698 [Part 2]",
+          "score": 0.8703522527637906,
+          "preview": "Yet we killed our acharya for the sake of a short- lived, meaningless kingdom. Dhritarashtra, Rajan, gave Bhishma and Dr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3140 [Part 2]",
+          "score": 0.8082692588407251,
+          "preview": "But Krishna sways into the path of that fatal weapon and, shielding Arjuna, receives the Vaishnavastra himself. Striking"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3527 [Part 2]",
+          "score": 0.8079937917592009,
+          "preview": "Be firm in deeds of humility , in self-restraint, in satya and dharma. Observe dharma, artha, and kama, but, most of all"
+        }
+      ]
+    },
+    {
+      "test_id": 101,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding Bhima.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": 5,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Stri Parva, Udyoga Parva, Bhishma Parva, Sabha Parva, Virata Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3681 [Part 1]",
+          "score": 0.917312638346088,
+          "preview": "Panchala prince begins to mow down the Vasatis, the Sibis, the Balhikas and the Kurus, all those who are protecting Dron"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3698 [Part 2]",
+          "score": 0.8699845662685518,
+          "preview": "Yet we killed our acharya for the sake of a short- lived, meaningless kingdom. Dhritarashtra, Rajan, gave Bhishma and Dr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3440 [Part 2]",
+          "score": 0.8066911800644099,
+          "preview": "However , Drona nimbly jumps out of his chariot just before Bhima seizes it, and running with some celerity , quickly mo"
+        }
+      ]
+    },
+    {
+      "test_id": 117,
+      "category": "semantic_concept",
+      "query": "In Karna Parva, How does the wise person control anger, desire, and the restless senses? Especially regarding Krishna.",
+      "expected_parva": "Karna Parva",
+      "gold_anchors": [
+        "senses",
+        "anger",
+        "desire",
+        "restrained",
+        "wisdom"
+      ],
+      "rank_in_top_10": 9,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Karna Parva\". It actually occurs in: \"Bhishma Parva, Vana Parva, Stri Parva, Udyoga Parva, Sabha Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 3836 [Part 2]",
+          "score": 0.820661452215498,
+          "preview": "Karna, sighing like an angry snake, wringing his hands, says to Duryodhana, \"Arjuna is always careful, determined, and m"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4128 [Part 2]",
+          "score": 0.8166799068379911,
+          "preview": "Which sane and wise man, capable of discriminating good from evil, would wage war, knowing his enemy to be superior to h"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 3943 [Part 1]",
+          "score": 0.8150186422434301,
+          "preview": "moonlight. Arjuna, he is looking for you and he will surely come here swiftly . Behold him, as he shakes his formidable "
+        }
+      ]
+    },
+    {
+      "test_id": 121,
+      "category": "semantic_concept",
+      "query": "In Drona Parva, What is taught about the fruits of action and performing one's duty without attachment? Especially regarding Krishna.",
+      "expected_parva": "Drona Parva",
+      "gold_anchors": [
+        "duty",
+        "action",
+        "fruits",
+        "work",
+        "attachment"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Drona Parva\". It actually occurs in: \"Stri Parva, Udyoga Parva, Bhishma Parva, Sabha Parva, Virata Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3698 [Part 2]",
+          "score": 0.8703522527637906,
+          "preview": "Yet we killed our acharya for the sake of a short- lived, meaningless kingdom. Dhritarashtra, Rajan, gave Bhishma and Dr"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3140 [Part 2]",
+          "score": 0.8082692588407251,
+          "preview": "But Krishna sways into the path of that fatal weapon and, shielding Arjuna, receives the Vaishnavastra himself. Striking"
+        },
+        {
+          "parva": "Drona Parva",
+          "section": "Page 3527 [Part 2]",
+          "score": 0.8079937917592009,
+          "preview": "Be firm in deeds of humility , in self-restraint, in satya and dharma. Observe dharma, artha, and kama, but, most of all"
+        }
+      ]
+    },
+    {
+      "test_id": 177,
+      "category": "semantic_concept",
+      "query": "In Karna Parva, How does the wise person control anger, desire, and the restless senses? Especially regarding Krishna.",
+      "expected_parva": "Karna Parva",
+      "gold_anchors": [
+        "senses",
+        "anger",
+        "desire",
+        "restrained",
+        "wisdom"
+      ],
+      "rank_in_top_10": 9,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Karna Parva\". It actually occurs in: \"Bhishma Parva, Vana Parva, Stri Parva, Udyoga Parva, Sabha Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Karna Parva",
+          "section": "Page 3836 [Part 2]",
+          "score": 0.820661452215498,
+          "preview": "Karna, sighing like an angry snake, wringing his hands, says to Duryodhana, \"Arjuna is always careful, determined, and m"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 4128 [Part 2]",
+          "score": 0.8166799068379911,
+          "preview": "Which sane and wise man, capable of discriminating good from evil, would wage war, knowing his enemy to be superior to h"
+        },
+        {
+          "parva": "Karna Parva",
+          "section": "Page 3943 [Part 1]",
+          "score": 0.8150186422434301,
+          "preview": "moonlight. Arjuna, he is looking for you and he will surely come here swiftly . Behold him, as he shakes his formidable "
+        }
+      ]
+    },
+    {
+      "test_id": 275,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Mahaprasthanika Parva.",
+      "expected_parva": "Mahaprasthanika Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": -1,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Mahaprasthanika Parva\". It actually occurs in: \"Stri Parva, Mausala Parva, Sabha Parva, Karna Parva, Bhishma Parva, Virata Parva, Udyoga Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Mahaprasthanika Parva",
+          "section": "Page 6774 [Part 1]",
+          "score": 0.8528095259510371,
+          "preview": "BOOK 17 Mahaprasthanika Parva\n\nBOOK 17 Mahaprasthanika Parva"
+        },
+        {
+          "parva": "Mahaprasthanika Parva",
+          "section": "Page 6783 [Part 2]",
+          "score": 0.826405727034503,
+          "preview": "' Indra, king of the Devas, says to Yudhishtira, 'Do you, O King of kings, live in this blissful place, won through your"
+        },
+        {
+          "parva": "Mahaprasthanika Parva",
+          "section": "Page 6804 [Part 3]",
+          "score": 0.8106156093260661,
+          "preview": "He ranges at his pleasure through the countless lokas of the Gods, riding on wondrous chariots and magnificent carriages"
+        }
+      ]
+    },
+    {
+      "test_id": 335,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Vana Parva.",
+      "expected_parva": "Vana Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 9,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Vana Parva\". It actually occurs in: \"Stri Parva, Mausala Parva, Sabha Parva, Karna Parva, Bhishma Parva, Virata Parva, Udyoga Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1353 [Part 2]",
+          "score": 0.7980069388892159,
+          "preview": "Seeing the pure Dhananjaya of lofty punya, with his matted hair, stand in humility before the Lord of gods, Yudhishtira "
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1311 [Part 1]",
+          "score": 0.7978615503022346,
+          "preview": "THE COMPLETE MAHABHARATA Vana Parva (Part 2) and Virata Parva\n\nTHE COMPLETE MAHABHARATA Vana Parva (Part 2) and Virata P"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1794 [Part 1]",
+          "score": 0.7935893323176708,
+          "preview": "The End of V ana Parva\n\nThe End of V ana Parva"
+        }
+      ]
+    },
+    {
+      "test_id": 345,
+      "category": "lexical_entity",
+      "query": "What is the episode involving Amba, her vow, and Shikhandi? Specifically in Vana Parva.",
+      "expected_parva": "Vana Parva",
+      "gold_anchors": [
+        "amba",
+        "shikhandi",
+        "bhishma",
+        "vow"
+      ],
+      "rank_in_top_10": 9,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Vana Parva\". It actually occurs in: \"Stri Parva, Mausala Parva, Sabha Parva, Karna Parva, Bhishma Parva, Virata Parva, Udyoga Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1353 [Part 2]",
+          "score": 0.7980069388892159,
+          "preview": "Seeing the pure Dhananjaya of lofty punya, with his matted hair, stand in humility before the Lord of gods, Yudhishtira "
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1311 [Part 1]",
+          "score": 0.7978615503022346,
+          "preview": "THE COMPLETE MAHABHARATA Vana Parva (Part 2) and Virata Parva\n\nTHE COMPLETE MAHABHARATA Vana Parva (Part 2) and Virata P"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1794 [Part 1]",
+          "score": 0.7935893323176708,
+          "preview": "The End of V ana Parva\n\nThe End of V ana Parva"
+        }
+      ]
+    },
+    {
+      "test_id": 498,
+      "category": "dialogue_speaker",
+      "query": "What questions did the Yaksha ask Yudhishthira at the enchanted lake? Context in Virata Parva.",
+      "expected_parva": "Virata Parva",
+      "gold_anchors": [
+        "yaksha",
+        "yudhishthira",
+        "lake",
+        "water",
+        "brothers"
+      ],
+      "rank_in_top_10": 8,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Virata Parva\". It actually occurs in: \"Sabha Parva, Stri Parva, Udyoga Parva, Vana Parva, Karna Parva, Bhishma Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1972 [Part 1]",
+          "score": 0.8605052612405123,
+          "preview": "With Sudeshna at their head the royal Matsya women, wearing pearls and earrings of every other precious stone, come to t"
+        },
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1878 [Part 1]",
+          "score": 0.8555739121260859,
+          "preview": "V CANTO 34 G O-HARANA P ARVA CONTINUED aisampayana said, \"On being spoken to thus by Yudhishtira, Susarman hangs his hea"
+        },
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1815 [Part 1]",
+          "score": 0.8551254212482525,
+          "preview": "Bhima replies, 'King of kings, first and foremost I am your cook and servant, but in truth it is not only cooking that I"
+        }
+      ]
+    },
+    {
+      "test_id": 733,
+      "category": "key_episode",
+      "query": "Describe the fateful Game of Dice played by Shakuni and Yudhishthira As related in Virata Parva.",
+      "expected_parva": "Virata Parva",
+      "gold_anchors": [
+        "dice",
+        "shakuni",
+        "stake",
+        "game",
+        "yudhishthira"
+      ],
+      "rank_in_top_10": 4,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Virata Parva\". It actually occurs in: \"Udyoga Parva, Drona Parva, Sabha Parva, Stri Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1972 [Part 1]",
+          "score": 0.8650805956077606,
+          "preview": "With Sudeshna at their head the royal Matsya women, wearing pearls and earrings of every other precious stone, come to t"
+        },
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1878 [Part 1]",
+          "score": 0.859056155923395,
+          "preview": "V CANTO 34 G O-HARANA P ARVA CONTINUED aisampayana said, \"On being spoken to thus by Yudhishtira, Susarman hangs his hea"
+        },
+        {
+          "parva": "Virata Parva",
+          "section": "Page 1970 [Part 2]",
+          "score": 0.8283251001880415,
+          "preview": "He is the favourite nephew of his uncle Krishna, who wields the Sudarshana chakra. ' Virata says, 'What you say is wise,"
+        }
+      ]
+    },
+    {
+      "test_id": 794,
+      "category": "key_episode",
+      "query": "Describe the humiliation and disrobing of Draupadi in the Kuru assembly As related in Vana Parva.",
+      "expected_parva": "Vana Parva",
+      "gold_anchors": [
+        "draupadi",
+        "dushasana",
+        "garment",
+        "krishna",
+        "assembly"
+      ],
+      "rank_in_top_10": 5,
+      "classification": "bad_gold_target_or_test_def",
+      "explanation": "Gold anchor exists in corpus, but NOT in expected parva \"Vana Parva\". It actually occurs in: \"Sabha Parva, Udyoga Parva, Mausala Parva, Stri Parva, Virata Parva, Karna Parva, Drona Parva\". (Test metadata mismatch)",
+      "top_retrieved": [
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1589 [Part 1]",
+          "score": 0.8125406719574517,
+          "preview": "The Kaurava soldiers sob, 'The handsome, mighty-armed son of Dhritarashtra has been taken captive by the Gandharvas. The"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1648 [Part 1]",
+          "score": 0.8095719129485122,
+          "preview": "V CANTO 266 D RAUPADI H ARANA P ARVA CONTINUED aisampayana continued, \"Drupadi' s lovely face is flushed in anger. Her e"
+        },
+        {
+          "parva": "Vana Parva",
+          "section": "Page 1589 [Part 2]",
+          "score": 0.809516991958563,
+          "preview": "The wretch came here to gloat over us—he wallowing in prosperity , and we sunk in poverty and emaciated by our austere l"
+        }
+      ]
+    }
+  ],
+  "hybrid_ranking_failure": [],
+  "genuine_retrieval_miss": []
+}

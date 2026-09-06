@@ -12,7 +12,7 @@ export class GroqProvider implements AIProvider {
       apiKey: apiKey || 'missing_key',
       baseURL: 'https://api.groq.com/openai/v1',
     });
-    this.modelName = process.env.GROQ_MODEL_NAME || process.env.AI_MODEL_NAME || 'llama-3.1-8b-instant';
+    this.modelName = process.env.GROQ_MODEL_NAME || process.env.AI_MODEL_NAME || 'openai/gpt-oss-20b';
   }
 
   private checkApiKey() {

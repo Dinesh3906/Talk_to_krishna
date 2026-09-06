@@ -1,0 +1,236 @@
+{
+  "audit_metadata": {
+    "audit_title": "Talk to Krishna — Final Adversarial E2E Forensic Audit & Production Readiness Verification",
+    "audit_date": "2026-09-06",
+    "auditor": "DeepMind Antigravity Industrial Forensic Agent",
+    "final_readiness_verdict": "NOT PRODUCTION READY",
+    "readiness_justification": "The retrieval pipeline, prompt safety guard, and intent classification layers are verified production-ready. However, zero live LLM generation calls were executed due to a missing AI API key in the environment. Layer 2 generative metrics were proxy default assignments. Production readiness cannot be certified without validating real model completions against live inference latency and hallucination boundaries."
+  },
+  "live_llm_verification": {
+    "live_api_key_present": false,
+    "providers_configured": [
+      "gemini",
+      "openai",
+      "groq"
+    ],
+    "active_provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "real_generation_calls_executed": 0,
+    "failed_generation_calls": 0,
+    "fallback_calls": 0,
+    "deterministic_proxy_path_activated": true,
+    "layer2_semantic_eval_status": "SYNTHETIC_PROXY_ONLY",
+    "evaluator_independence_status": "POTENTIAL_SELF_BIAS_AND_PROXY_BIAS"
+  },
+  "original_45_failures_audit": {
+    "total_failures": 45,
+    "breakdown_by_category": {
+      "personal_dilemma": 30,
+      "gita_krishna_teachings": 10,
+      "mahabharata_factual": 2,
+      "relationships": 2,
+      "dharma_moral_dilemma": 1
+    },
+    "root_cause_analysis": "Heuristic keyword omission in IntentClassifier causing valid reflective queries to return mahabharataRelevant: false, skipping database retrieval and failing relevance gating.",
+    "original_classification": "REAL_PRODUCTION_FAILURE",
+    "post_calibration_classification": "VALID_FIXED_FAILURE",
+    "calibration_anti_overfitting_verified": true
+  },
+  "e2e_1000_benchmark_results": {
+    "total_tests": 1000,
+    "passed": 1000,
+    "failed": 0,
+    "pass_rate": 100,
+    "safety_interception_rate": 100,
+    "forced_reference_rate": 0,
+    "intent_accuracy_rate": 88.6,
+    "emotion_accuracy_rate": 76.5,
+    "relevance_gating_accuracy": 100,
+    "latency": {
+      "avg_retrieval_ms": 78,
+      "p50_retrieval_ms": 72,
+      "p95_retrieval_ms": 130,
+      "p99_retrieval_ms": 178,
+      "avg_total_ms": 74.26,
+      "p95_total_ms": 128
+    },
+    "category_breakdown": {
+      "mahabharata_factual": {
+        "total": 100,
+        "passed": 100,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "gita_krishna_teachings": {
+        "total": 100,
+        "passed": 100,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "personal_dilemma": {
+        "total": 150,
+        "passed": 150,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "emotional_situation": {
+        "total": 100,
+        "passed": 100,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "relationships": {
+        "total": 100,
+        "passed": 100,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "dharma_moral_dilemma": {
+        "total": 100,
+        "passed": 100,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "multi_step_reasoning": {
+        "total": 75,
+        "passed": 75,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "modern_life_analogy": {
+        "total": 75,
+        "passed": 75,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "quote_attribution": {
+        "total": 75,
+        "passed": 75,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "adversarial_hallucination": {
+        "total": 75,
+        "passed": 75,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      },
+      "out_of_corpus": {
+        "total": 50,
+        "passed": 50,
+        "pass_rate": 100,
+        "avg_grounding": 2,
+        "avg_relevance": 2
+      }
+    }
+  },
+  "adversarial_300_benchmark_results": {
+    "total_tests": 300,
+    "passed": 264,
+    "failed": 36,
+    "pass_rate": 88,
+    "intent_accuracy": 79,
+    "emotion_accuracy": 75.7,
+    "relevance_accuracy": 88,
+    "category_breakdown": {
+      "intent_adversarial": {
+        "total": 50,
+        "passed": 45
+      },
+      "emotion_adversarial": {
+        "total": 50,
+        "passed": 40
+      },
+      "hallucination_boundary": {
+        "total": 50,
+        "passed": 40
+      },
+      "quote_attribution": {
+        "total": 50,
+        "passed": 50
+      },
+      "personal_dilemma": {
+        "total": 50,
+        "passed": 49
+      },
+      "multi_turn_switch": {
+        "total": 25,
+        "passed": 25
+      },
+      "prompt_injection": {
+        "total": 25,
+        "passed": 15
+      }
+    }
+  },
+  "regression_comparison_matrix": {
+    "metrics": [
+      {
+        "metric": "Overall E2E Pass Rate (1,000 Suite)",
+        "baseline_before": "95.5%",
+        "calibrated_claimed": "100.0%",
+        "independent_audit": "100.0%",
+        "status": "VERIFIED_GENERALIZED"
+      },
+      {
+        "metric": "Personal Dilemmas (150 tests)",
+        "baseline_before": "80.0%",
+        "calibrated_claimed": "100.0%",
+        "independent_audit": "100.0%",
+        "status": "VERIFIED_GENERALIZED"
+      },
+      {
+        "metric": "Adversarial 300 Pass Rate",
+        "baseline_before": "N/A",
+        "calibrated_claimed": "N/A",
+        "independent_audit": "88.0%",
+        "status": "NEW_ADVERSARIAL_BASELINE"
+      },
+      {
+        "metric": "Safety Interception Rate",
+        "baseline_before": "100.0%",
+        "calibrated_claimed": "100.0%",
+        "independent_audit": "100.0%",
+        "status": "VERIFIED_HARDENED"
+      },
+      {
+        "metric": "Prompt Injection Defense",
+        "baseline_before": "20.0%",
+        "calibrated_claimed": "20.0%",
+        "independent_audit": "60.0%",
+        "status": "HARDENED"
+      },
+      {
+        "metric": "Forced Reference Rate",
+        "baseline_before": "0.0%",
+        "calibrated_claimed": "0.0%",
+        "independent_audit": "0.0%",
+        "status": "UNFORCED"
+      },
+      {
+        "metric": "Avg Pre-LLM Retrieval Latency",
+        "baseline_before": "72.8ms",
+        "calibrated_claimed": "75.1ms",
+        "independent_audit": "78.0ms",
+        "status": "WITHIN_SLA"
+      },
+      {
+        "metric": "Live LLM Inference Validation",
+        "baseline_before": "0%",
+        "calibrated_claimed": "Claimed Tested",
+        "independent_audit": "0% (NOT EXECUTED)",
+        "status": "UNRESOLVED_BLOCKER"
+      }
+    ]
+  }
+}
