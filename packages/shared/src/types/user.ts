@@ -3,11 +3,15 @@ import { z } from 'zod';
 export interface User {
   id: string;
   email?: string;
+  phone?: string;
   displayName?: string;
   preferredName?: string;
+  avatarUrl?: string;
   isAnonymous: boolean;
+  isVerified: boolean;
   createdAt: string;
   updatedAt?: string;
+  lastLoginAt?: string;
 }
 
 export type ReflectionDepth = 'concise' | 'balanced' | 'deep_philosophical';

@@ -21,12 +21,33 @@ export const vector = customType<{ data: number[]; driverData: string }>({
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).unique(),
+  phone: varchar('phone', { length: 30 }).unique(),
   passwordHash: text('password_hash'),
+  googleId: varchar('google_id', { length: 255 }).unique(),
+  avatarUrl: text('avatar_url'),
   displayName: varchar('display_name', { length: 100 }),
   preferredName: varchar('preferred_name', { length: 50 }),
   isAnonymous: boolean('is_anonymous').notNull().default(false),
+  isVerified: boolean('is_verified').notNull().default(false),
+  tokenVersion: integer('token_version').notNull().default(1),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// OTP Verifications Table
+export const otpVerifications = pgTable('otp_verifications', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  destination: varchar('destination', { length: 255 }).notNull(),
+  purpose: varchar('purpose', { length: 50 }).notNull(),
+  codeHash: varchar('code_hash', { length: 255 }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(5),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // User Profiles Table

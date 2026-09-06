@@ -7,15 +7,16 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:PATH"
 
 Set-Location -Path 'd:\talk to krisna\apps\mobile\android'
 
+$apk = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\apk\release\app-release.apk'
+if (Test-Path $apk) {
+    Remove-Item -Path $apk -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host "=== Starting assembleRelease for Native Android APK ==="
 & .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache assembleRelease --console=plain
 
-Write-Host "=== Starting bundleRelease for Google Play Store AAB ==="
-& .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache bundleRelease --console=plain
-
-Write-Host "=== Verifying Built Artifacts ==="
+Write-Host "=== Verifying Built APK Artifact ==="
 $apk = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\apk\release\app-release.apk'
-$aab = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\bundle\release\app-release.aab'
 
 if (Test-Path $apk) {
     $apkItem = Get-Item $apk
@@ -24,6 +25,15 @@ if (Test-Path $apk) {
     Write-Error "ERROR: APK not found at $apk"
 }
 
+Write-Host "=== Deploying to connected Motorola Moto g64 5G (ZD222MB89X) ==="
+& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X install -r $apk
+Write-Host "=== Launching App on Device ==="
+& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X shell am start -n com.talktokrishna.app/.MainActivity
+
+Write-Host "=== Starting bundleRelease for Google Play Store AAB ==="
+& .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache bundleRelease --console=plain
+
+$aab = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\bundle\release\app-release.aab'
 if (Test-Path $aab) {
     $aabItem = Get-Item $aab
     Write-Host "SUCCESS: Native Play Store AAB generated at $aab ($([math]::Round($aabItem.Length/1MB,2)) MB)"
@@ -31,8 +41,4 @@ if (Test-Path $aab) {
     Write-Error "ERROR: AAB not found at $aab"
 }
 
-Write-Host "=== Deploying to connected Motorola Moto g64 5G (ZD222MB89X) ==="
-& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X install -r $apk
-Write-Host "=== Launching App on Device ==="
-& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X shell am start -n com.talktokrishna.app/.MainActivity
 Write-Host "=== Completed Successfully! ==="

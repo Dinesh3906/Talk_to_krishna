@@ -1,53 +1,27 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { darkTheme } from '../../theme/colors';
 
-const SLIDES = [
-  {
-    step: '01',
-    title: 'A Guide for Life’s Battlefield',
-    description:
-      'Like Arjuna standing bewildered at Kurukshetra, we all face moments of overwhelm, heartbreak, and difficult moral choices. Here, you can speak your heart freely.',
-  },
-  {
-    step: '02',
-    title: 'Authoritative Wisdom',
-    description:
-      'No superficial platitudes or invented quotes. Every insight is drawn from verified canonical sources: the 18 Parvas of the Mahabharata and the Bhagavad Gita.',
-  },
-  {
-    step: '03',
-    title: 'Mindful & Private',
-    description:
-      'A sacred space for contemplation. Your reflections are confidential, and you remain in full control of your data and memory.',
-  },
-];
-
 export default function OnboardingScreen() {
   const router = useRouter();
-  const [currentSlide, setCurrentSlide] = useState(0);
 
-  const handleNext = () => {
-    if (currentSlide < SLIDES.length - 1) {
-      setCurrentSlide(currentSlide + 1);
-    } else {
-      router.replace('/(auth)/login');
-    }
+  const handleStart = () => {
+    router.replace('/(auth)/login');
   };
-
-  const slide = SLIDES[currentSlide];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.stepCounter}>{slide.step} / 03</Text>
-          <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
-            <Text style={styles.skipButton}>Skip</Text>
+          <Text style={styles.brandTitle}>Talk to Krishna</Text>
+          <TouchableOpacity onPress={handleStart} activeOpacity={0.7}>
+            <Text style={styles.skipButton}>Sign In</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Single Welcome Slide */}
         <View style={styles.content}>
           <View style={styles.heroImageContainer}>
             <Image
@@ -56,30 +30,22 @@ export default function OnboardingScreen() {
               resizeMode="cover"
             />
           </View>
+
           <View style={styles.accentBadge}>
-            <Text style={styles.accentBadgeText}>Sādhana</Text>
+            <Text style={styles.accentBadgeText}>Timeless Guidance</Text>
           </View>
-          <Text style={styles.title}>{slide.title}</Text>
-          <Text style={styles.description}>{slide.description}</Text>
+
+          <Text style={styles.title}>A Guide for Life’s Battlefield</Text>
+          <Text style={styles.description}>
+            Like Arjuna at Kurukshetra, we all face moments of overwhelm, heartbreak, and difficult moral choices.
+            Here, speak your heart freely and receive authentic wisdom drawn from the Mahabharata and Bhagavad Gita.
+          </Text>
         </View>
 
+        {/* Action Button */}
         <View style={styles.footer}>
-          <View style={styles.indicators}>
-            {SLIDES.map((_, idx) => (
-              <View
-                key={idx}
-                style={[
-                  styles.dot,
-                  idx === currentSlide ? styles.dotActive : styles.dotInactive,
-                ]}
-              />
-            ))}
-          </View>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleNext}>
-            <Text style={styles.actionButtonText}>
-              {currentSlide === SLIDES.length - 1 ? 'Enter Sanctuary' : 'Continue'}
-            </Text>
+          <TouchableOpacity style={styles.actionButton} onPress={handleStart} activeOpacity={0.85}>
+            <Text style={styles.actionButtonText}>Get Started</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -90,7 +56,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: darkTheme.background,
+    backgroundColor: '#0B0F19',
   },
   container: {
     flex: 1,
@@ -103,32 +69,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
   },
-  stepCounter: {
+  brandTitle: {
     color: darkTheme.primary,
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   skipButton: {
     color: darkTheme.textSecondary,
     fontSize: 14,
+    fontWeight: '500',
   },
   content: {
     marginVertical: 'auto',
+    alignItems: 'center',
   },
   heroImageContainer: {
     width: 140,
     height: 140,
     borderRadius: 70,
-    borderWidth: 3,
-    borderColor: '#F59E0B',
+    borderWidth: 2,
+    borderColor: darkTheme.primary,
     overflow: 'hidden',
     marginBottom: 24,
     alignSelf: 'center',
-    shadowColor: '#F59E0B',
+    shadowColor: darkTheme.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 16,
     elevation: 8,
   },
   heroImage: {
@@ -136,53 +104,38 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   accentBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: darkTheme.primaryMuted,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: darkTheme.primary,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   accentBadgeText: {
-    color: darkTheme.primaryLight,
+    color: darkTheme.primary,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   title: {
-    fontSize: 30,
+    fontSize: 26,
     fontWeight: '700',
-    color: darkTheme.textPrimary,
-    lineHeight: 38,
+    color: '#F8FAFC',
+    lineHeight: 34,
     marginBottom: 16,
+    textAlign: 'center',
   },
   description: {
-    fontSize: 16,
+    fontSize: 15,
     color: darkTheme.textSecondary,
-    lineHeight: 26,
+    lineHeight: 24,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   footer: {
     paddingBottom: 24,
-  },
-  indicators: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  dot: {
-    height: 6,
-    borderRadius: 3,
-    marginHorizontal: 4,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: darkTheme.primary,
-  },
-  dotInactive: {
-    width: 6,
-    backgroundColor: darkTheme.surfaceBorder,
   },
   actionButton: {
     backgroundColor: darkTheme.primary,

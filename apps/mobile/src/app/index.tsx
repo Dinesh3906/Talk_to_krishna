@@ -13,7 +13,7 @@ export default function SplashScreen() {
       if (token) {
         router.replace('/chat');
       } else {
-        router.replace('/(auth)/login');
+        router.replace('/(auth)/onboarding');
       }
     }, 800);
 
