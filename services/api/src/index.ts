@@ -63,6 +63,10 @@ app.get('/', (_req: Request, res: Response) => {
   return res.status(200).send('Talk to Krishna API is running.');
 });
 
+app.get(['/privacy', '/privacy-policy'], (_req: Request, res: Response) => {
+  return res.redirect('https://app.termly.io/document/privacy-policy/9568c20d-5e1e-4f75-96c2-caebe0185feb');
+});
+
 app.get('/health', (_req: Request, res: Response) => {
   return res.status(200).json({ status: 'healthy', service: 'talk-to-krishna-api' });
 });
