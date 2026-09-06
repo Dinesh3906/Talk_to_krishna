@@ -18,7 +18,24 @@ import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 
 type AuthMode = 'login' | 'signup' | 'verify_otp' | 'forgot_email' | 'forgot_reset';
 
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={[styles.formCard, { margin: 24, alignItems: 'center' }]}>
+        <Text style={styles.cardTitle}>Sanctuary Interruption</Text>
+        <Text style={styles.cardSubtitle}>
+          {error?.message || 'An unexpected error occurred during authentication.'}
+        </Text>
+        <TouchableOpacity style={styles.submitButton} onPress={retry} activeOpacity={0.8}>
+          <Text style={styles.submitButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export default function LoginScreen() {
+
   const router = useRouter();
   const {
     login,

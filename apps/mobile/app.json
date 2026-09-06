@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.talktokrishna.app"
+      "bundleIdentifier": "com.talktokrishna.ai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0B0F19"
       },
-      "package": "com.talktokrishna.app",
+      "package": "com.talktokrishna.ai",
       "versionCode": 1,
       "permissions": [
         "INTERNET",

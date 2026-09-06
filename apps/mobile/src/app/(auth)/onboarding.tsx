@@ -3,7 +3,22 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'r
 import { useRouter } from 'expo-router';
 import { darkTheme } from '../../theme/colors';
 
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={styles.title}>Notice</Text>
+        <Text style={styles.description}>{error?.message || 'An error occurred.'}</Text>
+        <TouchableOpacity style={[styles.actionButton, { marginTop: 24, paddingHorizontal: 32 }]} onPress={retry}>
+          <Text style={styles.actionButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export default function OnboardingScreen() {
+
   const router = useRouter();
 
   const handleStart = () => {

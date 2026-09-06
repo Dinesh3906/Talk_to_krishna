@@ -12,4 +12,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+config.resolver.extraNodeModules = {
+  'react-native-svg': path.resolve(monorepoRoot, 'node_modules/react-native-svg'),
+  react: path.resolve(monorepoRoot, 'node_modules/react'),
+  'react-native': path.resolve(monorepoRoot, 'node_modules/react-native'),
+};
+
 module.exports = config;
+

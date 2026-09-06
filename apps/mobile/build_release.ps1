@@ -28,7 +28,7 @@ if (Test-Path $apk) {
 Write-Host "=== Deploying to connected Motorola Moto g64 5G (ZD222MB89X) ==="
 & "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X install -r $apk
 Write-Host "=== Launching App on Device ==="
-& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X shell am start -n com.talktokrishna.app/.MainActivity
+& "$env:ANDROID_HOME\platform-tools\adb.exe" -s ZD222MB89X shell am start -n com.talktokrishna.ai/.MainActivity
 
 Write-Host "=== Starting bundleRelease for Google Play Store AAB ==="
 & .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache bundleRelease --console=plain

@@ -36,7 +36,7 @@ eas login
 
 ### 2. Configure EAS Project
 In `apps/mobile/app.json`:
-- `android.package`: `com.talktokrishna.app`
+- `android.package`: `com.talktokrishna.ai`
 - `android.versionCode`: Incremented per release
 - `extra.eas.projectId`: Linked to your Expo dashboard project
 

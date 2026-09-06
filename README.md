@@ -21,7 +21,7 @@ Engineered with React Native (Expo SDK 52, Expo Router v4) for Android Google Pl
 talk-to-krisna/
 ├── apps/
 │   └── mobile/                      # Expo SDK 52 (Expo Router v4, React Native)
-│       ├── app.json                 # Android package: com.talktokrishna.app
+│       ├── app.json                 # Android package: com.talktokrishna.ai
 │       └── src/
 │           ├── app/                 # File-based routing (11 production screens)
 │           ├── store/               # Zustand state stores (auth, chat)
