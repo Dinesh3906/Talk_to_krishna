@@ -14,6 +14,7 @@
     "build:web": "npx expo export --platform web && node scripts/prepare-dist.mjs"
   },
   "dependencies": {
+    "@react-native-google-signin/google-signin": "^16.1.5",
     "@talk-to-krisna/shared": "*",
     "@tanstack/react-query": "^5.66.0",
     "expo": "~52.0.30",

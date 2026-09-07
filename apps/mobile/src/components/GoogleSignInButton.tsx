@@ -45,6 +45,22 @@ declare global {
   }
 }
 
+// Dynamic require for native platforms to maintain full web bundling compatibility
+let GoogleSignin: any = null;
+let statusCodes: any = null;
+let isErrorWithCode: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const googleModule = require('@react-native-google-signin/google-signin');
+    GoogleSignin = googleModule.GoogleSignin;
+    statusCodes = googleModule.statusCodes;
+    isErrorWithCode = googleModule.isErrorWithCode;
+  } catch (e) {
+    console.warn('[GoogleSignInButton] Failed to load @react-native-google-signin/google-signin', e);
+  }
+}
+
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
@@ -54,6 +70,18 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   useEffect(() => {
+    // Native mobile: initialize GoogleSignin with configured Web Client ID
+    if (Platform.OS !== 'web' && clientId && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          webClientId: clientId,
+          offlineAccess: false,
+        });
+      } catch (err) {
+        console.warn('[GoogleSignInButton] GoogleSignin.configure error:', err);
+      }
+    }
+
     // Only on Web: load Google Identity Services if client ID is provided
     if (Platform.OS === 'web' && typeof window !== 'undefined' && clientId) {
       const existingScript = document.getElementById('google-gsi-client');
@@ -127,11 +155,50 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       return;
     }
 
-    // Native mobile flow notification
-    Alert.alert(
-      'Google Sign-In',
-      'Please ensure your Android/iOS package (com.talktokrishna.ai) and SHA-1 fingerprint are registered in Google Cloud Console.'
-    );
+    // Native mobile flow using Google Play Services
+    if (!GoogleSignin) {
+      onError('Google Sign-In native module is unavailable on this device.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+
+      if (response && response.type === 'cancelled') {
+        return;
+      }
+
+      // Extract ID token across library version structures
+      const idToken =
+        response && 'data' in response && response.data
+          ? response.data.idToken
+          : (response as any)?.idToken;
+
+      if (idToken) {
+        await onSuccess(idToken);
+      } else {
+        throw new Error('Google Sign-In did not return an ID token.');
+      }
+    } catch (error: any) {
+      if (isErrorWithCode && isErrorWithCode(error)) {
+        if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
+          return;
+        }
+        if (error.code === statusCodes?.IN_PROGRESS) {
+          return;
+        }
+        if (error.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
+          onError('Google Play Services is not available or outdated on this device.');
+          return;
+        }
+      }
+      console.error('[GoogleSignInButton] Native sign-in error:', error);
+      onError(error.message || 'Google Sign-In failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
