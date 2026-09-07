@@ -70,16 +70,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signup: async (email: string, pass: string, displayName?: string, preferredName?: string) => {
     set({ isLoading: true, error: null });
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      const result: { message: string; email: string; isVerified: boolean } = await apiFetch('/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password: pass,
-          displayName,
-          preferredName,
-        }),
-      });
+      let result: { message: string; email: string; isVerified: boolean };
+      try {
+        result = await apiFetch('/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: normalizedEmail,
+            password: pass,
+            displayName,
+            preferredName,
+          }),
+        });
+      } catch (signupErr: any) {
+        // If backend deployment doesn't yet have /auth/signup (returns 404), fall back to /auth/register
+        if (signupErr.message?.includes('404')) {
+          const session: AuthSession = await apiFetch('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: normalizedEmail,
+              password: pass,
+              displayName,
+              preferredName,
+            }),
+          });
+          setApiAuthToken(session.token);
+          set({
+            user: session.user,
+            profile: session.profile || null,
+            token: session.token,
+            isLoading: false,
+            error: null,
+          });
+          return {
+            message: 'Account created successfully!',
+            email: normalizedEmail,
+            isVerified: true,
+          };
+        }
+        throw signupErr;
+      }
       set({ isLoading: false, error: null });
       return result;
     } catch (err: any) {

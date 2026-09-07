@@ -104,7 +104,11 @@ export default function LoginScreen() {
     }
 
     try {
-      await signup(email, password, displayName.trim() || undefined);
+      const res = await signup(email, password, displayName.trim() || undefined);
+      if (res?.isVerified) {
+        router.replace('/chat');
+        return;
+      }
       setInfoMessage(`A 6-digit verification code was sent to ${email.trim().toLowerCase()}.`);
       setResendCooldown(60);
       setMode('verify_otp');

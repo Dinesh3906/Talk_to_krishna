@@ -22,6 +22,12 @@ services:
         value: auto
       - key: GROQ_MODEL_NAME
         value: openai/gpt-oss-20b
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: "Talk to Krishna <contact@codealgo.live>"
 
 databases:
   - name: talk-to-krisna-db
