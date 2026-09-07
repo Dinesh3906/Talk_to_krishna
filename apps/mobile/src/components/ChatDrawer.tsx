@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth.store';
 import { useChatStore } from '../store/chat.store';
 import { darkTheme } from '../theme/colors';
+import { KrishnaAvatar } from './KrishnaAvatar';
 import {
   Plus,
   MessageSquare,
@@ -127,9 +128,7 @@ export function ChatDrawer({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.brandRow}>
-              <View style={styles.omBadge}>
-                <Text style={styles.omText}>ॐ</Text>
-              </View>
+              <KrishnaAvatar size={32} />
               <Text style={styles.brandTitle}>Talk to Krishna</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.7}>

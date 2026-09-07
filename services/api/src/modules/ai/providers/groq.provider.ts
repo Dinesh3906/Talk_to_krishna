@@ -34,7 +34,8 @@ export class GroqProvider implements AIProvider {
       messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens ?? 2048,
-    });
+      reasoning_format: 'hidden',
+    } as any);
 
     const choice = response.choices[0];
     return {
@@ -51,13 +52,16 @@ export class GroqProvider implements AIProvider {
   ): Promise<CompletionResult> {
     this.checkApiKey();
 
-    const stream = await this.client.chat.completions.create({
+    const streamParams = {
       model: this.modelName,
       messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens ?? 2048,
-      stream: true,
-    });
+      stream: true as const,
+    };
+    const stream = await this.client.chat.completions.create(
+      Object.assign(streamParams, { reasoning_format: 'hidden' }) as typeof streamParams
+    );
 
     let fullText = '';
     for await (const chunk of stream) {

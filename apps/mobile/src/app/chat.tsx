@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   Share,
+  StatusBar,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useChatStore } from '../store/chat.store';
@@ -33,6 +34,7 @@ import {
   Compass,
 } from 'lucide-react-native';
 import { Message, Citation } from '@talk-to-krisna/shared';
+import { KrishnaAvatar } from '../components/KrishnaAvatar';
 
 const STARTER_PROMPTS = [
   {
@@ -150,9 +152,7 @@ export default function DirectChatScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerTitleContainer}>
-          <View style={styles.omMiniBadge}>
-            <Text style={styles.omMiniText}>ॐ</Text>
-          </View>
+          <KrishnaAvatar size={28} />
           <View>
             <Text style={styles.headerTitle}>Talk to Krishna</Text>
             <Text style={styles.headerSub}>Divine Sanctuary</Text>
@@ -178,7 +178,7 @@ export default function DirectChatScreen() {
           /* Empty / Welcome State */
           <ScrollView contentContainerStyle={styles.welcomeContainer}>
             <View style={styles.sacredCircle}>
-              <Text style={styles.sacredOm}>ॐ</Text>
+              <KrishnaAvatar size={74} />
             </View>
             <Text style={styles.welcomeTitle}>Welcome, O Seeker</Text>
             <Text style={styles.welcomeSubtitle}>
@@ -217,7 +217,7 @@ export default function DirectChatScreen() {
                 <View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
                   {!isUser && (
                     <View style={styles.krishnaAvatar}>
-                      <Text style={styles.krishnaAvatarText}>ॐ</Text>
+                      <KrishnaAvatar size={26} />
                     </View>
                   )}
 
@@ -275,7 +275,7 @@ export default function DirectChatScreen() {
               isStreaming ? (
                 <View style={[styles.messageRow, styles.assistantRow]}>
                   <View style={styles.krishnaAvatar}>
-                    <Text style={styles.krishnaAvatarText}>ॐ</Text>
+                    <KrishnaAvatar size={26} />
                   </View>
                   <View style={[styles.bubble, styles.assistantBubble]}>
                     <Text style={styles.assistantText}>
@@ -372,7 +372,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 36) + 8 : 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
     backgroundColor: '#0E1320',

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
 import { darkTheme } from '../../theme/colors';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
+import { KrishnaAvatar } from '../../components/KrishnaAvatar';
 
 type AuthMode = 'login' | 'signup' | 'verify_otp' | 'forgot_email' | 'forgot_reset';
 
@@ -195,10 +196,10 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSuccess = async (idToken: string) => {
+  const handleGoogleSuccess = async (idToken: string, googleUser?: any) => {
     setLocalError(null);
     try {
-      await loginWithGoogle(idToken);
+      await loginWithGoogle(idToken, googleUser);
       router.replace('/chat');
     } catch (err: any) {
       setLocalError(err.message || 'Google authentication failed.');
@@ -214,9 +215,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {/* Classical Header */}
           <View style={styles.header}>
-            <View style={styles.sacredBadge}>
-              <Text style={styles.sacredOm}>ॐ</Text>
-            </View>
+            <KrishnaAvatar size={76} style={styles.sacredAvatar} />
             <Text style={styles.appTitle}>Talk to Krishna</Text>
             <Text style={styles.appTagline}>Timeless wisdom for the modern mind</Text>
           </View>
@@ -558,26 +557,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  sacredBadge: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#1E293B',
-    borderWidth: 1.5,
+  sacredAvatar: {
+    marginBottom: 16,
+    borderWidth: 2,
     borderColor: darkTheme.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
     shadowColor: darkTheme.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
-    elevation: 6,
-  },
-  sacredOm: {
-    fontSize: 32,
-    color: darkTheme.primary,
-    fontWeight: 'bold',
   },
   appTitle: {
     color: '#F8FAFC',

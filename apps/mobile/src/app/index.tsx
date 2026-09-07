@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth.store';
 import { darkTheme } from '../theme/colors';
+import { KrishnaAvatar } from '../components/KrishnaAvatar';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.lotusCircle}>
-        <Text style={styles.omSymbol}>ॐ</Text>
+        <KrishnaAvatar size={90} />
       </View>
       <Text style={styles.title}>Talk to Krishna</Text>
       <Text style={styles.subtitle}>Timeless wisdom for the modern mind</Text>

@@ -9,8 +9,17 @@ import {
   Alert,
 } from 'react-native';
 
+export interface GoogleSignInUserInfo {
+  id?: string;
+  email?: string;
+  name?: string;
+  givenName?: string;
+  familyName?: string;
+  photo?: string;
+}
+
 interface GoogleSignInButtonProps {
-  onSuccess: (idToken: string) => Promise<void>;
+  onSuccess: (idToken: string, user?: GoogleSignInUserInfo) => Promise<void>;
   onError: (error: string) => void;
   disabled?: boolean;
 }
@@ -176,8 +185,24 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           ? response.data.idToken
           : (response as any)?.idToken;
 
+      const rawUser =
+        response && 'data' in response && response.data?.user
+          ? response.data.user
+          : (response as any)?.user;
+
+      const googleUser = rawUser
+        ? {
+            id: rawUser.id,
+            email: rawUser.email,
+            name: rawUser.name,
+            givenName: rawUser.givenName,
+            familyName: rawUser.familyName,
+            photo: rawUser.photo,
+          }
+        : undefined;
+
       if (idToken) {
-        await onSuccess(idToken);
+        await onSuccess(idToken, googleUser);
       } else {
         throw new Error('Google Sign-In did not return an ID token.');
       }

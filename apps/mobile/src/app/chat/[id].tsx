@@ -21,6 +21,7 @@ import * as Sharing from 'expo-sharing';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
 import { darkTheme } from '../../theme/colors';
+import { KrishnaAvatar } from '../../components/KrishnaAvatar';
 import {
   ArrowLeft,
   Send,
@@ -327,7 +328,7 @@ export default function ChatScreen() {
 
             {/* Aesthetic Quote Card */}
             <View style={styles.quoteCardVisual}>
-              <Text style={styles.cardOm}>ॐ</Text>
+              <KrishnaAvatar size={48} style={{ marginBottom: 12 }} />
               <Text style={styles.cardQuoteText} numberOfLines={6}>
                 "{quoteCardMessage?.content}"
               </Text>
