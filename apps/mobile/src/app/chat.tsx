@@ -70,6 +70,7 @@ export default function DirectChatScreen() {
     streamingContent,
     streamingCitations,
     clearActiveConversation,
+    error,
   } = useChatStore();
 
   const [inputMessage, setInputMessage] = useState('');
@@ -125,7 +126,7 @@ export default function DirectChatScreen() {
     } catch {}
   };
 
-  const messages = activeConversation?.messages || [];
+  const messages = (activeConversation?.messages || []).filter((m) => m.content && m.content.trim().length > 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -289,6 +290,13 @@ export default function DirectChatScreen() {
               ) : null
             }
           />
+        )}
+
+        {/* Error Banner */}
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
         )}
 
         {/* Input Bar (ChatGPT / Gemini style) */}
@@ -672,5 +680,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontStyle: 'italic',
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#EF4444',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  errorBannerText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
   },
 });

@@ -131,28 +131,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ error: err.message, isStreaming: false });
       },
       () => {
-        // Stream completed: finalize message in active conversation
-        const assistantMsg: Message = {
-          id: `msg-${Date.now()}`,
-          conversationId,
-          sender: 'krishna',
-          content: accumulatedContent,
-          citations: accumulatedCitations,
-          createdAt: new Date().toISOString(),
-        };
+        // Stream completed: only add message if we actually received content
+        if (accumulatedContent.trim()) {
+          const assistantMsg: Message = {
+            id: `msg-${Date.now()}`,
+            conversationId,
+            sender: 'krishna',
+            content: accumulatedContent,
+            citations: accumulatedCitations,
+            createdAt: new Date().toISOString(),
+          };
 
-        set((state) => ({
-          activeConversation: state.activeConversation
-            ? {
-                ...state.activeConversation,
-                messages: [...state.activeConversation.messages, assistantMsg],
-              }
-            : null,
-          isStreaming: false,
-          streamingContent: '',
-          streamingCitations: [],
-          streamingMetadata: null,
-        }));
+          set((state) => ({
+            activeConversation: state.activeConversation
+              ? {
+                  ...state.activeConversation,
+                  messages: [...state.activeConversation.messages, assistantMsg],
+                }
+              : null,
+            isStreaming: false,
+            streamingContent: '',
+            streamingCitations: [],
+            streamingMetadata: null,
+          }));
+        } else {
+          set((state) => ({
+            isStreaming: false,
+            streamingContent: '',
+            streamingCitations: [],
+            streamingMetadata: null,
+            error: state.error || 'The divine presence is temporarily quiet. Please check connection and try again.',
+          }));
+        }
 
         // Refresh conversation list to update titles and timestamps
         get().fetchConversations();
