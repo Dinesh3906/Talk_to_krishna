@@ -100,43 +100,76 @@ export async function streamChatMessage(
   const xhr = new XMLHttpRequest();
   xhr.open('POST', url, true);
   xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('Accept', 'text/event-stream, application/json');
   if (authToken) {
     xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
   }
 
+  // 90 second timeout to accommodate backend cold starts (e.g. Render free tier)
+  xhr.timeout = 90000;
+
   let seenBytes = 0;
   let buffer = '';
 
-  xhr.onprogress = () => {
-    const newText = xhr.responseText.substring(seenBytes);
-    seenBytes = xhr.responseText.length;
-    buffer += newText;
+  const processIncomingText = () => {
+    try {
+      const responseText = xhr.responseText;
+      if (!responseText || responseText.length <= seenBytes) return;
 
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      const newText = responseText.substring(seenBytes);
+      seenBytes = responseText.length;
+      buffer += newText;
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('data: ')) {
-        try {
-          const dataStr = trimmed.replace('data: ', '');
-          const chunk: StreamChunk = JSON.parse(dataStr);
-          onChunk(chunk);
-        } catch {
-          // Partial JSON in stream buffer
+      const lines = buffer.split('\n');
+      // Retain incomplete trailing line in buffer
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data: ')) {
+          const dataStr = trimmed.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const chunk: StreamChunk = JSON.parse(dataStr);
+            onChunk(chunk);
+          } catch {
+            // Incomplete JSON or malformed chunk in stream buffer
+          }
         }
       }
+    } catch {
+      // In some native runtimes, accessing responseText during early LOADING throws
+    }
+  };
+
+  xhr.onprogress = () => {
+    processIncomingText();
+  };
+
+  xhr.onreadystatechange = () => {
+    // Read incrementally at state 3 (LOADING) and state 4 (DONE)
+    if (xhr.readyState === 3 || xhr.readyState === 4) {
+      processIncomingText();
     }
   };
 
   xhr.onload = () => {
-    if (xhr.status >= 200 && xhr.status < 300) {
-      if (buffer.trim().startsWith('data: ')) {
+    // Ensure all remaining bytes are processed
+    processIncomingText();
+
+    // If any final data remains in buffer, process it
+    if (buffer.trim().startsWith('data: ')) {
+      const dataStr = buffer.trim().slice(6).trim();
+      if (dataStr && dataStr !== '[DONE]') {
         try {
-          const chunk: StreamChunk = JSON.parse(buffer.trim().replace('data: ', ''));
+          const chunk: StreamChunk = JSON.parse(dataStr);
           onChunk(chunk);
         } catch {}
       }
+      buffer = '';
+    }
+
+    if (xhr.status >= 200 && xhr.status < 300) {
       onDone();
     } else {
       let msg = `Server error ${xhr.status}`;
@@ -148,8 +181,12 @@ export async function streamChatMessage(
     }
   };
 
+  xhr.ontimeout = () => {
+    onError(new Error('The server took too long to respond (cold start). Please try again.'));
+  };
+
   xhr.onerror = () => {
-    onError(new Error('Network request failed'));
+    onError(new Error('Network request failed. Please check your internet connection and backend status.'));
   };
 
   xhr.send(JSON.stringify({ content, preferredName }));

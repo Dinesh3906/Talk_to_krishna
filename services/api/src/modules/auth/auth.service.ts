@@ -22,6 +22,7 @@ import { OtpService } from './otp.service.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_insecure_jwt_secret_must_change_in_production_32char';
 const JWT_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const BCRYPT_SALT_ROUNDS = 10; // OWASP compliant, 4x faster than 12 on CPU
 
 const googleOAuthClient = new OAuth2Client();
 
@@ -60,7 +61,7 @@ export class AuthService {
       }
 
       // User registered previously but never verified: update password & resend OTP
-      const passwordHash = await bcrypt.hash(dto.password, 12);
+      const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
       await db
         .update(users)
         .set({
@@ -85,7 +86,7 @@ export class AuthService {
       };
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
     const preferredName = dto.preferredName?.trim() || null;
     const displayName = dto.displayName?.trim() || normalizedEmail.split('@')[0];
 
@@ -389,7 +390,7 @@ export class AuthService {
       throw new Error('User record not found.');
     }
 
-    const newPasswordHash = await bcrypt.hash(dto.newPassword, 12);
+    const newPasswordHash = await bcrypt.hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
     const nextTokenVersion = (userRecord.tokenVersion || 1) + 1;
 
     // 2. Atomic password change and token revocation

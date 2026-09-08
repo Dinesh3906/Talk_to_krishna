@@ -4,12 +4,16 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth.store';
 import { darkTheme } from '../theme/colors';
 import { KrishnaAvatar } from '../components/KrishnaAvatar';
+import { checkBackendHealth } from '../lib/api-client';
 
 export default function SplashScreen() {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
+    // Silently pre-warm Render server & database pool early to eliminate cold starts
+    checkBackendHealth().catch(() => {});
+
     const timer = setTimeout(() => {
       if (token) {
         router.replace('/chat');

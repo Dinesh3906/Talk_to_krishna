@@ -16,6 +16,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { darkTheme } from '../../theme/colors';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { KrishnaAvatar } from '../../components/KrishnaAvatar';
+import { checkBackendHealth } from '../../lib/api-client';
 
 type AuthMode = 'login' | 'signup' | 'verify_otp' | 'forgot_email' | 'forgot_reset';
 
@@ -60,6 +61,11 @@ export default function LoginScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Pre-warm backend connection as soon as login screen mounts
+  useEffect(() => {
+    checkBackendHealth().catch(() => {});
+  }, []);
 
   // Cooldown countdown timer
   useEffect(() => {

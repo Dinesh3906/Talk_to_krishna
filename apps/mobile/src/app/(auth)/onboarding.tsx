@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { darkTheme } from '../../theme/colors';
+import { checkBackendHealth } from '../../lib/api-client';
 
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
   return (
@@ -18,8 +19,11 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 }
 
 export default function OnboardingScreen() {
-
   const router = useRouter();
+
+  React.useEffect(() => {
+    checkBackendHealth().catch(() => {});
+  }, []);
 
   const handleStart = () => {
     router.replace('/(auth)/login');

@@ -221,14 +221,16 @@ router.post('/:id/messages', async (req: Request, res: Response) => {
     content,
   });
 
-  // 2. Configure SSE Headers
+  // 2. Configure SSE Headers (including reverse proxy buffer prevention)
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
   const sendEvent = (chunk: StreamChunk) => {
     res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    (res as any).flush?.();
   };
 
   try {

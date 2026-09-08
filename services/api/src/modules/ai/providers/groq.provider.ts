@@ -7,7 +7,7 @@ export class GroqProvider implements AIProvider {
   private modelName: string;
 
   constructor() {
-    const apiKey = process.env.GROQ_API_KEY || process.env.AI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY || (process.env.AI_API_KEY?.startsWith('gsk_') ? process.env.AI_API_KEY : '');
     this.client = new OpenAI({
       apiKey: apiKey || 'missing_key',
       baseURL: 'https://api.groq.com/openai/v1',
@@ -18,10 +18,10 @@ export class GroqProvider implements AIProvider {
   }
 
   private checkApiKey() {
-    const apiKey = process.env.GROQ_API_KEY || process.env.AI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY || (process.env.AI_API_KEY?.startsWith('gsk_') ? process.env.AI_API_KEY : '');
     if (!apiKey || apiKey === 'missing_key' || apiKey.includes('your_')) {
       throw new Error(
-        'Groq API key is not configured or invalid. The service is currently unable to reach the AI provider.'
+        'Groq API key is not configured or invalid. Please configure GROQ_API_KEY (starts with gsk_) in the environment.'
       );
     }
   }
