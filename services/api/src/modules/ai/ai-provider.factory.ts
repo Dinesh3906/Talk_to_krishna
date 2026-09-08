@@ -75,12 +75,10 @@ class ResilientFallbackProvider implements AIProvider {
 
 export class AIProviderFactory {
   private static instance: AIProvider | null = null;
+  private static cachedKey: string = '';
+  private static cachedProvider: string = '';
 
   public static getProvider(): AIProvider {
-    if (this.instance) {
-      return this.instance;
-    }
-
     const rawKey = (
       process.env.AI_API_KEY ||
       process.env.GROQ_API_KEY ||
@@ -90,6 +88,13 @@ export class AIProviderFactory {
     ).trim();
 
     let configuredProvider = (process.env.AI_PROVIDER || '').toLowerCase().trim();
+
+    if (this.instance && this.cachedKey === rawKey && this.cachedProvider === configuredProvider) {
+      return this.instance;
+    }
+
+    this.cachedKey = rawKey;
+    this.cachedProvider = configuredProvider;
 
     // Auto-detect provider if not set or set to 'auto'
     if (!configuredProvider || configuredProvider === 'auto') {
