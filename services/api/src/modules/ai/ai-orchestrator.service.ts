@@ -167,12 +167,19 @@ export class AIOrchestratorService {
     let promptTokens: number | undefined;
     let completionTokens: number | undefined;
 
+    const maxTokensByDepth: Record<string, number> = {
+      concise: 512,
+      balanced: 1024,
+      deep_philosophical: 1536,
+    };
+    const targetMaxTokens = maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || 1024;
+
     try {
       const completionResult = await aiProvider.streamCompletion(
         {
           messages: chatMessages,
           temperature: 0.7,
-          maxTokens: 2048,
+          maxTokens: targetMaxTokens,
         },
         (token: string) => {
           generatedContent += token;
