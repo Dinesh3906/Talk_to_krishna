@@ -172,7 +172,24 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
     setLoading(true);
     try {
+      // Re-ensure configuration is applied before initiating prompt
+      try {
+        GoogleSignin.configure({
+          webClientId: clientId,
+          offlineAccess: false,
+          scopes: ['email', 'profile'],
+        });
+      } catch (configErr) {
+        console.warn('[GoogleSignInButton] configure warning:', configErr);
+      }
+
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      // Clear any stale cached account state from previous attempts to ensure clean picker
+      try {
+        await GoogleSignin.signOut();
+      } catch {}
+
       const response = await GoogleSignin.signIn();
 
       if (response && response.type === 'cancelled') {
@@ -219,6 +236,26 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           return;
         }
       }
+
+      const errCode = (error as any)?.code;
+      const isDevError =
+        errCode === statusCodes?.DEVELOPER_ERROR ||
+        errCode === '10' ||
+        errCode === 10 ||
+        error.message?.includes('DEVELOPER_ERROR') ||
+        error.message?.includes('10');
+
+      if (isDevError) {
+        const errorDetail =
+          'Google Cloud Console requires an Android OAuth Client ID matching:\n\n' +
+          '• Package Name: com.talktokrishna.ai\n' +
+          '• SHA-1 Fingerprint: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
+          'Please register this SHA-1 in Google Cloud Console project 557211276662 under APIs & Services > Credentials.';
+        Alert.alert('Configuration Required', errorDetail);
+        onError('Google Sign-In configuration required: SHA-1 fingerprint mismatch (Error 10: DEVELOPER_ERROR).');
+        return;
+      }
+
       console.error('[GoogleSignInButton] Native sign-in error:', error);
       onError(error.message || 'Google Sign-In failed.');
     } finally {
