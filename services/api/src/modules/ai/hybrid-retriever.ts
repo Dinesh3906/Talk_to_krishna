@@ -167,14 +167,23 @@ export class HybridRetriever {
       const targetParva = this.detectParva(queryText);
 
       // 3. Generate normalized 768-dim query embedding
-      let queryEmbedding: number[];
+      let queryEmbedding: number[] = new Array(768).fill(0);
       try {
         const aiProvider = AIProviderFactory.getProvider();
-        const [emb] = await aiProvider.generateEmbeddings([queryText]);
-        queryEmbedding = emb;
+        if (aiProvider.providerName !== 'groq') {
+          const [emb] = await aiProvider.generateEmbeddings([queryText]);
+          if (emb && emb.length > 0) {
+            queryEmbedding = emb;
+          }
+        } else if (process.env.NODE_ENV !== 'production' && !process.env.RENDER) {
+          // On local environments only; skip heavy ONNX transformer download on Render 512MB to prevent OOM
+          const [emb] = await LocalEmbeddingProvider.generateEmbeddings([queryText]);
+          if (emb && emb.length > 0) {
+            queryEmbedding = emb;
+          }
+        }
       } catch {
-        const [emb] = await LocalEmbeddingProvider.generateEmbeddings([queryText]);
-        queryEmbedding = emb;
+        queryEmbedding = new Array(768).fill(0);
       }
       const embeddingString = `[${queryEmbedding.join(',')}]`;
 
