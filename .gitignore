@@ -46,3 +46,5 @@ pnpm-debug.log*
 # Certificates and signing keys
 certificates.zip
 certificates_extracted/
+*.aab
+*.apk
