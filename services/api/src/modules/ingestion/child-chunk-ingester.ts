@@ -217,6 +217,9 @@ export class ChildChunkIngester {
     const embeddings = await LocalEmbeddingProvider.generateEmbeddings(textsToEmbed);
 
     const client = await pool.connect();
+    client.on('error', (err: any) => {
+      console.warn('[ChildChunkIngester Client Socket Error]:', err.message);
+    });
     try {
       await client.query('BEGIN');
 

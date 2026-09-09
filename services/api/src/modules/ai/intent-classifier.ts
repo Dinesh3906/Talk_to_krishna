@@ -34,9 +34,10 @@ export class IntentClassifier {
       };
     }
 
-    // 1. Casual Banter / Mundane Interactions (Strictly non-scriptural)
+    // 1. Casual Banter / Mundane Interactions & Greetings (Strictly non-scriptural)
     const isCasual =
-      /^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup)\b/i.test(text) ||
+      /^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|pranam|namaste|radhe\s*radhe|hare\s*krishna)\b/i.test(text) ||
+      /^(hey|hi|hello|pranam|namaste|radhe\s*radhe)\s*(krishna|lord krishna|shri krishna|bhagavan|kanha|vasudeva)\b/i.test(text) ||
       /just saying hello|how are you|what('s| is) the weather|tell me a (funny )?joke|who are you/i.test(text) ||
       /what should i (eat|wear|watch|cook)/i.test(text);
 
@@ -73,19 +74,33 @@ export class IntentClassifier {
     }
 
     // Extract Epic Entities & Characters
+    // Detect if the seeker is directly addressing Krishna in dialogue vs querying about Him in third person
+    const isDirectAddressToKrishna =
+      /^(o\s+)?(krishna|shri krishna|lord krishna|kanha|govinda|keshava|madhava)\b/i.test(text) ||
+      /\b(tell me,? krishna|krishna,?\s+(i|i'm|what|how|why|please|help|can|could|listen))\b/i.test(text);
+
     const list = [
-      'krishna', 'arjuna', 'karna', 'yudhishthira', 'bhima', 'draupadi',
+      'arjuna', 'karna', 'yudhishthira', 'bhima', 'draupadi',
       'duryodhana', 'bhishma', 'drona', 'vidura', 'vyasa', 'sanjaya',
       'dhritarashtra', 'ashwatthama', 'abhimanyu', 'yaksha', 'pandava',
       'pandavas', 'kaurava', 'kauravas', 'kunti', 'shakuni', 'nakula',
       'sahadeva', 'shikhandi', 'ghatotkacha', 'balarama', 'subhadra', 'shantanu'
     ];
+
+    const isAboutKrishna =
+      /\b(did krishna|what did krishna|who was krishna|who is krishna|krishna's (role|life|birth|teachings?|childhood|wives|death)|about krishna|krishna said|in the gita.*krishna)\b/i.test(text) ||
+      (!isDirectAddressToKrishna && /\bkrishna\b/i.test(text) && !/\b(i |me |my |myself|i'm |we |our )\b/i.test(text));
+
+    if (isAboutKrishna) {
+      list.push('krishna');
+    }
+
     const characters = list.filter((c) => text.includes(c)).map((c) => c.charAt(0).toUpperCase() + c.slice(1));
 
     // 3. Epic & Scriptural Concepts (Third-person characters, events, verses, teachings)
     const hasEpicEntities =
       characters.length > 0 ||
-      /\b(krishna|arjuna|karna|yudhishthira|bhima|draupadi|duryodhana|bhishma|drona|vidura|vyasa|sanjaya|dhritarashtra|ashwatthama|abhimanyu|yaksha|pandavas?|kauravas?|kunti|shakuni|parva|gita|bhagavad gita|mahabharata|kurukshetra|hastinapur|indraprastha|gunas?|sattva|rajas|tamas|sthitaprajna|visvarupa|chakravyuha|dice|assembly hall|night raid|sauptika|disrobing|exile|panchali|dharma|karma|svadharma|nishkama|moksha|samsara|atman|brahman|maya|surrender|quote|verse|did krishna|what did krishna|in the gita)\b/i.test(text);
+      /\b(arjuna|karna|yudhishthira|bhima|draupadi|duryodhana|bhishma|drona|vidura|vyasa|sanjaya|dhritarashtra|ashwatthama|abhimanyu|yaksha|pandavas?|kauravas?|kunti|shakuni|parva|gita|bhagavad gita|mahabharata|kurukshetra|hastinapur|indraprastha|gunas?|sattva|rajas|tamas|sthitaprajna|visvarupa|chakravyuha|dice|assembly hall|night raid|sauptika|disrobing|exile|panchali|dharma|karma|svadharma|nishkama|moksha|samsara|atman|brahman|maya|surrender|quote|verse|did krishna|what did krishna|in the gita)\b/i.test(text);
 
     const isThirdPersonEpic =
       hasEpicEntities &&
@@ -172,11 +187,13 @@ export class IntentClassifier {
     const isNegatedAnger = /\b(not|no|never|don't feel|do not feel)\s+(angry|mad|furious|rage)\b/i.test(text);
     const isNegatedFear = /\b(not|no|never|don't feel|do not feel)\s+(afraid|scared|fear|terrified)\b/i.test(text);
     const isNegatedJealousy = /\b(not|no|never|don't feel|do not feel)\s+(jealous|envious|envy)\b/i.test(text);
+    const isNegatedGrief = /\b(not|no|never|don't feel|do not feel)\s+(sad|depressed|unhappy)\b/i.test(text);
 
     const hasAnger = /\b(furious|enraged|rage|revenge|wrath|resentment|lose my temper|anger|angry)\b/i.test(text) && !isNegatedAnger;
     const hasJealousy = /\b(jealous|jealousy|envious|envy|bitter at (others|peers|friends)|covet)\b/i.test(text) && !isNegatedJealousy;
     const hasFear = /\b(anxiety|anxious|panic|terrified|fearful|dread|racing mind|tight chest|fear)\b/i.test(text) && !isNegatedFear;
-    const hasGrief = /\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness)\b/i.test(text);
+    const hasGrief =
+      (/\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart)\b/i.test(text)) && !isNegatedGrief;
 
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';

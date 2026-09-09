@@ -218,91 +218,177 @@ export class HybridRetriever {
         ? Array.from(expandedTokens).slice(0, 15).map(t => `'${t}':*`).join(' | ') 
         : '';
 
-      // 5. Perform multi-stage hybrid query on child chunks with parent page joining
-      const sqlQuery = `
-        WITH parva_vector_matches AS (
-          SELECT 
-            id,
-            1 - (embedding <=> $1::vector) AS vector_similarity
-          FROM mahabharata_child_chunks
-          WHERE $5 != '' AND parva = $5
-          ORDER BY embedding <=> $1::vector ASC
-          LIMIT 40
-        ),
-        global_vector_matches AS (
-          SELECT 
-            id,
-            1 - (embedding <=> $1::vector) AS vector_similarity
-          FROM mahabharata_child_chunks
-          ORDER BY embedding <=> $1::vector ASC
-          LIMIT 25
-        ),
-        fts_matches AS (
-          SELECT
-            id,
-            ts_rank_cd(
-              to_tsvector('english', text),
-              CASE 
-                WHEN $3 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $3) 
-                THEN to_tsquery('english', $3)
-                ELSE websearch_to_tsquery('english', $2)
-              END
-            ) AS keyword_rank
-          FROM mahabharata_child_chunks
-          WHERE 
-            ($5 != '' AND parva = $5) OR
-            ($5 = '' AND (
-              ($3 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $3))
-              OR to_tsvector('english', text) @@ websearch_to_tsquery('english', $2)
-            ))
-          LIMIT 35
-        )
-        SELECT 
-          c.id,
-          c.parent_chunk_id,
-          c.source_type,
-          c.parva,
-          c.page_number,
-          c.chunk_index,
-          c.section,
-          c.source_reference,
-          c.characters,
-          c.themes,
-          c.text AS child_text,
-          p.chapter,
-          p.verse_range,
-          p.speaker,
-          p.listener,
-          p.translation AS parent_translation,
-          p.original_text,
-          p.context_summary,
-          p.relevance_for_guidance,
-          COALESCE(pvm.vector_similarity, gvm.vector_similarity, 0.0) AS vec_score,
-          COALESCE(f.keyword_rank, 0.0) AS fts_score,
-          (
-            (COALESCE(pvm.vector_similarity, gvm.vector_similarity, 0.0) * 0.60) +
-            (LEAST(COALESCE(f.keyword_rank, 0.0), 1.0) * 0.25) +
-            (CASE WHEN $5 != '' AND c.parva = $5 THEN 0.35 ELSE 0.0 END) +
-            (CASE WHEN $6 && c.characters THEN 0.10 ELSE 0.0 END)
-          ) AS combined_score
-        FROM mahabharata_child_chunks c
-        JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
-        LEFT JOIN parva_vector_matches pvm ON c.id = pvm.id
-        LEFT JOIN global_vector_matches gvm ON c.id = gvm.id
-        LEFT JOIN fts_matches f ON c.id = f.id
-        WHERE pvm.id IS NOT NULL OR gvm.id IS NOT NULL OR f.id IS NOT NULL
-        ORDER BY combined_score DESC
-        LIMIT $4;
-      `;
+      const hasValidVector = queryEmbedding.some((v) => v !== 0);
 
-      const { rows } = await pool.query(sqlQuery, [
-        embeddingString,
-        queryText,
-        prefixQuery,
-        limit,
-        targetParva || '',
-        extractedCharacters
-      ]);
+      // 5. Perform multi-stage hybrid query on child chunks with parent page joining
+      let rows: any[] = [];
+      const client = await pool.connect();
+      try {
+        // Enforce 2500ms safety timeout to prevent hanging connections or 502 gateway timeouts
+        await client.query("SET LOCAL statement_timeout = '2500'");
+
+        if (hasValidVector) {
+          const sqlQuery = `
+            WITH parva_vector_matches AS (
+              SELECT 
+                id,
+                1 - (embedding <=> $1::vector) AS vector_similarity
+              FROM mahabharata_child_chunks
+              WHERE $5 != '' AND parva = $5
+              ORDER BY embedding <=> $1::vector ASC
+              LIMIT 40
+            ),
+            global_vector_matches AS (
+              SELECT 
+                id,
+                1 - (embedding <=> $1::vector) AS vector_similarity
+              FROM mahabharata_child_chunks
+              ORDER BY embedding <=> $1::vector ASC
+              LIMIT 25
+            ),
+            fts_matches AS (
+              SELECT
+                id,
+                ts_rank_cd(
+                  to_tsvector('english', text),
+                  CASE 
+                    WHEN $3 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $3) 
+                    THEN to_tsquery('english', $3)
+                    ELSE websearch_to_tsquery('english', $2)
+                  END
+                ) AS keyword_rank
+              FROM mahabharata_child_chunks
+              WHERE 
+                ($5 != '' AND parva = $5 AND (
+                  ($3 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $3))
+                  OR to_tsvector('english', text) @@ websearch_to_tsquery('english', $2)
+                )) OR
+                ($5 = '' AND (
+                  ($3 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $3))
+                  OR to_tsvector('english', text) @@ websearch_to_tsquery('english', $2)
+                ))
+              LIMIT 35
+            )
+            SELECT 
+              c.id,
+              c.parent_chunk_id,
+              c.source_type,
+              c.parva,
+              c.page_number,
+              c.chunk_index,
+              c.section,
+              c.source_reference,
+              c.characters,
+              c.themes,
+              c.text AS child_text,
+              p.chapter,
+              p.verse_range,
+              p.speaker,
+              p.listener,
+              p.translation AS parent_translation,
+              p.original_text,
+              p.context_summary,
+              p.relevance_for_guidance,
+              COALESCE(pvm.vector_similarity, gvm.vector_similarity, 0.0) AS vec_score,
+              COALESCE(f.keyword_rank, 0.0) AS fts_score,
+              (
+                (COALESCE(pvm.vector_similarity, gvm.vector_similarity, 0.0) * 0.60) +
+                (LEAST(COALESCE(f.keyword_rank, 0.0), 1.0) * 0.25) +
+                (CASE WHEN $5 != '' AND c.parva = $5 THEN 0.35 ELSE 0.0 END) +
+                (CASE WHEN $6 && c.characters THEN 0.10 ELSE 0.0 END)
+              ) AS combined_score
+            FROM mahabharata_child_chunks c
+            JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
+            LEFT JOIN parva_vector_matches pvm ON c.id = pvm.id
+            LEFT JOIN global_vector_matches gvm ON c.id = gvm.id
+            LEFT JOIN fts_matches f ON c.id = f.id
+            WHERE pvm.id IS NOT NULL OR gvm.id IS NOT NULL OR f.id IS NOT NULL
+            ORDER BY combined_score DESC
+            LIMIT $4;
+          `;
+
+          const res = await client.query(sqlQuery, [
+            embeddingString,
+            queryText,
+            prefixQuery,
+            limit,
+            targetParva || '',
+            extractedCharacters
+          ]);
+          rows = res.rows;
+        } else {
+          // Fast GIN-indexed Full-Text Search when dense vector is unavailable
+          // Bypasses the 15-second zero-vector sequential scan completely
+          const ftsSql = `
+            WITH fts_matches AS (
+              SELECT
+                id,
+                ts_rank_cd(
+                  to_tsvector('english', text),
+                  CASE 
+                    WHEN $2 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $2) 
+                    THEN to_tsquery('english', $2)
+                    ELSE websearch_to_tsquery('english', $1)
+                  END
+                ) AS keyword_rank
+              FROM mahabharata_child_chunks
+              WHERE 
+                ($4 != '' AND parva = $4 AND (
+                  ($2 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $2))
+                  OR to_tsvector('english', text) @@ websearch_to_tsquery('english', $1)
+                )) OR
+                ($4 = '' AND (
+                  ($2 != '' AND to_tsvector('english', text) @@ to_tsquery('english', $2))
+                  OR to_tsvector('english', text) @@ websearch_to_tsquery('english', $1)
+                ))
+              LIMIT 35
+            )
+            SELECT 
+              c.id,
+              c.parent_chunk_id,
+              c.source_type,
+              c.parva,
+              c.page_number,
+              c.chunk_index,
+              c.section,
+              c.source_reference,
+              c.characters,
+              c.themes,
+              c.text AS child_text,
+              p.chapter,
+              p.verse_range,
+              p.speaker,
+              p.listener,
+              p.translation AS parent_translation,
+              p.original_text,
+              p.context_summary,
+              p.relevance_for_guidance,
+              0.0 AS vec_score,
+              f.keyword_rank AS fts_score,
+              (
+                (LEAST(f.keyword_rank, 1.0) * 0.70) +
+                (CASE WHEN $4 != '' AND c.parva = $4 THEN 0.35 ELSE 0.0 END) +
+                (CASE WHEN $5 && c.characters THEN 0.15 ELSE 0.0 END)
+              ) AS combined_score
+            FROM fts_matches f
+            JOIN mahabharata_child_chunks c ON f.id = c.id
+            JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
+            ORDER BY combined_score DESC
+            LIMIT $3;
+          `;
+
+          const res = await client.query(ftsSql, [
+            queryText,
+            prefixQuery,
+            limit,
+            targetParva || '',
+            extractedCharacters
+          ]);
+          rows = res.rows;
+        }
+      } finally {
+        client.release();
+      }
 
       const latencyMs = Date.now() - startTime;
 

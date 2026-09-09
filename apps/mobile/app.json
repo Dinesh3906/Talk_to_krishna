@@ -2,7 +2,7 @@
   "expo": {
     "name": "Talk to Krishna",
     "slug": "talk-to-krishna",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "talktokrishna",
@@ -23,7 +23,7 @@
         "backgroundColor": "#0B0F19"
       },
       "package": "com.talktokrishna.ai",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "INTERNET",
         "VIBRATE"

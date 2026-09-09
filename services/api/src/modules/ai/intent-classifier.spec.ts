@@ -45,4 +45,17 @@ describe('IntentClassifier', () => {
     expect(result.mahabharataRelevant).toBe(true);
     expect(result.extractedCharacters).toContain('Karna');
   });
+
+  it('should recognize emotional distress when directly addressing Krishna', () => {
+    const result = IntentClassifier.classify("Krishna.. I'm not feeling good");
+    expect(result.intentCategory).toBe('emotional_distress');
+    expect(result.emotionalState).toBe('grief');
+    expect(result.extractedCharacters).not.toContain('Krishna');
+  });
+
+  it('should classify sacred greetings like Pranam Krishna as casual_banter', () => {
+    const result = IntentClassifier.classify('Pranam Krishna');
+    expect(result.intentCategory).toBe('casual_banter');
+    expect(result.mahabharataRelevant).toBe(false);
+  });
 });

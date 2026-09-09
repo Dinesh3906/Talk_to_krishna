@@ -18,11 +18,21 @@ async function main() {
   try {
     const result = await FullCorpusIngester.ingestCorpus(pdfPath);
     console.log('====================================================');
-    console.log('INGESTION SUCCESSFUL!');
+    console.log('STAGE 1 COMPLETE: PARENT PAGES INGESTED!');
     console.log(`Duration: ${(result.durationMs / 1000).toFixed(1)}s`);
     console.log(`Total Pages: ${result.totalPages}`);
     console.log(`Non-empty Chunks: ${result.ingestedChunks}`);
     console.log('====================================================');
+
+    console.log('STARTING STAGE 2: SEMANTIC CHILD CHUNK INGESTION & RETRIEVAL INDEXING...');
+    const { ChildChunkIngester } = await import('./child-chunk-ingester.js');
+    const childResult = await ChildChunkIngester.ingestAllChildChunks();
+    console.log('====================================================');
+    console.log('STAGE 2 COMPLETE: ALL CHILD RETRIEVAL CHUNKS INDEXED!');
+    console.log(`Duration: ${(childResult.durationMs / 1000).toFixed(1)}s`);
+    console.log(`Total Child Chunks: ${childResult.totalChildChunks}`);
+    console.log('====================================================');
+    console.log('FULL 6,808-PAGE MAHABHARATA CORPUS INGESTION 100% COMPLETE!');
   } catch (err: any) {
     console.error('CRITICAL INGESTION ERROR:', err);
     process.exit(1);

@@ -70,7 +70,9 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   });
 
   if (!response.ok) {
-    let errorMessage = `Request failed with status ${response.status}`;
+    let errorMessage = response.status === 502 || response.status === 504
+      ? 'The Sanctuary is currently reconnecting. Please send your message again in a moment.'
+      : `Request failed with status ${response.status}`;
     try {
       const errorJson = await response.json();
       if (errorJson?.error?.message) {
@@ -172,7 +174,9 @@ export async function streamChatMessage(
     if (xhr.status >= 200 && xhr.status < 300) {
       onDone();
     } else {
-      let msg = `Server error ${xhr.status}`;
+      let msg = xhr.status === 502 || xhr.status === 504
+        ? 'The Sanctuary is currently reconnecting. Please send your message again in a moment.'
+        : `Server error ${xhr.status}`;
       try {
         const errData = JSON.parse(xhr.responseText);
         if (errData?.error?.message) msg = errData.error.message;

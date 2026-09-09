@@ -77,30 +77,47 @@ export class FullCorpusIngester {
     console.log(`[Full Corpus Ingester] Extraction complete. Total pages parsed: ${pageMap.size}`);
 
     // 2. Ensure canonical source record exists
-    const sourceRes = await pool.query(`
-      INSERT INTO mahabharata_sources (title, volume_parva, source_type)
-      VALUES ('The Complete Mahabharata Volume 1-12 (Translation by Ramesh Menon)', 'All 18 Parvas (Complete 12-Volume Edition)', 'pdf_volume')
-      RETURNING id;
+    let sourceRes = await pool.query(`
+      SELECT id FROM mahabharata_sources WHERE source_type = 'pdf_volume' LIMIT 1;
     `);
-    const sourceId = sourceRes.rows[0].id;
+    let sourceId: string;
+    if (sourceRes.rows.length === 0) {
+      const ins = await pool.query(`
+        INSERT INTO mahabharata_sources (title, volume_parva, source_type)
+        VALUES ('The Complete Mahabharata Volume 1-12 (Translation by Ramesh Menon)', 'All 18 Parvas (Complete 12-Volume Edition)', 'pdf_volume')
+        RETURNING id;
+      `);
+      sourceId = ins.rows[0].id;
+    } else {
+      sourceId = sourceRes.rows[0].id;
+    }
 
-    // Clear any previous incomplete test data from mahabharata_chunks
-    await pool.query(`DELETE FROM mahabharata_chunks WHERE source_type = 'pdf_volume';`);
+    // 2b. Check for already ingested pages to enable resuming
+    const existingRes = await pool.query(`
+      SELECT section FROM mahabharata_chunks WHERE source_type = 'pdf_volume';
+    `);
+    const ingestedPages = new Set<number>();
+    for (const row of existingRes.rows) {
+      const match = row.section?.match(/Page\s+(\d+)/i);
+      if (match) {
+        ingestedPages.add(parseInt(match[1], 10));
+      }
+    }
+    console.log(`[Full Corpus Ingester] Resume check: ${ingestedPages.size} pages already ingested in PostgreSQL.`);
 
     // 3. Batch processing & embedding generation
     console.log('[Full Corpus Ingester] Phase 2: Ingesting chunks & generating 768-dim embeddings...');
-    const BATCH_SIZE = 64;
+    const BATCH_SIZE = 32;
     let currentBatch: { pageNum: number; text: string; parva: string; characters: string[] }[] = [];
     let currentParva = 'Adi Parva';
-    let nonEmptyCount = 0;
-    let ingestedCount = 0;
+    let nonEmptyCount = ingestedPages.size;
+    let ingestedCount = ingestedPages.size;
 
     for (let pageNum = 1; pageNum <= 6808; pageNum++) {
       const text = pageMap.get(pageNum) || '';
       if (!text || text.length === 0) {
         continue;
       }
-      nonEmptyCount++;
 
       // Detect Parva transition
       for (const pName of PARVA_NAMES) {
@@ -110,6 +127,13 @@ export class FullCorpusIngester {
           break;
         }
       }
+
+      // Skip pages already present in database
+      if (ingestedPages.has(pageNum)) {
+        continue;
+      }
+
+      nonEmptyCount++;
 
       // Detect characters
       const charsOnPage = MAJOR_CHARACTERS.filter(c => text.includes(c));
@@ -124,7 +148,7 @@ export class FullCorpusIngester {
       if (currentBatch.length >= BATCH_SIZE || pageNum === 6808) {
         await this.flushBatch(sourceId, currentBatch);
         ingestedCount += currentBatch.length;
-        console.log(`[Full Corpus Ingester] Ingested ${ingestedCount} pages (Page ${pageNum}/6808)...`);
+        console.log(`[Full Corpus Ingester] Ingested ${ingestedCount}/6808 pages (Current: Page ${pageNum}, Parva: ${currentParva})...`);
         currentBatch = [];
       }
     }
@@ -154,47 +178,64 @@ export class FullCorpusIngester {
     const textsToEmbed = batch.map(b => `${b.parva}, Page ${b.pageNum}: ${b.text.slice(0, 250)}`);
     const embeddings = await LocalEmbeddingProvider.generateEmbeddings(textsToEmbed);
 
-    // Multi-row INSERT
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    // Resilient retry loop for cloud PostgreSQL poolers
+    let attempts = 0;
+    const maxAttempts = 4;
 
-      for (let i = 0; i < batch.length; i++) {
-        const item = batch[i];
-        const emb = embeddings[i];
-        const embString = `[${emb.join(',')}]`;
-        const snippet = item.text.slice(0, 200) + '...';
+    while (attempts < maxAttempts) {
+      attempts++;
+      let client;
+      try {
+        client = await pool.connect();
+        client.on('error', (clientErr: any) => {
+          console.warn('[Full Corpus Ingester Client Socket Error]:', clientErr.message);
+        });
+        await client.query('BEGIN');
 
-        await client.query(`
-          INSERT INTO mahabharata_chunks (
-            source_id, source_type, parva, chapter, section, verse_range,
-            characters, themes, original_text, translation, context_summary,
-            relevance_for_guidance, source_reference, embedding
-          ) VALUES (
-            $1, 'pdf_volume', $2, NULL, $3, $4,
-            $5, $6, NULL, $7, $8,
-            NULL, $9, $10::vector
-          );
-        `, [
-          sourceId,
-          item.parva,
-          `Page ${item.pageNum}`,
-          `Page ${item.pageNum}`,
-          item.characters,
-          ['dharma', 'epic', 'history', 'philosophy'],
-          item.text,
-          snippet,
-          `Mahabharata Page ${item.pageNum}`,
-          embString,
-        ]);
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i];
+          const emb = embeddings[i];
+          const embString = `[${emb.join(',')}]`;
+          const snippet = item.text.slice(0, 200) + '...';
+
+          await client.query(`
+            INSERT INTO mahabharata_chunks (
+              source_id, source_type, parva, chapter, section, verse_range,
+              characters, themes, original_text, translation, context_summary,
+              relevance_for_guidance, source_reference, embedding
+            ) VALUES (
+              $1, 'pdf_volume', $2, NULL, $3, $4,
+              $5, $6, NULL, $7, $8,
+              NULL, $9, $10::vector
+            );
+          `, [
+            sourceId,
+            item.parva,
+            `Page ${item.pageNum}`,
+            `Page ${item.pageNum}`,
+            item.characters,
+            ['dharma', 'epic', 'history', 'philosophy'],
+            item.text,
+            snippet,
+            `Mahabharata Page ${item.pageNum}`,
+            embString,
+          ]);
+        }
+
+        await client.query('COMMIT');
+        client.release();
+        return; // Success
+      } catch (err: any) {
+        if (client) {
+          try { await client.query('ROLLBACK'); } catch {}
+          client.release();
+        }
+        console.warn(`[Full Corpus Ingester] Batch flush attempt ${attempts} failed: ${err.message}. Retrying in 2s...`);
+        if (attempts >= maxAttempts) {
+          throw err;
+        }
+        await new Promise(r => setTimeout(r, 2000));
       }
-
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
     }
   }
 }

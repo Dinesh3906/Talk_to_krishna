@@ -30,6 +30,9 @@ scratch/
 # OS and IDE files
 .DS_Store
 *.pem
+*.keystore
+*.jks
+keystore.properties
 Thumbs.db
 .idea/
 .vscode/
@@ -39,3 +42,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Certificates and signing keys
+certificates.zip
+certificates_extracted/
