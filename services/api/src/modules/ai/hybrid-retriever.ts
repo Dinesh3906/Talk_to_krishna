@@ -1,6 +1,5 @@
 import { pool } from '../../db/index.js';
 import { AIProviderFactory } from './ai-provider.factory.js';
-import { LocalEmbeddingProvider } from './providers/local-emb.provider.js';
 
 export interface RetrievedPassage {
   id: string;
@@ -177,6 +176,7 @@ export class HybridRetriever {
           }
         } else if (process.env.NODE_ENV !== 'production' && !process.env.RENDER) {
           // On local environments only; skip heavy ONNX transformer download on Render 512MB to prevent OOM
+          const { LocalEmbeddingProvider } = await import('./providers/local-emb.provider.js');
           const [emb] = await LocalEmbeddingProvider.generateEmbeddings([queryText]);
           if (emb && emb.length > 0) {
             queryEmbedding = emb;

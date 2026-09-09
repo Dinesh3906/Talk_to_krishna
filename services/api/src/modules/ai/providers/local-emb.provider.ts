@@ -1,5 +1,3 @@
-import { pipeline } from '@xenova/transformers';
-
 export class LocalEmbeddingProvider {
   private static extractor: any = null;
   private static initPromise: Promise<any> | null = null;
@@ -8,6 +6,7 @@ export class LocalEmbeddingProvider {
   public static async getExtractor(): Promise<any> {
     if (this.extractor) return this.extractor;
     if (!this.initPromise) {
+      const { pipeline } = await import('@xenova/transformers');
       this.initPromise = pipeline('feature-extraction', 'Xenova/bge-base-en-v1.5', { quantized: true });
     }
     this.extractor = await this.initPromise;
