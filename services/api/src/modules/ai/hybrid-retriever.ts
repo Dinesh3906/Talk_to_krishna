@@ -58,7 +58,7 @@ export class HybridRetriever {
   private static gitaCachePromise: Promise<CachedGitaVerse[]> | null = null;
   private static readonly embeddingCache = new Map<string, number[]>();
 
-  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 12000): Promise<any> {
+  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 18000): Promise<any> {
     const queryPromise = pool.query(text, params);
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`Query timeout (${timeoutMs}ms)`)), timeoutMs)
@@ -76,7 +76,7 @@ export class HybridRetriever {
                    translation, deep_meaning, krishna_teaching, provenance
             FROM gita_verses
             ORDER BY chapter ASC, verse ASC;
-          `);
+          `, [], 30000);
           const verses: CachedGitaVerse[] = res.rows.map((r: any) => ({
             id: r.id,
             chapter: r.chapter,
@@ -388,9 +388,38 @@ export class HybridRetriever {
 
       if (hints.verseReference) {
         // Direct verse citation lookup (e.g. 2.47)
-        const match = cachedVerses.find(
+        let match = cachedVerses.find(
           (v) => v.chapter === hints.verseReference!.chapter && v.verse === hints.verseReference!.verse
         );
+        if (!match) {
+          try {
+            const singleRes = await this.queryWithTimeout(
+              `SELECT id, chapter, verse, speaker, listener, sanskrit, transliteration,
+                      translation, deep_meaning, krishna_teaching, provenance
+               FROM gita_verses WHERE chapter = $1 AND verse = $2 LIMIT 1;`,
+              [hints.verseReference.chapter, hints.verseReference.verse],
+              15000
+            );
+            if (singleRes.rows && singleRes.rows.length > 0) {
+              const r = singleRes.rows[0];
+              match = {
+                id: r.id,
+                chapter: r.chapter,
+                verse: r.verse,
+                speaker: r.speaker,
+                listener: r.listener,
+                sanskrit: r.sanskrit,
+                transliteration: r.transliteration,
+                translation: r.translation,
+                deep_meaning: r.deep_meaning,
+                krishna_teaching: r.krishna_teaching,
+                provenance: r.provenance,
+              };
+            }
+          } catch (singleErr: any) {
+            console.warn('[HybridRetriever] Direct verse lookup query failed:', singleErr.message);
+          }
+        }
         if (match) {
           candidatePassages.push({
             id: match.id,
