@@ -58,7 +58,7 @@ export class HybridRetriever {
   private static gitaCachePromise: Promise<CachedGitaVerse[]> | null = null;
   private static readonly embeddingCache = new Map<string, number[]>();
 
-  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 4000): Promise<any> {
+  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 12000): Promise<any> {
     const queryPromise = pool.query(text, params);
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`Query timeout (${timeoutMs}ms)`)), timeoutMs)
