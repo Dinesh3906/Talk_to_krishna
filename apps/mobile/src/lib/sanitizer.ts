@@ -7,6 +7,9 @@ export function sanitizeConversationalText(text: string): string {
 
   let cleaned = text.replace(/\r\n/g, '\n');
 
+  // Strip clinical therapist section titles and headers completely
+  cleaned = cleaned.replace(/^[ \t]*(?:#{1,6}\s*)?(?:\d+\.\s*)?(?:Let the feeling surface|Grounding in the present|A small, intentional ritual|Acknowledge the (?:weight|feeling)|Practical steps you can take right now|Seek professional (?:help|support)|Small daily actions|Grounding techniques|What you can do|Coping (?:strategies|mechanisms)|Sleep hygiene|Notice the body|5-second pause|Sensory check|Write a note to yourself)[ \t]*$/gmi, '');
+
   // Strip Markdown headers (## 1. Title -> Title)
   cleaned = cleaned.replace(/^#{1,6}\s*(?:\d+\.\s*)?/gm, '');
 

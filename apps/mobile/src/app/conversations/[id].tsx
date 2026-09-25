@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useChatStore } from '../../store/chat.store';
 import { darkTheme } from '../../theme/colors';
 import { ArrowLeft, MessageSquare } from 'lucide-react-native';
+import { sanitizeConversationalText } from '../../lib/sanitizer';
 
 export default function ConversationDetailScreen() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function ConversationDetailScreen() {
           return (
             <View style={[styles.bubble, isUser ? styles.userBubble : styles.krishnaBubble]}>
               <Text style={styles.senderTag}>{isUser ? 'You' : 'Krishna'}</Text>
-              <Text style={styles.content}>{item.content}</Text>
+              <Text style={styles.content}>{isUser ? item.content : sanitizeConversationalText(item.content)}</Text>
             </View>
           );
         }}

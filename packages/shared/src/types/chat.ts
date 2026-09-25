@@ -74,6 +74,7 @@ export type StreamChunkType =
   | 'reflection'
   | 'telemetry'
   | 'done'
+  | 'replace'
   | 'error';
 
 export interface StreamChunk {
@@ -81,6 +82,7 @@ export interface StreamChunk {
   messageId?: string;
   conversationId?: string;
   token?: string;
+  content?: string;
   metadata?: {
     intent?: IntentCategory;
     emotion?: EmotionalState;

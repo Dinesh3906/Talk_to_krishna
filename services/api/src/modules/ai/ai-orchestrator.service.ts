@@ -293,8 +293,7 @@ export class AIOrchestratorService {
 
     // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists
     const isClinicalTherapistResponse =
-      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing technique|blanket that'?s hard to lift|heavy unending cloud)/i.test(generatedContent) &&
-      (classification.intentCategory === 'emotional_distress' || classification.emotionalState === 'grief' || classification.intentCategory === 'relationship_grief');
+      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing technique|blanket that'?s hard to lift|heavy unending cloud|let the feeling surface|a small,? intentional ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take)/i.test(generatedContent);
 
     if (isClinicalTherapistResponse) {
       console.warn('[AIOrchestratorService] Intercepted clinical therapist response from LLM. Overriding with authentic Krishna emotional reflection.');
@@ -311,6 +310,10 @@ export class AIOrchestratorService {
       retrievedPassages,
       corpusDoesNotEstablish
     );
+
+    if (isCopyrightRefusal || isClinicalTherapistResponse || quoteResult.verifiedContent !== generatedContent) {
+      emit({ type: 'replace', content: quoteResult.verifiedContent });
+    }
 
     for (const citation of quoteResult.citations) {
       emit({ type: 'citation', citation });

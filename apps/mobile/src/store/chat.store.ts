@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Conversation, Message, Citation, StreamChunk } from '@talk-to-krisna/shared';
 import { apiFetch, streamChatMessage } from '../lib/api-client';
+import { sanitizeConversationalText } from '../lib/sanitizer';
 
 interface ChatState {
   conversations: Conversation[];
@@ -115,9 +116,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content,
       preferredName,
       (chunk: StreamChunk) => {
-        if (chunk.type === 'token' && chunk.token) {
+        if ((chunk.type as string) === 'replace' && (chunk as any).content) {
+          accumulatedContent = (chunk as any).content;
+          set({ streamingContent: sanitizeConversationalText(accumulatedContent) });
+        } else if (chunk.type === 'token' && chunk.token) {
           accumulatedContent += chunk.token;
-          set({ streamingContent: accumulatedContent });
+          set({ streamingContent: sanitizeConversationalText(accumulatedContent) });
         } else if (chunk.type === 'citation' && chunk.citation) {
           accumulatedCitations.push(chunk.citation);
           set({ streamingCitations: [...accumulatedCitations] });
@@ -132,12 +136,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
       () => {
         // Stream completed: only add message if we actually received content
-        if (accumulatedContent.trim()) {
+        const finalContent = sanitizeConversationalText(accumulatedContent).trim();
+        if (finalContent) {
           const assistantMsg: Message = {
             id: `msg-${Date.now()}`,
             conversationId,
             sender: 'krishna',
-            content: accumulatedContent,
+            content: finalContent,
             citations: accumulatedCitations,
             createdAt: new Date().toISOString(),
           };
