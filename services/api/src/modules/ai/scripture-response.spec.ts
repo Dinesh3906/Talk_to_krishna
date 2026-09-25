@@ -107,17 +107,17 @@ The Mahābhārata is a vast epic.
         isMahabharataRelevant: true,
         corpusDoesNotEstablish: false,
         intentCategory: 'emotional_distress',
-        emotionalState: 'hopelessness',
+        emotionalState: 'grief',
       }
     );
     const systemPrompt = messages[0].content;
 
-    expect(systemPrompt).toContain('EMOTIONAL CONVERSATION MODE (ACTIVE FOR THIS MESSAGE)');
-    expect(systemPrompt).toContain('Target length: 150 to 300 words');
-    expect(systemPrompt).toContain('SEE THE PERSON');
-    expect(systemPrompt).toContain('ONE CENTRAL INSIGHT');
-    expect(systemPrompt).toContain('GENTLY TURN TOWARD THE USER');
-    expect(systemPrompt).toContain('NEVER use headings like "Acknowledge the Feeling"');
+    expect(systemPrompt).toContain('TALK TO KRISHNA — EMOTIONAL RESPONSE OVERRIDE (ACTIVE FOR THIS MESSAGE)');
+    expect(systemPrompt).toContain('Approximately 100–250 words');
+    expect(systemPrompt).toContain('Recognize the person\'s emotional state');
+    expect(systemPrompt).toContain('Give ONE central insight');
+    expect(systemPrompt).toContain('Ask ONE meaningful question');
+    expect(systemPrompt).toContain('DO NOT generate a comprehensive mental-health guide');
   });
 
   it('7. KrishnaPersonaService activates Emotional Conversation Mode for relationship_grief', () => {
@@ -134,8 +134,8 @@ The Mahābhārata is a vast epic.
     );
     const systemPrompt = messages[0].content;
 
-    expect(systemPrompt).toContain('EMOTIONAL CONVERSATION MODE (ACTIVE FOR THIS MESSAGE)');
-    expect(systemPrompt).toContain('SEE THE PERSON');
+    expect(systemPrompt).toContain('TALK TO KRISHNA — EMOTIONAL RESPONSE OVERRIDE (ACTIVE FOR THIS MESSAGE)');
+    expect(systemPrompt).toContain('Recognize the person\'s emotional state');
   });
 
   it('8. KrishnaPersonaService does NOT activate Emotional Conversation Mode for casual or factual queries', () => {
