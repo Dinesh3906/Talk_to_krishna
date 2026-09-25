@@ -1,1 +1,1 @@
-import 'expo-router/entry';
+import './apps/mobile/index.js';

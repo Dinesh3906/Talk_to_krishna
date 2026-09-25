@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import pdf from 'pdf-parse';
 import { pool } from '../../db/index.js';
-import { LocalEmbeddingProvider } from '../ai/providers/local-emb.provider.js';
+import { defaultEmbeddingProvider } from '../ai/providers/bge-embedding.provider.js';
 
 export interface IngestionProgress {
   totalPages: number;
@@ -176,7 +176,7 @@ export class FullCorpusIngester {
 
     // Generate embeddings for the batch (concise page topic + opening text)
     const textsToEmbed = batch.map(b => `${b.parva}, Page ${b.pageNum}: ${b.text.slice(0, 250)}`);
-    const embeddings = await LocalEmbeddingProvider.generateEmbeddings(textsToEmbed);
+    const embeddings = await defaultEmbeddingProvider.embedBatch(textsToEmbed);
 
     // Resilient retry loop for cloud PostgreSQL poolers
     let attempts = 0;

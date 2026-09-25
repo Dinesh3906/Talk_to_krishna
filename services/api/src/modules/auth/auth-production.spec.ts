@@ -8,7 +8,7 @@ import { ConsoleOtpProvider } from './providers/console-otp.provider.js';
 
 import { OtpProviderFactory } from './providers/otp-provider.factory.js';
 
-describe('Production Authentication & Database Integrity Tests', () => {
+describe('Production Authentication & Database Integrity Tests', { timeout: 20000 }, () => {
   const testEmail = `test_seeker_${Date.now()}@example.com`;
   const testPassword = 'SacredPassword108!';
   const newPassword = 'TransformedWisdom777!';

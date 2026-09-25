@@ -1,5 +1,5 @@
 import { pool } from '../../db/index.js';
-import { LocalEmbeddingProvider } from '../ai/providers/local-emb.provider.js';
+import { defaultEmbeddingProvider } from '../ai/providers/bge-embedding.provider.js';
 
 const MAJOR_CHARACTERS = [
   'Krishna', 'Arjuna', 'Yudhishthira', 'Bhima', 'Draupadi', 'Nakula', 'Sahadeva',
@@ -214,7 +214,7 @@ export class ChildChunkIngester {
 
     // Build rich, full-text embedding prompt for each child chunk (no 250-char truncation!)
     const textsToEmbed = batch.map(b => `${b.parva || 'Mahabharata'}, Page ${b.pageNumber}: ${b.text}`);
-    const embeddings = await LocalEmbeddingProvider.generateEmbeddings(textsToEmbed);
+    const embeddings = await defaultEmbeddingProvider.embedBatch(textsToEmbed);
 
     const client = await pool.connect();
     client.on('error', (err: any) => {

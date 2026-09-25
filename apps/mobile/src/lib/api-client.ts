@@ -52,6 +52,27 @@ export function getApiAuthToken(): string | null {
   return authToken;
 }
 
+export type SanctuaryErrorCode =
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT'
+  | 'RETRIEVAL_TIMEOUT'
+  | 'RETRIEVAL_ERROR'
+  | 'MODEL_ERROR'
+  | 'RATE_LIMIT'
+  | 'AUTH_ERROR'
+  | 'SERVER_ERROR'
+  | 'EMPTY_RESPONSE';
+
+export class SanctuaryError extends Error {
+  constructor(
+    public readonly code: SanctuaryErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = 'SanctuaryError';
+  }
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${path}`;
@@ -64,24 +85,46 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    throw new SanctuaryError('NETWORK_ERROR', 'Network connection failed. Please check your internet connection.');
+  }
 
   if (!response.ok) {
-    let errorMessage = response.status === 502 || response.status === 504
-      ? 'The Sanctuary is currently reconnecting. Please send your message again in a moment.'
-      : `Request failed with status ${response.status}`;
+    let errorCode: SanctuaryErrorCode = 'SERVER_ERROR';
+    let errorMessage = `Request failed with status ${response.status}`;
+
+    if (response.status === 504) {
+      errorCode = 'TIMEOUT';
+      errorMessage = 'The Sanctuary took too long to complete the reflection. Please try again.';
+    } else if (response.status === 502 || response.status === 503) {
+      errorCode = 'SERVER_ERROR';
+      errorMessage = 'The Sanctuary server is momentarily unavailable. Please try again in a few moments.';
+    } else if (response.status === 429) {
+      errorCode = 'RATE_LIMIT';
+      errorMessage = 'Too many reflections requested. Please pause a moment before speaking again.';
+    } else if (response.status === 401 || response.status === 403) {
+      errorCode = 'AUTH_ERROR';
+      errorMessage = 'Authentication expired. Please sign in again.';
+    }
+
     try {
       const errorJson = await response.json();
       if (errorJson?.error?.message) {
         errorMessage = errorJson.error.message;
       }
+      if (errorJson?.error?.code) {
+        errorCode = errorJson.error.code as SanctuaryErrorCode;
+      }
     } catch {
       // Ignored if response is not json
     }
-    throw new Error(errorMessage);
+    throw new SanctuaryError(errorCode, errorMessage);
   }
 
   const json = await response.json();
@@ -93,7 +136,7 @@ export async function streamChatMessage(
   content: string,
   preferredName: string | undefined,
   onChunk: (chunk: StreamChunk) => void,
-  onError: (error: Error) => void,
+  onError: (error: SanctuaryError | Error) => void,
   onDone: () => void
 ): Promise<() => void> {
   const baseUrl = getApiBaseUrl();
@@ -107,8 +150,8 @@ export async function streamChatMessage(
     xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
   }
 
-  // 90 second timeout to accommodate backend cold starts (e.g. Render free tier)
-  xhr.timeout = 90000;
+  // 45 second timeout for chat stream
+  xhr.timeout = 45000;
 
   let seenBytes = 0;
   let buffer = '';
@@ -133,6 +176,11 @@ export async function streamChatMessage(
           if (dataStr === '[DONE]') continue;
           try {
             const chunk: StreamChunk = JSON.parse(dataStr);
+            if (chunk.type === 'error') {
+              const code = (chunk.errorCode as SanctuaryErrorCode) || 'MODEL_ERROR';
+              onError(new SanctuaryError(code, chunk.error || 'Krishna’s reflection could not be generated.'));
+              return;
+            }
             onChunk(chunk);
           } catch {
             // Incomplete JSON or malformed chunk in stream buffer
@@ -165,6 +213,11 @@ export async function streamChatMessage(
       if (dataStr && dataStr !== '[DONE]') {
         try {
           const chunk: StreamChunk = JSON.parse(dataStr);
+          if (chunk.type === 'error') {
+            const code = (chunk.errorCode as SanctuaryErrorCode) || 'MODEL_ERROR';
+            onError(new SanctuaryError(code, chunk.error || 'Krishna’s reflection could not be generated.'));
+            return;
+          }
           onChunk(chunk);
         } catch {}
       }
@@ -174,23 +227,39 @@ export async function streamChatMessage(
     if (xhr.status >= 200 && xhr.status < 300) {
       onDone();
     } else {
-      let msg = xhr.status === 502 || xhr.status === 504
-        ? 'The Sanctuary is currently reconnecting. Please send your message again in a moment.'
-        : `Server error ${xhr.status}`;
+      let code: SanctuaryErrorCode = 'SERVER_ERROR';
+      let msg = `Server error ${xhr.status}`;
+
+      if (xhr.status === 504) {
+        code = 'TIMEOUT';
+        msg = 'The reflection timed out on the server. Please try sending your message again.';
+      } else if (xhr.status === 502 || xhr.status === 503) {
+        code = 'SERVER_ERROR';
+        msg = 'The Sanctuary is currently processing requests. Please retry in a moment.';
+      } else if (xhr.status === 429) {
+        code = 'RATE_LIMIT';
+        msg = 'Too many requests at this moment. Please pause a moment.';
+      } else if (xhr.status === 401) {
+        code = 'AUTH_ERROR';
+        msg = 'Your session has expired. Please sign in again.';
+      }
+
       try {
         const errData = JSON.parse(xhr.responseText);
         if (errData?.error?.message) msg = errData.error.message;
+        if (errData?.error?.code) code = errData.error.code as SanctuaryErrorCode;
       } catch {}
-      onError(new Error(msg));
+
+      onError(new SanctuaryError(code, msg));
     }
   };
 
   xhr.ontimeout = () => {
-    onError(new Error('The server took too long to respond (cold start). Please try again.'));
+    onError(new SanctuaryError('TIMEOUT', 'The server took too long to respond. Please try again.'));
   };
 
   xhr.onerror = () => {
-    onError(new Error('Network request failed. Please check your internet connection and backend status.'));
+    onError(new SanctuaryError('NETWORK_ERROR', 'Network connection interrupted. The Sanctuary is currently reconnecting...'));
   };
 
   xhr.send(JSON.stringify({ content, preferredName }));

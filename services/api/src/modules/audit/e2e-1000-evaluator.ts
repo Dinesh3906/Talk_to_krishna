@@ -224,6 +224,8 @@ export class E2E1000Evaluator {
         userMemories: [],
         isMahabharataRelevant: classification.mahabharataRelevant,
         corpusDoesNotEstablish,
+        intentCategory: classification.intentCategory,
+        emotionalState: classification.emotionalState,
       }
     );
 

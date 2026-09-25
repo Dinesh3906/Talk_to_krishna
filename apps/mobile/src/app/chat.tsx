@@ -14,6 +14,7 @@ import {
   ScrollView,
   Share,
   StatusBar,
+  Keyboard,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useChatStore } from '../store/chat.store';
@@ -35,6 +36,7 @@ import {
 } from 'lucide-react-native';
 import { Message, Citation } from '@talk-to-krisna/shared';
 import { KrishnaAvatar } from '../components/KrishnaAvatar';
+import { sanitizeConversationalText } from '../lib/sanitizer';
 
 const STARTER_PROMPTS = [
   {
@@ -91,6 +93,16 @@ export default function DirectChatScreen() {
       }, 100);
     }
   }, [activeConversation?.messages, streamingContent]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, () => {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    return () => sub.remove();
+  }, []);
 
   const handleNewChat = () => {
     clearActiveConversation();
@@ -171,12 +183,15 @@ export default function DirectChatScreen() {
       {/* Main Conversation Canvas */}
       <KeyboardAvoidingView
         style={styles.chatArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {messages.length === 0 && !isStreaming ? (
           /* Empty / Welcome State */
-          <ScrollView contentContainerStyle={styles.welcomeContainer}>
+          <ScrollView
+            contentContainerStyle={styles.welcomeContainer}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.sacredCircle}>
               <KrishnaAvatar size={74} />
             </View>
@@ -211,6 +226,8 @@ export default function DirectChatScreen() {
             data={messages}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messagesList}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             renderItem={({ item }) => {
               const isUser = item.sender === 'user';
               return (
@@ -223,7 +240,7 @@ export default function DirectChatScreen() {
 
                   <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>
                     <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
-                      {item.content}
+                      {isUser ? item.content : sanitizeConversationalText(item.content)}
                     </Text>
 
                     {/* Citations / Source Badges */}
@@ -279,7 +296,7 @@ export default function DirectChatScreen() {
                   </View>
                   <View style={[styles.bubble, styles.assistantBubble]}>
                     <Text style={styles.assistantText}>
-                      {streamingContent || 'Krishna is reflecting...'}
+                      {streamingContent ? sanitizeConversationalText(streamingContent) : 'Krishna is reflecting...'}
                     </Text>
                     <View style={styles.streamingIndicator}>
                       <ActivityIndicator size="small" color={darkTheme.primary} />

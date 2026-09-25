@@ -11,9 +11,14 @@ const databaseUrl = process.env.DATABASE_URL || 'postgresql://krisna_user:krisna
 
 const isLocalDb = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
 
+let connectionString = databaseUrl.replace(/([?&])channel_binding=require(&|$)/, '$1').replace(/[?&]$/, '');
+if (!isLocalDb && connectionString.includes('sslmode=') && !connectionString.includes('uselibpqcompat=')) {
+  connectionString += (connectionString.includes('?') ? '&' : '?') + 'uselibpqcompat=true';
+}
+
 // Production connection pool with bounds, timeouts, and cloud SSL support
 export const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString,
   ssl: isLocalDb ? false : { rejectUnauthorized: false },
   max: 20, // Connection budget for horizontal scaling
   idleTimeoutMillis: 30000,

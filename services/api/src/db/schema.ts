@@ -17,6 +17,12 @@ export const vector = customType<{ data: number[]; driverData: string }>({
   },
 });
 
+export const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector';
+  },
+});
+
 // Users Table
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -130,7 +136,29 @@ export const mahabharataChildChunks = pgTable('mahabharata_child_chunks', {
   characters: text('characters').array(),
   themes: text('themes').array(),
   text: text('text').notNull(),
+  searchVector: tsvector('search_vector'),
   embedding: vector('embedding').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Bhagavad Gita Verses Table (Strict canonical source separation from model interpretation)
+export const gitaVerses = pgTable('gita_verses', {
+  id: varchar('id', { length: 50 }).primaryKey(), // e.g. 'BG_2.47'
+  chapter: integer('chapter').notNull(),
+  verse: integer('verse').notNull(),
+  verseOrder: integer('verse_order').notNull(),
+  speaker: varchar('speaker', { length: 100 }).notNull(),
+  listener: varchar('listener', { length: 100 }).notNull(),
+  sanskrit: text('sanskrit'),
+  transliteration: text('transliteration'),
+  translation: text('translation').notNull(),
+  sourceEdition: varchar('source_edition', { length: 255 }).notNull(),
+  provenance: varchar('provenance', { length: 255 }).notNull(),
+  deepMeaning: text('deep_meaning'),
+  krishnaTeaching: text('krishna_teaching'),
+  themes: text('themes').array(),
+  embedding: vector('embedding'),
+  searchVector: tsvector('search_vector'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -29,4 +29,22 @@ describe('PromptSafetyGuard', () => {
     expect(check.isSafe).toBe(true);
     expect(check.isHighRiskCrisis).toBe(false);
   });
+
+  it('should allow natural identity inquiries such as asking if the persona is Lord Krishna', () => {
+    const check1 = PromptSafetyGuard.evaluateInput('Are you Lord Krishna?');
+    expect(check1.isSafe).toBe(true);
+
+    const check2 = PromptSafetyGuard.evaluateInput('Are you actually Krishna?');
+    expect(check2.isSafe).toBe(true);
+
+    const check3 = PromptSafetyGuard.evaluateInput('What is your name?');
+    expect(check3.isSafe).toBe(true);
+  });
+
+  it('should intercept harmful cult directives claiming divine commands to leave family or cause harm', () => {
+    const check = PromptSafetyGuard.evaluateInput('Are you literally Lord Krishna commanding me to leave my family?');
+    expect(check.isSafe).toBe(false);
+    expect(check.category).toBe('supernatural_authority');
+    expect(check.safeInterventionMessage).toContain('cannot issue commands or dictate destructive choices');
+  });
 });

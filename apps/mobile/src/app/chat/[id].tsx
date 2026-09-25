@@ -14,6 +14,7 @@ import {
   ScrollView,
   Alert,
   Image,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -36,6 +37,7 @@ import {
   AlertTriangle,
 } from 'lucide-react-native';
 import { Message, Citation } from '@talk-to-krisna/shared';
+import { sanitizeConversationalText } from '../../lib/sanitizer';
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -72,6 +74,16 @@ export default function ChatScreen() {
       sendMessageStream(conversationId, initialPrompt, user?.preferredName);
     }
   }, [initialPrompt, activeConversation?.id]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, () => {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    return () => sub.remove();
+  }, []);
 
   const handleSend = () => {
     if (!inputMessage.trim() || isStreaming) return;
@@ -120,7 +132,7 @@ export default function ChatScreen() {
 
         <View style={[styles.bubble, isUser ? styles.userBubble : styles.krishnaBubble]}>
           <Text style={[styles.messageText, isUser ? styles.userText : styles.krishnaText]}>
-            {item.content}
+            {isUser ? item.content : sanitizeConversationalText(item.content)}
           </Text>
 
           {/* Citations Bar */}
@@ -194,7 +206,7 @@ export default function ChatScreen() {
       {/* Message List */}
       <KeyboardAvoidingView
         style={styles.chatArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <FlatList
@@ -203,6 +215,8 @@ export default function ChatScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderMessageItem}
           contentContainerStyle={styles.listContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListFooterComponent={
             isStreaming ? (
@@ -216,7 +230,7 @@ export default function ChatScreen() {
                 </View>
                 <View style={[styles.bubble, styles.krishnaBubble]}>
                   <Text style={[styles.messageText, styles.krishnaText]}>
-                    {streamingContent}
+                    {streamingContent ? sanitizeConversationalText(streamingContent) : ''}
                     <Text style={styles.cursorPulse}> ▍</Text>
                   </Text>
                   {streamingCitations.length > 0 && (

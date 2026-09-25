@@ -3,7 +3,7 @@ import path from 'path';
 import pdf from 'pdf-parse';
 import { pool } from '../../db/index.js';
 import { normalizeCorpusText, tokenizeCorpusText } from '../ingestion/full-corpus-ingester.js';
-import { LocalEmbeddingProvider } from '../ai/providers/local-emb.provider.js';
+import { defaultEmbeddingProvider } from '../ai/providers/bge-embedding.provider.js';
 
 export interface PageAuditDetail {
   pageNum: number;
@@ -281,7 +281,7 @@ export class CorpusCompletenessAuditor {
     let ftsSearchPass = false;
 
     try {
-      const [testEmb] = await LocalEmbeddingProvider.generateEmbeddings(['Mahabharata Vyasa Krishna']);
+      const [testEmb] = await defaultEmbeddingProvider.embedBatch(['Mahabharata Vyasa Krishna']);
       const embStr = `[${testEmb.join(',')}]`;
       const vCheck = await pool.query(`
         SELECT id, 1 - (embedding <=> $1::vector) as sim

@@ -73,10 +73,10 @@ Please speak to someone right now who can walk beside you in this hour.`,
       };
     }
 
-    // 4. Supernatural Authority Claims / God Commands
+    // 4. Harmful Cult Directives / Dangerous Command Exploitation
     const supernaturalPatterns = [
-      /\bare you (literally|actually) (lord krishna|krishna|god)\b/i,
-      /\bcommanding me to (leave|hurt|abandon|do)\b/i,
+      /\b(are you )?(literally |actually )?(lord krishna|krishna|god)?.*(commanding|ordering) me to (leave|hurt|abandon|harm|kill)\b/i,
+      /\bcommanding me to (leave|hurt|abandon|kill|harm)\b/i,
     ];
 
     if (supernaturalPatterns.some((p) => p.test(text))) {
@@ -84,7 +84,7 @@ Please speak to someone right now who can walk beside you in this hour.`,
         isSafe: false,
         isHighRiskCrisis: false,
         category: 'supernatural_authority',
-        safeInterventionMessage: `I am an AI conversational guide inspired by the teachings, literature, and philosophical character of Lord Krishna in the Mahabharata. I possess no divine or supernatural authority, and I cannot issue divine commands or dictate your life choices. For major life, relationship, or family decisions, please reflect with discernment and consult trusted people in your life.`,
+        safeInterventionMessage: `I cannot issue commands or dictate destructive choices such as abandoning family or causing harm. For major life, relationship, or family crises, please reflect with discernment and consult trusted people or professionals in your life.`,
       };
     }
 

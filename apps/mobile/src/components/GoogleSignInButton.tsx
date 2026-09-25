@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
 export interface GoogleSignInUserInfo {
   id?: string;
@@ -249,10 +250,32 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         const errorDetail =
           'Google Cloud Console requires an Android OAuth Client ID matching:\n\n' +
           '• Package Name: com.talktokrishna.ai\n' +
-          '• SHA-1 Fingerprint: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
-          'Please register this SHA-1 in Google Cloud Console project 557211276662 under APIs & Services > Credentials.';
-        Alert.alert('Configuration Required', errorDetail);
-        onError('Google Sign-In configuration required: SHA-1 fingerprint mismatch (Error 10: DEVELOPER_ERROR).');
+          '• Release SHA-1 (APK): 60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6\n' +
+          '• Play Store SHA-1: 54:69:38:F2:E7:BA:3D:C4:29:82:71:31:53:C5:F5:CD:84:86:23:81\n' +
+          '• Debug SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
+          'Add in Google Cloud Console (project 557211276662) under APIs & Services > Credentials > Create Credentials > OAuth Client ID > Android.';
+        Alert.alert('Google Sign-In SHA-1 Required', errorDetail, [
+          {
+            text: 'Copy Release SHA-1',
+            onPress: async () => {
+              try {
+                await Clipboard.setStringAsync('60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6');
+                Alert.alert('Copied!', 'Release SHA-1 copied to clipboard.');
+              } catch {}
+            },
+          },
+          {
+            text: 'Copy Play Store SHA-1',
+            onPress: async () => {
+              try {
+                await Clipboard.setStringAsync('54:69:38:F2:E7:BA:3D:C4:29:82:71:31:53:C5:F5:CD:84:86:23:81');
+                Alert.alert('Copied!', 'Play Store SHA-1 copied to clipboard.');
+              } catch {}
+            },
+          },
+          { text: 'OK', style: 'cancel' },
+        ]);
+        onError('Google Sign-In configuration: SHA-1 fingerprint mismatch (DEVELOPER_ERROR 10).');
         return;
       }
 

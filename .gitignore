@@ -48,3 +48,4 @@ certificates.zip
 certificates_extracted/
 *.aab
 *.apk
+apps/mobile/*.png

@@ -58,4 +58,27 @@ describe('IntentClassifier', () => {
     expect(result.intentCategory).toBe('casual_banter');
     expect(result.mahabharataRelevant).toBe(false);
   });
+
+  it('should classify "Teach me mahabarat shlokas" as factual_scripture with high relevance', () => {
+    const result = IntentClassifier.classify('Teach me mahabarat shlokas');
+    expect(result.intentCategory).toBe('factual_scripture');
+    expect(result.mahabharataRelevant).toBe(true);
+    expect(result.relevanceScore).toBe(1.0);
+    expect(result.extractedThemes).toContain('shloka');
+  });
+
+  it('should classify general shloka request "Teach me slokas" as factual_scripture', () => {
+    const result = IntentClassifier.classify('Teach me slokas');
+    expect(result.intentCategory).toBe('factual_scripture');
+    expect(result.mahabharataRelevant).toBe(true);
+    expect(result.relevanceScore).toBe(1.0);
+  });
+
+  it('should classify verse queries and extract scripture reference', () => {
+    const result = IntentClassifier.classify('What did krishna say in chapter 2 verse 47');
+    expect(result.intentCategory).toBe('factual_scripture');
+    expect(result.mahabharataRelevant).toBe(true);
+    expect(result.scriptureReferenceQuery).toBe('Bhagavad Gita 2.47');
+  });
 });
+

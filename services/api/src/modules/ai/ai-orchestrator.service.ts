@@ -9,6 +9,9 @@ import { PromptSafetyGuard } from './prompt-safety-guard.js';
 import { KrishnaPersonaService } from './krishna-persona.service.js';
 import { QuoteVerifier } from './quote-verifier.js';
 import { TelemetryService } from './telemetry.service.js';
+import { MarkdownSanitizer, StreamTokenFilter } from './markdown-sanitizer.js';
+import { ConversationStateTracker } from './conversation-state-tracker.js';
+import { InterpretationEngineService, InterpretationResult } from './interpretation-engine.service.js';
 import { Message, StreamChunk, Citation } from '@talk-to-krisna/shared';
 
 export interface OrchestrationOptions {
@@ -93,47 +96,7 @@ export class AIOrchestratorService {
       };
     }
 
-    // Step 2: Intent & Emotion Classification
-    const classification = IntentClassifier.classify(userMessage);
-    emit({
-      type: 'metadata',
-      metadata: {
-        intent: classification.intentCategory,
-        emotion: classification.emotionalState,
-        isMahabharataRelevant: classification.mahabharataRelevant,
-      },
-    });
-
-    // Step 3: Hybrid Retrieval
-    let retrievedPassages: RetrievedPassage[] = [];
-    let corpusDoesNotEstablish = false;
-    let retrievalLatencyMs = 0;
-
-    if (classification.mahabharataRelevant) {
-      const retrievalResult = await HybridRetriever.retrieve(
-        userMessage,
-        classification.extractedCharacters,
-        classification.extractedThemes,
-        3
-      );
-      retrievedPassages = retrievalResult.passages;
-      corpusDoesNotEstablish = retrievalResult.corpusDoesNotEstablish;
-      retrievalLatencyMs = retrievalResult.retrievalLatencyMs;
-    }
-
-    // Step 4: Fetch User Profile & Optional Long-Term Memory
-    const profile = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, userId),
-    });
-
-    const memories = profile?.enableLongTermMemory
-      ? await db.query.userMemories.findMany({
-          where: eq(userMemories.userId, userId),
-          limit: 5,
-        })
-      : [];
-
-    // Step 5: Fetch Recent Conversation History
+    // Step 2: Fetch Recent Conversation History for Multi-Turn Context Tracking
     const historyRows = await db.query.messages.findMany({
       where: eq(messages.conversationId, conversationId),
       orderBy: [asc(messages.createdAt)],
@@ -145,7 +108,67 @@ export class AIOrchestratorService {
       content: m.content,
     }));
 
-    // Step 6: Construct Persona Prompt
+    // Step 3: Multi-Turn Conversation State Tracking & Query Rewriting
+    const conversationState = ConversationStateTracker.track(history, userMessage);
+
+    // Step 4: Intent & Emotion Classification
+    const classification = IntentClassifier.classify(userMessage);
+    const isMahabharataRelevant =
+      classification.mahabharataRelevant ||
+      conversationState.activeCharacters.length > 0 ||
+      Boolean(conversationState.activeVerse);
+
+    emit({
+      type: 'metadata',
+      metadata: {
+        intent: classification.intentCategory,
+        emotion: classification.emotionalState,
+        isMahabharataRelevant,
+      },
+    });
+
+    // Step 5: Hybrid Retrieval (using contextual query & merged character guidance)
+    let retrievedPassages: RetrievedPassage[] = [];
+    let corpusDoesNotEstablish = false;
+    let retrievalLatencyMs = 0;
+
+    if (isMahabharataRelevant) {
+      const allCharacters = Array.from(new Set([
+        ...classification.extractedCharacters,
+        ...conversationState.activeCharacters
+      ]));
+
+      const retrievalResult = await HybridRetriever.retrieve(
+        conversationState.contextualQuery,
+        allCharacters,
+        classification.extractedThemes,
+        3
+      );
+      retrievedPassages = retrievalResult.passages;
+      corpusDoesNotEstablish = retrievalResult.corpusDoesNotEstablish;
+      retrievalLatencyMs = retrievalResult.retrievalLatencyMs;
+    }
+
+    // Step 6: Dedicated Interpretation Engine (Cognitive Dimensions & Dharma Analysis)
+    const interpretation: InterpretationResult | null = InterpretationEngineService.interpret(
+      userMessage,
+      conversationState,
+      retrievedPassages
+    );
+
+    // Step 7: Fetch User Profile & Optional Long-Term Memory
+    const profile = await db.query.userProfiles.findFirst({
+      where: eq(userProfiles.userId, userId),
+    });
+
+    const memories = profile?.enableLongTermMemory
+      ? await db.query.userMemories.findMany({
+          where: eq(userMemories.userId, userId),
+          limit: 5,
+        })
+      : [];
+
+    // Step 8: Construct Persona Prompt with Source Evidence + Grounded Interpretation
     const chatMessages = KrishnaPersonaService.buildPrompt(
       userMessage,
       history,
@@ -155,8 +178,11 @@ export class AIOrchestratorService {
         reflectionDepth: profile?.reflectionDepth as any,
         mahabharataDensity: profile?.mahabharataDensity as any,
         userMemories: memories.map((m) => ({ key: m.factKey, value: m.factValue })),
-        isMahabharataRelevant: classification.mahabharataRelevant,
+        isMahabharataRelevant,
         corpusDoesNotEstablish,
+        interpretation,
+        intentCategory: classification.intentCategory,
+        emotionalState: classification.emotionalState,
       }
     );
 
@@ -168,12 +194,13 @@ export class AIOrchestratorService {
     let completionTokens: number | undefined;
 
     const maxTokensByDepth: Record<string, number> = {
-      concise: 512,
-      balanced: 1024,
-      deep_philosophical: 1536,
+      concise: isMahabharataRelevant ? 220 : 150,
+      balanced: isMahabharataRelevant ? 450 : 250,
+      deep_philosophical: isMahabharataRelevant ? 600 : 400,
     };
-    const targetMaxTokens = maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || 1024;
+    const targetMaxTokens = maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || (isMahabharataRelevant ? 450 : 250);
 
+    const streamFilter = new StreamTokenFilter();
     try {
       const completionResult = await aiProvider.streamCompletion(
         {
@@ -183,18 +210,41 @@ export class AIOrchestratorService {
         },
         (token: string) => {
           generatedContent += token;
-          emit({ type: 'token', token });
+          const cleanToken = streamFilter.push(token);
+          if (cleanToken) {
+            emit({ type: 'token', token: cleanToken });
+          }
         }
       );
+
+      const trailing = streamFilter.flush();
+      if (trailing) {
+        emit({ type: 'token', token: trailing });
+      }
 
       promptTokens = completionResult.promptTokens;
       completionTokens = completionResult.completionTokens;
     } catch (err: any) {
       const totalLatency = Date.now() - startTime;
+      const errMsg = err.message || '';
+      let errorCode = 'MODEL_ERROR';
+      let userFriendlyError = 'Krishna’s reflection could not be completed at this moment. Please ask again.';
+
+      if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit')) {
+        errorCode = 'RATE_LIMIT';
+        userFriendlyError = 'Too many requests at this moment. Please pause a moment before speaking again.';
+      } else if (errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ESOCKETTIMEDOUT')) {
+        errorCode = 'TIMEOUT';
+        userFriendlyError = 'The response took too long to complete. Please try asking again.';
+      } else if (errMsg.includes('auth') || errMsg.includes('API key') || errMsg.includes('unauthorized')) {
+        errorCode = 'AUTH_ERROR';
+        userFriendlyError = 'AI Provider configuration error. Please check server settings.';
+      }
+
       emit({
         type: 'error',
-        error: 'AI Provider service is currently unavailable. Please check API credentials.',
-        errorCode: 'AI_PROVIDER_UNAVAILABLE',
+        error: userFriendlyError,
+        errorCode,
       });
 
       await TelemetryService.record({
@@ -208,18 +258,39 @@ export class AIOrchestratorService {
         generationLatencyMs: Date.now() - generationStartTime,
         retrievedChunkCount: retrievedPassages.length,
         hasError: true,
-        errorCode: 'AI_PROVIDER_UNAVAILABLE',
+        errorCode,
         citationCount: 0,
         mahabharataRelevant: classification.mahabharataRelevant,
         createdAt: new Date().toISOString(),
       });
 
-      throw new Error(`AI Provider Unavailable: ${err.message}`);
+      throw new Error(`AI Provider Error (${errorCode}): ${err.message}`);
     }
 
     const generationLatencyMs = Date.now() - generationStartTime;
 
-    // Step 8: Quote Verification & Source Citation Guard
+    // Step 8: Final Sanitize & Quote Verification Guard
+    generatedContent = MarkdownSanitizer.sanitize(generatedContent);
+
+    // Safeguard: Intercept generic LLM corporate copyright refusals/disclaimers
+    const isCopyrightRefusal =
+      /protected by copyright/i.test(generatedContent) ||
+      /can'?t share the (shlokas?|verses?|text|epic)/i.test(generatedContent) ||
+      /cannot share the (shlokas?|verses?|text|epic)/i.test(generatedContent) ||
+      /living text of great cultural/i.test(generatedContent) ||
+      /copyright (protection|restrictions)/i.test(generatedContent) ||
+      /sacred texts online/i.test(generatedContent);
+
+    if (isCopyrightRefusal) {
+      console.warn('[AIOrchestratorService] Intercepted corporate copyright refusal from LLM. Overriding with authentic Krishna teaching.');
+      generatedContent =
+        "My friend, the sacred wisdom of the verses belongs to all who seek truth. Hear the eternal words I spoke to Arjuna upon the battlefield of Kurukshetra:\n\n" +
+        "Karmaṇy-evādhikāras te mā phaleṣu kadācana,\n" +
+        "Mā karma-phala-hetur bhūr mā te saṅgo 'stv akarmaṇi.\n\n" +
+        "You have a right only to your prescribed duty, but never to the fruits of action. Never let the fruits of your actions be your motive, nor let your attachment be to inaction.\n\n" +
+        "Focus your whole heart on the righteous deed before you, dedicate your efforts with love, and let go of anxiety over what is to come. In this selfless action lies true peace.";
+    }
+
     const quoteResult = QuoteVerifier.verify(
       generatedContent,
       retrievedPassages,

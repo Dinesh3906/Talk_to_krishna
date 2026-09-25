@@ -38,7 +38,7 @@ export class IntentClassifier {
     const isCasual =
       /^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|pranam|namaste|radhe\s*radhe|hare\s*krishna)\b/i.test(text) ||
       /^(hey|hi|hello|pranam|namaste|radhe\s*radhe)\s*(krishna|lord krishna|shri krishna|bhagavan|kanha|vasudeva)\b/i.test(text) ||
-      /just saying hello|how are you|what('s| is) the weather|tell me a (funny )?joke|who are you/i.test(text) ||
+      /just saying hello|how are you|what('s| is) the weather|tell me a (funny )?joke|who are you|what('s| is) your name|are you (lord )?krishna/i.test(text) ||
       /what should i (eat|wear|watch|cook)/i.test(text);
 
     if (isCasual) {
@@ -80,8 +80,8 @@ export class IntentClassifier {
       /\b(tell me,? krishna|krishna,?\s+(i|i'm|what|how|why|please|help|can|could|listen))\b/i.test(text);
 
     const list = [
-      'arjuna', 'karna', 'yudhishthira', 'bhima', 'draupadi',
-      'duryodhana', 'bhishma', 'drona', 'vidura', 'vyasa', 'sanjaya',
+      'arjuna', 'arjun', 'karna', 'yudhishthira', 'yudhisthir', 'bhima', 'bheem', 'draupadi',
+      'duryodhana', 'duryodhan', 'bhishma', 'bheeshma', 'drona', 'vidura', 'vyasa', 'sanjaya',
       'dhritarashtra', 'ashwatthama', 'abhimanyu', 'yaksha', 'pandava',
       'pandavas', 'kaurava', 'kauravas', 'kunti', 'shakuni', 'nakula',
       'sahadeva', 'shikhandi', 'ghatotkacha', 'balarama', 'subhadra', 'shantanu'
@@ -97,15 +97,43 @@ export class IntentClassifier {
 
     const characters = list.filter((c) => text.includes(c)).map((c) => c.charAt(0).toUpperCase() + c.slice(1));
 
-    // 3. Epic & Scriptural Concepts (Third-person characters, events, verses, teachings)
+    // 3. Explicit Scripture, Shloka, or Epic Inquiries
+    // Broad phonetic patterns for Mahabharata, Gita, and sacred verse requests
+    const hasScripturalUnit =
+      /\b(shloka?s?|sloka?s?|verses?|stotra?s?|sukta?s?|mantra?s?|chaupai|doha|upanishad[a-z]*|vedas?|purana?s?)\b/i.test(text);
+
+    const hasEpicNamesOrTexts =
+      /\b(mahabharat[a-z]*|mahabarat[a-z]*|mahabharatham|mahabaratham|bharata?|gita|geeta|bhagavad\s*gita|bhagawat\s*geeta|shrimad\s*bhagavad\s*gita|kurukshetra|hastinapur|indraprastha|parva)\b/i.test(text);
+
+    const isScriptureTeachingRequest =
+      (hasScripturalUnit || hasEpicNamesOrTexts) &&
+      (/\b(teach|tell|give|recite|share|quote|explain|learn|read|what\s+does|meaning|chant|shloka?s?|sloka?s?|verses?|wisdom|lesson|stories|story)\b/i.test(text) ||
+       !/\b(i |me |my |myself|i'm |we |our )\b/i.test(text));
+
+    if (isScriptureTeachingRequest) {
+      return {
+        intentCategory: 'factual_scripture',
+        emotionalState: 'peace',
+        mahabharataRelevant: true,
+        relevanceScore: 1.0,
+        extractedCharacters: characters,
+        extractedThemes: ['scripture', 'shloka', 'wisdom'],
+        scriptureReferenceQuery: this.extractScriptureRef(text),
+        reasoningNote: 'Explicit scripture or shloka inquiry seeking sacred verse knowledge.',
+      };
+    }
+
+    // Epic & Scriptural Concepts (Third-person characters, events, verses, teachings)
     const hasEpicEntities =
       characters.length > 0 ||
-      /\b(arjuna|karna|yudhishthira|bhima|draupadi|duryodhana|bhishma|drona|vidura|vyasa|sanjaya|dhritarashtra|ashwatthama|abhimanyu|yaksha|pandavas?|kauravas?|kunti|shakuni|parva|gita|bhagavad gita|mahabharata|kurukshetra|hastinapur|indraprastha|gunas?|sattva|rajas|tamas|sthitaprajna|visvarupa|chakravyuha|dice|assembly hall|night raid|sauptika|disrobing|exile|panchali|dharma|karma|svadharma|nishkama|moksha|samsara|atman|brahman|maya|surrender|quote|verse|did krishna|what did krishna|in the gita)\b/i.test(text);
+      hasScripturalUnit ||
+      hasEpicNamesOrTexts ||
+      /\b(arjuna|karna|yudhishthira|bhima|draupadi|duryodhana|bhishma|drona|vidura|vyasa|sanjaya|dhritarashtra|ashwatthama|abhimanyu|yaksha|pandavas?|kauravas?|kunti|shakuni|parva|kurukshetra|hastinapur|indraprastha|gunas?|sattva|rajas|tamas|sthitaprajna|visvarupa|chakravyuha|dice|assembly hall|night raid|sauptika|disrobing|exile|panchali|dharma|karma|svadharma|nishkama|moksha|samsara|atman|brahman|maya|surrender|did krishna|what did krishna|in the gita)\b/i.test(text);
 
     const isThirdPersonEpic =
       hasEpicEntities &&
       (!/\b(i |me |my |myself|i'm |we |our )\b/i.test(text) ||
-        /\b(did krishna|what did krishna|in the gita|quote|verse|parva|did.*say|who was|who is|explain the|what happened|how did karna|compare and contrast|why did|what is dharma|quote gita|verify its authenticity)\b/i.test(text));
+        /\b(did krishna|what did krishna|in the gita|quote|verse|verses|shloka|shlokas|sloka|slokas|parva|did.*say|who was|who is|explain the|what happened|how did karna|compare and contrast|why did|what is dharma|quote gita|verify its authenticity|teach me|tell me)\b/i.test(text));
 
     if (isThirdPersonEpic) {
       const isGitaPeace = /\b(gita|teach|sthitaprajna|gunas?|sattva|rajas|tamas|surrender|austerity of speech|seasons|restless mind|fruits of action|immortality of the soul|dharma|equanimity)\b/i.test(text);
@@ -268,7 +296,12 @@ export class IntentClassifier {
   }
 
   private static extractScriptureRef(text: string): string | undefined {
-    const match = text.match(/\b(\d{1,2})[.:](\d{1,2}(?:-\d{1,2})?)\b/);
-    return match ? `Bhagavad Gita ${match[1]}.${match[2]}` : undefined;
+    const vMatch = text.match(/(?:chapter\s*(\d{1,2})\s*(?:verse|shloka|sloka)?\s*(\d{1,2})|(?:gita|bg|bhagavad\s*gita)?\s*(\d{1,2})[.:](\d{1,2}(?:-\d{1,2})?))/i);
+    if (vMatch) {
+      const ch = vMatch[1] || vMatch[3];
+      const vs = vMatch[2] || vMatch[4];
+      return `Bhagavad Gita ${ch}.${vs}`;
+    }
+    return undefined;
   }
 }

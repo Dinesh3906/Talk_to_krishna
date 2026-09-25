@@ -57,7 +57,7 @@ export class QuoteVerifier {
 
         citations.push({
           id: passage.id,
-          source: passage.sourceType === 'gita' ? 'Bhagavad Gita' : 'Mahabharata',
+          source: (passage.sourceType === 'gita' || passage.sourceType === 'bhagavad_gita') ? 'Bhagavad Gita' : 'Mahabharata',
           parva: passage.parva,
           chapter: passage.chapter,
           section: passage.section,
