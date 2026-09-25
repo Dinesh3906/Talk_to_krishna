@@ -17,7 +17,7 @@ export class GroqProvider implements AIProvider {
       .trim()
       .replace(/^["']|["']$/g, '');
     const isGeminiModel = rawModel && rawModel.toLowerCase().includes('gemini');
-    return !isGeminiModel && rawModel ? rawModel : 'openai/gpt-oss-20b';
+    return !isGeminiModel && rawModel ? rawModel : 'llama-3.3-70b-versatile';
   }
 
   private checkApiKey(): string {

@@ -291,6 +291,21 @@ export class AIOrchestratorService {
         "Focus your whole heart on the righteous deed before you, dedicate your efforts with love, and let go of anxiety over what is to come. In this selfless action lies true peace.";
     }
 
+    // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists
+    const isClinicalTherapistResponse =
+      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing technique|blanket that'?s hard to lift|heavy unending cloud)/i.test(generatedContent) &&
+      (classification.intentCategory === 'emotional_distress' || classification.emotionalState === 'grief' || classification.intentCategory === 'relationship_grief');
+
+    if (isClinicalTherapistResponse) {
+      console.warn('[AIOrchestratorService] Intercepted clinical therapist response from LLM. Overriding with authentic Krishna emotional reflection.');
+      generatedContent =
+        (options.preferredName ? `${options.preferredName}, my dear friend. ` : "My dear friend. ") +
+        "You have been carrying a heavy weight in silence for some time now, have you not?\n\n" +
+        "When the mind is exhausted, it feels as though a cloud has covered the sun, and every step forward requires more strength than you have to give. Arjuna once sat upon the chariot, trembling and weeping, believing he could not move another inch.\n\n" +
+        "Hear me: you do not have to conquer the entire battlefield of your life tonight. Sometimes the mind does not need another command to be strong; it simply needs permission to rest without self-reproach.\n\n" +
+        "Tell me, what has been hurting you the most? Share what is in your heart—I am here with you.";
+    }
+
     const quoteResult = QuoteVerifier.verify(
       generatedContent,
       retrievedPassages,

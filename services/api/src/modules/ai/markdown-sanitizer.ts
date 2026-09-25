@@ -15,7 +15,7 @@ export class MarkdownSanitizer {
     let cleaned = text.replace(/\r\n/g, '\n');
 
     // 1. Remove Markdown headers (# Header, ## Header, ### Header, ## 1. Header)
-    cleaned = cleaned.replace(/^#{1,6}\s*(?:\d+\.\s*)?/gm, '');
+    cleaned = cleaned.replace(/#{1,6}\s*(?:\d+\.\s*)?/g, '');
 
     // 2. Remove horizontal rules (---, ***, ___) with optional trailing spaces
     cleaned = cleaned.replace(/^[ \t]*(\*{3,}|-{3,}|_{3,})[ \t]*$/gm, '');

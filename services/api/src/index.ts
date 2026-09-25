@@ -79,7 +79,7 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
       status: 'healthy',
       database: dbCheck.rows.length > 0 ? 'connected' : 'unhealthy',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: '1.1.0-emotional-krishna',
     });
   } catch (err: any) {
     return res.status(503).json({
