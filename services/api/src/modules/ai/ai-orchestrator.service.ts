@@ -198,7 +198,14 @@ export class AIOrchestratorService {
       balanced: isMahabharataRelevant ? 450 : 250,
       deep_philosophical: isMahabharataRelevant ? 600 : 400,
     };
-    const targetMaxTokens = maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || (isMahabharataRelevant ? 450 : 250);
+    const isEmotionalConversationMode =
+      classification.intentCategory === 'emotional_distress' ||
+      classification.emotionalState === 'grief' ||
+      classification.intentCategory === 'relationship_grief';
+
+    const targetMaxTokens = isEmotionalConversationMode
+      ? 240
+      : maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || (isMahabharataRelevant ? 450 : 250);
 
     const streamFilter = new StreamTokenFilter();
     try {
@@ -291,18 +298,22 @@ export class AIOrchestratorService {
         "Focus your whole heart on the righteous deed before you, dedicate your efforts with love, and let go of anxiety over what is to come. In this selfless action lies true peace.";
     }
 
-    // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists
+    // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists / helpline dumps
+    const isImminentSelfHarm =
+      /(?:suicid|kill myself|end my life|want to die|self[- ]harm)/i.test(userMessage);
+
     const isClinicalTherapistResponse =
-      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present|yourself)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing (?:technique|exercise)|blanket that'?s hard to (?:lift|shake off)|heavy unending cloud|let the feeling surface|a small,? (?:intentional|comforting) ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take|name the feeling|explore a few gentle ways|move a little|write it down|cyclical nature of emotions|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the))/i.test(generatedContent);
+      !isImminentSelfHarm &&
+      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present|yourself)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing (?:technique|exercise)|blanket that'?s hard to (?:lift|shake off)|heavy unending cloud|let the feeling surface|a small,? (?:intentional|comforting) ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take|name the feeling|explore a few gentle ways|move a little|write it down|cyclical nature of emotions|emergency resources|national suicide prevention|samaritans|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(generatedContent);
 
     if (isClinicalTherapistResponse) {
       console.warn('[AIOrchestratorService] Intercepted clinical therapist response from LLM. Overriding with authentic Krishna emotional reflection.');
       generatedContent =
-        "Then don't force yourself to be okay right now.\n\n" +
-        "There were moments in Arjuna's life when he had everything people would call strength—skill, courage, reputation—and yet he still found himself unable to move. Krishna didn't begin by giving him a list of things to do. He first listened to the confusion that had taken hold of him.\n\n" +
-        "Sometimes the mind becomes so tired that even simple things feel like mountains. That doesn't mean you have failed. It means you're carrying something that deserves to be understood, not simply pushed away.\n\n" +
-        "So forget about fixing everything tonight. Stay here with me for a moment.\n\n" +
-        "Tell me honestly—what is hurting you the most right now?";
+        "Come, sit for a moment. You don't have to explain everything at once.\n\n" +
+        "When Arjuna stood on the battlefield, he wasn't defeated by an enemy in front of him. His real struggle was inside—his mind was filled with confusion, grief, and questions he couldn't silence. And Krishna did not begin by telling him to take a walk, make a gratitude list, or follow seven steps.\n\n" +
+        "He listened.\n\n" +
+        "So if you're feeling depressed, don't worry about fixing your entire life tonight. Sometimes the first step is simply being honest about what hurts.\n\n" +
+        (options.preferredName ? `Tell me, ${options.preferredName}—what happened that made everything feel this heavy?` : "Tell me—what happened that made everything feel this heavy?");
     }
 
     const quoteResult = QuoteVerifier.verify(

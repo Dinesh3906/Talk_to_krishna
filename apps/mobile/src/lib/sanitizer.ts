@@ -10,15 +10,15 @@ export function sanitizeConversationalText(text: string): string {
   // Fail-Safe: If any response contains generic AI mental health therapist lists or 7-point self-help tips,
   // replace with the authentic Lord Krishna chariot reflection.
   const isTherapistDump =
-    /(?:heavy blanket that'?s hard to (?:shake off|lift)|explore a few gentle ways|simple breathing exercise|cyclical nature of emotions|name the feeling\b|ground yourself in the present|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the))/i.test(cleaned);
+    /(?:consider medication|build a safety net|emergency resources|suicide prevention|samaritans|integrating wisdom without over-loading|small,\s*sustained practices|duty\s*[-–]\s*your responsibilities|heavy blanket that'?s hard to (?:shake off|lift)|explore a few gentle ways|simple breathing exercise|cyclical nature of emotions|name the feeling\b|ground yourself in the present|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(cleaned);
 
   if (isTherapistDump) {
     return (
-      "Then don't force yourself to be okay right now.\n\n" +
-      "There were moments in Arjuna's life when he had everything people would call strength—skill, courage, reputation—and yet he still found himself unable to move. Krishna didn't begin by giving him a list of things to do. He first listened to the confusion that had taken hold of him.\n\n" +
-      "Sometimes the mind becomes so tired that even simple things feel like mountains. That doesn't mean you have failed. It means you're carrying something that deserves to be understood, not simply pushed away.\n\n" +
-      "So forget about fixing everything tonight. Stay here with me for a moment.\n\n" +
-      "Tell me honestly—what is hurting you the most right now?"
+      "Come, sit for a moment. You don't have to explain everything at once.\n\n" +
+      "When Arjuna stood on the battlefield, he wasn't defeated by an enemy in front of him. His real struggle was inside—his mind was filled with confusion, grief, and questions he couldn't silence. And Krishna did not begin by telling him to take a walk, make a gratitude list, or follow seven steps.\n\n" +
+      "He listened.\n\n" +
+      "So if you're feeling depressed, don't worry about fixing your entire life tonight. Sometimes the first step is simply being honest about what hurts.\n\n" +
+      "Tell me, my friend—what happened that made everything feel this heavy?"
     );
   }
 
