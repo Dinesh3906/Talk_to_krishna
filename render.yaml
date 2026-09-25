@@ -21,7 +21,7 @@ services:
       - key: AI_PROVIDER
         value: groq
       - key: GROQ_MODEL_NAME
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-20b
       - key: EMAIL_PROVIDER
         value: resend
       - key: RESEND_API_KEY
