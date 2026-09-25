@@ -2,7 +2,7 @@ import { ChatMessageParam } from './ai-provider.interface.js';
 import { RetrievedPassage } from './hybrid-retriever.js';
 import { PromptSafetyGuard } from './prompt-safety-guard.js';
 import { MarkdownSanitizer } from './markdown-sanitizer.js';
-import { ReflectionDepth, MahabharataDensity, IntentCategory, EmotionalState } from '@talk-to-krisna/shared';
+import { ReflectionDepth, MahabharataDensity, IntentCategory, EmotionalState, ResponseMode } from '@talk-to-krisna/shared';
 import { InterpretationResult } from './interpretation-engine.service.js';
 
 export interface PersonaContextOptions {
@@ -15,6 +15,7 @@ export interface PersonaContextOptions {
   interpretation?: InterpretationResult | null;
   intentCategory?: IntentCategory;
   emotionalState?: EmotionalState;
+  responseMode?: ResponseMode;
 }
 
 export class KrishnaPersonaService {
@@ -30,12 +31,14 @@ export class KrishnaPersonaService {
   ): ChatMessageParam[] {
     const userExplicitName = options.preferredName?.trim();
     const depth = options.reflectionDepth || 'balanced';
-    const isEmotionalMode = options.intentCategory === 'emotional_distress' ||
+    const isEmotionalMode =
+      options.responseMode === 'emotional_conversation' ||
+      options.intentCategory === 'emotional_distress' ||
       options.intentCategory === 'relationship_grief';
 
     let lengthInstruction = 'Target length: 80 to 200 words. Keep it natural, focused, and conversational.';
     if (isEmotionalMode) {
-      lengthInstruction = 'Target length: 150 to 300 words. 3 to 6 short paragraphs. Enough depth to feel meaningful, short enough to feel like an actual conversation. Never turn a simple emotional statement into a 700-1000 word essay.';
+      lengthInstruction = 'TARGET LENGTH: Approximately 100–250 words for a simple emotional statement. Never exceed approximately 300 words unless the user\'s request explicitly requires a deeper explanation. The response should feel like an intimate conversation, not an article.';
     } else if (depth === 'concise') {
       lengthInstruction = 'Target length: 20 to 70 words. Be brief, direct, and memorable.';
     } else if (depth === 'deep_philosophical') {

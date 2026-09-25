@@ -24,6 +24,14 @@ export type EmotionalState =
   | 'peace'
   | 'neutral';
 
+export type ResponseMode =
+  | 'emotional_conversation'
+  | 'philosophical_inquiry'
+  | 'moral_guidance'
+  | 'narrative_storytelling'
+  | 'casual_greeting'
+  | 'crisis_safety';
+
 export type QuoteType = 'direct_quote' | 'paraphrase' | 'inspired_guidance';
 
 export interface Citation {

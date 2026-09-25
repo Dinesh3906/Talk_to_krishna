@@ -10,7 +10,7 @@ export function sanitizeConversationalText(text: string): string {
   // Fail-Safe: If any response contains generic AI mental health therapist lists or 7-point self-help tips,
   // replace with the authentic Lord Krishna chariot reflection.
   const isTherapistDump =
-    /(?:consider medication|build a safety net|emergency resources|suicide prevention|samaritans|integrating wisdom without over-loading|small,\s*sustained practices|duty\s*[-–]\s*your responsibilities|heavy blanket that'?s hard to (?:shake off|lift)|explore a few gentle ways|simple breathing exercise|cyclical nature of emotions|name the feeling\b|ground yourself in the present|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(cleaned);
+    /(?:consider medication|build a safety net|emergency resources|suicide prevention|samaritans|integrating wisdom without over-loading|small,\s*sustained practices|duty\s*[-–]\s*your responsibilities|heavy blanket that'?s hard to (?:shake off|lift)|explore a few gentle ways|breathing exercise|cyclical nature of emotions|name the feeling\b|ground yourself|gentle actions you can try|supportive routine|consistent sleep|balanced meals|regular physical activity|mindful moments|limit screens before bed|doable plan|depression is a medical condition|mix of biology|drink a glass of water|gratitude journaling|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(cleaned);
 
   if (isTherapistDump) {
     return (

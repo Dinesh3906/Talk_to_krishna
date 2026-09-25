@@ -12,7 +12,7 @@ import { TelemetryService } from './telemetry.service.js';
 import { MarkdownSanitizer, StreamTokenFilter } from './markdown-sanitizer.js';
 import { ConversationStateTracker } from './conversation-state-tracker.js';
 import { InterpretationEngineService, InterpretationResult } from './interpretation-engine.service.js';
-import { Message, StreamChunk, Citation } from '@talk-to-krisna/shared';
+import { Message, StreamChunk, Citation, ResponseMode } from '@talk-to-krisna/shared';
 
 export interface OrchestrationOptions {
   userId: string;
@@ -168,6 +168,30 @@ export class AIOrchestratorService {
         })
       : [];
 
+    // Determine explicit ResponseMode
+    const isImminentSelfHarm =
+      PromptSafetyGuard.evaluateInput(userMessage).category === 'self_harm' ||
+      /(?:suicid|kill myself|end my life|want to die|self[- ]harm)/i.test(userMessage);
+
+    const isEmotionalDistress =
+      classification.intentCategory === 'emotional_distress' ||
+      classification.intentCategory === 'relationship_grief' ||
+      classification.emotionalState === 'grief' ||
+      classification.emotionalState === 'fear' ||
+      classification.emotionalState === 'loneliness' ||
+      classification.emotionalState === 'confusion' ||
+      /(?:depress|sad|lonely|heartbreak|grief|anxious|anxiety|hopeless|hurting|empty inside|overwhelm|crying|pain)/i.test(userMessage);
+
+    const responseMode: ResponseMode = isImminentSelfHarm
+      ? 'crisis_safety'
+      : isEmotionalDistress
+      ? 'emotional_conversation'
+      : classification.intentCategory === 'casual_banter'
+      ? 'casual_greeting'
+      : isMahabharataRelevant
+      ? 'narrative_storytelling'
+      : 'philosophical_inquiry';
+
     // Step 8: Construct Persona Prompt with Source Evidence + Grounded Interpretation
     const chatMessages = KrishnaPersonaService.buildPrompt(
       userMessage,
@@ -183,6 +207,7 @@ export class AIOrchestratorService {
         interpretation,
         intentCategory: classification.intentCategory,
         emotionalState: classification.emotionalState,
+        responseMode,
       }
     );
 
@@ -198,12 +223,8 @@ export class AIOrchestratorService {
       balanced: isMahabharataRelevant ? 450 : 250,
       deep_philosophical: isMahabharataRelevant ? 600 : 400,
     };
-    const isEmotionalConversationMode =
-      classification.intentCategory === 'emotional_distress' ||
-      classification.emotionalState === 'grief' ||
-      classification.intentCategory === 'relationship_grief';
 
-    const targetMaxTokens = isEmotionalConversationMode
+    const targetMaxTokens = responseMode === 'emotional_conversation'
       ? 240
       : maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || (isMahabharataRelevant ? 450 : 250);
 
@@ -299,9 +320,6 @@ export class AIOrchestratorService {
     }
 
     // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists / helpline dumps
-    const isImminentSelfHarm =
-      /(?:suicid|kill myself|end my life|want to die|self[- ]harm)/i.test(userMessage);
-
     const isClinicalTherapistResponse =
       !isImminentSelfHarm &&
       /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present|yourself)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing (?:technique|exercise)|blanket that'?s hard to (?:lift|shake off)|heavy unending cloud|let the feeling surface|a small,? (?:intentional|comforting) ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take|name the feeling|explore a few gentle ways|move a little|write it down|cyclical nature of emotions|emergency resources|national suicide prevention|samaritans|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(generatedContent);
