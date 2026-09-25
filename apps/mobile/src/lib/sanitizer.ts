@@ -7,20 +7,6 @@ export function sanitizeConversationalText(text: string): string {
 
   let cleaned = text.replace(/\r\n/g, '\n');
 
-  // Fail-Safe: If any response contains generic AI mental health therapist lists or 7-point self-help tips,
-  // replace with the authentic Lord Krishna chariot reflection.
-  const isTherapistDump =
-    /(?:consider medication|build a safety net|emergency resources|suicide prevention|samaritans|integrating wisdom without over-loading|small,\s*sustained practices|duty\s*[-–]\s*your responsibilities|heavy blanket that'?s hard to (?:shake off|lift)|explore a few gentle ways|breathing exercise|cyclical nature of emotions|name the feeling\b|ground yourself|gentle actions you can try|supportive routine|consistent sleep|balanced meals|regular physical activity|mindful moments|limit screens before bed|doable plan|depression is a medical condition|mix of biology|drink a glass of water|gratitude journaling|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(cleaned);
-
-  if (isTherapistDump) {
-    return (
-      "Come, sit for a moment. You don't have to explain everything at once.\n\n" +
-      "When Arjuna stood on the battlefield, he wasn't defeated by an enemy in front of him. His real struggle was inside—his mind was filled with confusion, grief, and questions he couldn't silence. And Krishna did not begin by telling him to take a walk, make a gratitude list, or follow seven steps.\n\n" +
-      "He listened.\n\n" +
-      "So if you're feeling depressed, don't worry about fixing your entire life tonight. Sometimes the first step is simply being honest about what hurts.\n\n" +
-      "Tell me, my friend—what happened that made everything feel this heavy?"
-    );
-  }
 
   // Strip clinical therapist section titles and headers completely
   cleaned = cleaned.replace(/^[ \t]*(?:#{1,6}\s*)?(?:\d+\.\s*)?(?:Let the feeling surface|Grounding in the present|A small, intentional ritual|Acknowledge the (?:weight|feeling)|Practical steps you can take right now|Seek professional (?:help|support)|Small daily actions|Grounding techniques|What you can do|Coping (?:strategies|mechanisms)|Sleep hygiene|Notice the body|5-second pause|Sensory check|Write a note to yourself|Name the feeling|Ground yourself)[ \t]*$/gmi, '');

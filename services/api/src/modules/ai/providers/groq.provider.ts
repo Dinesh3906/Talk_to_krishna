@@ -45,8 +45,9 @@ export class GroqProvider implements AIProvider {
           model,
           messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: Math.max(options.maxTokens ?? 1500, 1500),
           reasoning_format: 'hidden',
+          reasoning_effort: 'low',
         }),
       });
 
@@ -73,7 +74,7 @@ export class GroqProvider implements AIProvider {
         model,
         messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
         temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 2048,
+        max_tokens: Math.max(options.maxTokens ?? 1500, 1500),
       });
       const choice = response.choices[0];
       return {
@@ -104,9 +105,10 @@ export class GroqProvider implements AIProvider {
           model,
           messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: Math.max(options.maxTokens ?? 1500, 1500),
           stream: true,
           reasoning_format: 'hidden',
+          reasoning_effort: 'low',
         }),
       });
 

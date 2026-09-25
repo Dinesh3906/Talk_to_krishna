@@ -319,28 +319,13 @@ export class AIOrchestratorService {
         "Focus your whole heart on the righteous deed before you, dedicate your efforts with love, and let go of anxiety over what is to come. In this selfless action lies true peace.";
     }
 
-    // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists / helpline dumps
-    const isClinicalTherapistResponse =
-      !isImminentSelfHarm &&
-      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present|yourself)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing (?:technique|exercise)|blanket that'?s hard to (?:lift|shake off)|heavy unending cloud|let the feeling surface|a small,? (?:intentional|comforting) ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take|name the feeling|explore a few gentle ways|move a little|write it down|cyclical nature of emotions|emergency resources|national suicide prevention|samaritans|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the|Consider medication|Build a safety net|Emergency resources))/i.test(generatedContent);
-
-    if (isClinicalTherapistResponse) {
-      console.warn('[AIOrchestratorService] Intercepted clinical therapist response from LLM. Overriding with authentic Krishna emotional reflection.');
-      generatedContent =
-        "Come, sit for a moment. You don't have to explain everything at once.\n\n" +
-        "When Arjuna stood on the battlefield, he wasn't defeated by an enemy in front of him. His real struggle was inside—his mind was filled with confusion, grief, and questions he couldn't silence. And Krishna did not begin by telling him to take a walk, make a gratitude list, or follow seven steps.\n\n" +
-        "He listened.\n\n" +
-        "So if you're feeling depressed, don't worry about fixing your entire life tonight. Sometimes the first step is simply being honest about what hurts.\n\n" +
-        (options.preferredName ? `Tell me, ${options.preferredName}—what happened that made everything feel this heavy?` : "Tell me—what happened that made everything feel this heavy?");
-    }
-
     const quoteResult = QuoteVerifier.verify(
       generatedContent,
       retrievedPassages,
       corpusDoesNotEstablish
     );
 
-    if (isCopyrightRefusal || isClinicalTherapistResponse || quoteResult.verifiedContent !== generatedContent) {
+    if (isCopyrightRefusal || quoteResult.verifiedContent !== generatedContent) {
       emit({ type: 'replace', content: quoteResult.verifiedContent });
     }
 
