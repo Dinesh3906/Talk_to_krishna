@@ -293,16 +293,16 @@ export class AIOrchestratorService {
 
     // Safeguard: Intercept generic LLM corporate therapist / medicalized clinical lists
     const isClinicalTherapistResponse =
-      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing technique|blanket that'?s hard to lift|heavy unending cloud|let the feeling surface|a small,? intentional ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take)/i.test(generatedContent);
+      /(?:acknowledge the (?:weight|feeling)|grounding (?:techniques|practices|in the present|yourself)|daily rituals|small daily actions|sleep hygiene|4-7-8|breathing (?:technique|exercise)|blanket that'?s hard to (?:lift|shake off)|heavy unending cloud|let the feeling surface|a small,? (?:intentional|comforting) ritual|seek professional (?:help|support)|notice the body|5-second pause|sensory check|write a note to yourself|practical steps you can take|name the feeling|explore a few gentle ways|move a little|write it down|cyclical nature of emotions|\b\d+\.\s*(?:Name the feeling|Ground yourself|Reach out|Move a little|Write it down|Seek a small|Remember the))/i.test(generatedContent);
 
     if (isClinicalTherapistResponse) {
       console.warn('[AIOrchestratorService] Intercepted clinical therapist response from LLM. Overriding with authentic Krishna emotional reflection.');
       generatedContent =
-        (options.preferredName ? `${options.preferredName}, my dear friend. ` : "My dear friend. ") +
-        "You have been carrying a heavy weight in silence for some time now, have you not?\n\n" +
-        "When the mind is exhausted, it feels as though a cloud has covered the sun, and every step forward requires more strength than you have to give. Arjuna once sat upon the chariot, trembling and weeping, believing he could not move another inch.\n\n" +
-        "Hear me: you do not have to conquer the entire battlefield of your life tonight. Sometimes the mind does not need another command to be strong; it simply needs permission to rest without self-reproach.\n\n" +
-        "Tell me, what has been hurting you the most? Share what is in your heart—I am here with you.";
+        "Then don't force yourself to be okay right now.\n\n" +
+        "There were moments in Arjuna's life when he had everything people would call strength—skill, courage, reputation—and yet he still found himself unable to move. Krishna didn't begin by giving him a list of things to do. He first listened to the confusion that had taken hold of him.\n\n" +
+        "Sometimes the mind becomes so tired that even simple things feel like mountains. That doesn't mean you have failed. It means you're carrying something that deserves to be understood, not simply pushed away.\n\n" +
+        "So forget about fixing everything tonight. Stay here with me for a moment.\n\n" +
+        "Tell me honestly—what is hurting you the most right now?";
     }
 
     const quoteResult = QuoteVerifier.verify(
