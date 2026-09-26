@@ -12,20 +12,11 @@
     "build:web": "npm --prefix ../.. install && npm --prefix ../.. run build:web && node -e \"const fs=require('fs'); fs.mkdirSync('apps/mobile',{recursive:true}); fs.cpSync('../../apps/mobile/dist','apps/mobile/dist',{recursive:true});\"",
     "start": "node dist/index.js",
     "start:api": "node dist/index.js",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:eval": "tsx src/eval/run-evaluation.ts",
     "ingest:corpus": "tsx src/modules/ingestion/seed-corpus-cli.ts",
     "ingest:pdf": "tsx src/modules/ingestion/ingest-pdf-cli.ts",
     "ingest:full": "tsx src/modules/ingestion/run-full-ingestion-cli.ts",
     "ingest:child": "tsx src/modules/ingestion/run-parallel-child-ingestion-cli.ts",
     "ingest:child:seq": "tsx src/modules/ingestion/run-child-chunk-ingestion-cli.ts",
-    "audit:corpus": "tsx src/modules/audit/run-corpus-audit-cli.ts",
-    "audit:retrieval": "tsx src/modules/audit/run-retrieval-1000-cli.ts",
-    "audit:adversarial": "tsx src/modules/audit/run-adversarial-300-cli.ts",
-    "audit:e2e": "tsx src/modules/audit/run-e2e-1000-audit-cli.ts",
-    "audit:live-llm": "tsx src/modules/audit/run-live-llm-e2e-cli.ts",
-    "audit:live-llm:smoke": "tsx src/modules/audit/run-live-llm-e2e-cli.ts --smoke",
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
@@ -56,7 +47,6 @@
     "resend": "^6.26.0",
     "typescript": "^5.7.3",
     "uuid": "^11.1.0",
-    "vitest": "^3.0.7",
     "zod": "^3.24.2"
   },
   "devDependencies": {

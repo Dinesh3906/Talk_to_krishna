@@ -17,18 +17,12 @@
     "build:api": "npm run build:packages && npm --workspace=services/api run build",
     "build:web": "npm run build:packages && npm --workspace=apps/mobile run build",
     "start": "npm --workspace=services/api run start",
-    "start:api": "npm --workspace=services/api run start",
-    "test": "npm --workspace=services/api run test",
     "lint": "npm --workspaces run lint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "ingest:corpus": "npm --workspace=services/api run ingest:corpus",
     "ingest:pdf": "npm --workspace=services/api run ingest:pdf",
-    "ingest:child": "npm --workspace=services/api run ingest:child",
-    "audit:retrieval": "npm --workspace=services/api run audit:retrieval",
-    "audit:e2e": "npm --workspace=services/api run audit:e2e",
-    "audit:live-llm": "npm --workspace=services/api run audit:live-llm",
-    "audit:live-llm:smoke": "npm --workspace=services/api run audit:live-llm:smoke"
+    "ingest:child": "npm --workspace=services/api run ingest:child"
   },
   "dependencies": {
     "zod": "^3.24.2"
