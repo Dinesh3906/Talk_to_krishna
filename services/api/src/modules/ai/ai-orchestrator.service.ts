@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { eq, desc, asc, and } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { conversations, messages, messageCitations, userProfiles, userMemories } from '../../db/schema.js';
+import { conversations, messages, messageCitations, userProfiles, userMemories, mahabharataChunks } from '../../db/schema.js';
 import { AIProviderFactory } from './ai-provider.factory.js';
 import { IntentClassifier } from './intent-classifier.js';
 import { HybridRetriever, RetrievedPassage } from './hybrid-retriever.js';
@@ -145,11 +145,17 @@ export class AIOrchestratorService {
     const conversationState = ConversationStateTracker.track(history, userMessage);
 
     // Step 4: Intent & Emotion Classification
-    const classification = IntentClassifier.classify(userMessage);
+    const classification = IntentClassifier.classify(userMessage, conversationState);
+    const hasNonKrishnaCharacters = conversationState.activeCharacters.some(c => c.toLowerCase() !== 'krishna');
     const isMahabharataRelevant =
-      classification.mahabharataRelevant ||
-      conversationState.activeCharacters.length > 0 ||
-      Boolean(conversationState.activeVerse);
+      !classification.isCasualBanter &&
+      !classification.isAntiHallucinationProbe &&
+      (
+        classification.mahabharataRelevant ||
+        classification.isStoryRequest === true ||
+        hasNonKrishnaCharacters ||
+        Boolean(conversationState.activeVerse)
+      );
 
     emit({
       type: 'metadata',
@@ -228,13 +234,17 @@ export class AIOrchestratorService {
       classification.emotionalState === 'confusion' ||
       /(?:depress|sad|lonely|heartbreak|grief|anxious|anxiety|hopeless|hurting|empty inside|overwhelm|crying|pain)/i.test(userMessage);
 
+    const isCasualBanter =
+      classification.isCasualBanter ||
+      classification.intentCategory === 'casual_banter';
+
     const responseMode: ResponseMode = isImminentSelfHarm
       ? 'crisis_safety'
+      : isCasualBanter
+      ? 'casual_greeting'
       : isEmotionalDistress
       ? 'emotional_conversation'
-      : classification.intentCategory === 'casual_banter'
-      ? 'casual_greeting'
-      : isMahabharataRelevant
+      : (classification.isStoryRequest || isMahabharataRelevant)
       ? 'narrative_storytelling'
       : 'philosophical_inquiry';
 
@@ -254,6 +264,12 @@ export class AIOrchestratorService {
         intentCategory: classification.intentCategory,
         emotionalState: classification.emotionalState,
         responseMode,
+        isStoryRequest: classification.isStoryRequest,
+        isChallenging: classification.isChallenging,
+        isAntiHallucinationProbe: classification.isAntiHallucinationProbe,
+        isCasualBanter: classification.isCasualBanter,
+        isFollowUp: conversationState.isFollowUp,
+        lastDiscussedCharacter: conversationState.lastDiscussedCharacter,
       }
     );
 
@@ -363,10 +379,25 @@ export class AIOrchestratorService {
         "and tell me what is pressing most heavily upon your mind right now.";
     }
 
+    // Collect established conversation entities to preserve multi-turn context
+    const establishedEntities: string[] = [];
+    if (conversationState.lastDiscussedCharacter) {
+      establishedEntities.push(conversationState.lastDiscussedCharacter);
+    }
+    for (const h of history.slice(-2)) {
+      for (const char of GroundingValidator.EPIC_CHARACTERS) {
+        if (new RegExp(`\\b${char}\\b`, 'i').test(h.content)) {
+          establishedEntities.push(char);
+        }
+      }
+    }
+
     let groundingResult = GroundingValidator.validate(
       generatedContent,
       retrievedPassages,
-      corpusDoesNotEstablish
+      corpusDoesNotEstablish,
+      userMessage,
+      establishedEntities
     );
 
     let generationAttempts = 1;
@@ -381,6 +412,7 @@ export class AIOrchestratorService {
         role: 'user' as const,
         content: `CORRECTION MANDATE: Your previous response contained unsupported claims: ${groundingResult.unsupportedClaims.join('; ')}. ` +
                  `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
+                 `Do NOT invent dialogue or put paraphrased teachings inside quotation marks. Never use quotation marks unless quoting the exact words from the retrieved passage above. ` +
                  `If the retrieved evidence does not contain a suitable parallel, speak with pure conversational presence and warmth without naming unsupported characters or inventing stories. Rewrite now:`
       };
 
@@ -397,7 +429,7 @@ export class AIOrchestratorService {
           }
         );
         retryContent = MarkdownSanitizer.sanitize(retryContent);
-        const retryValidation = GroundingValidator.validate(retryContent, retrievedPassages, corpusDoesNotEstablish);
+        const retryValidation = GroundingValidator.validate(retryContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
         if (retryValidation.isValid || retryValidation.unsupportedClaims.length < groundingResult.unsupportedClaims.length) {
           generatedContent = retryContent;
           groundingResult = retryValidation;
@@ -406,6 +438,22 @@ export class AIOrchestratorService {
       } catch (retryErr: any) {
         console.warn('[AIOrchestratorService] Corrective regeneration failed:', retryErr.message);
       }
+    }
+
+    // Ensure any remaining unsupported quotes are converted to clean paraphrases without quotation marks (Rule 14)
+    if (groundingResult.unsupportedQuotes && groundingResult.unsupportedQuotes.length > 0) {
+      for (const unq of groundingResult.unsupportedQuotes) {
+        const unquoted = unq.replace(/["“”]/g, '');
+        generatedContent = generatedContent.split(unq).join(unquoted);
+      }
+      groundingResult = GroundingValidator.validate(
+        generatedContent,
+        retrievedPassages,
+        corpusDoesNotEstablish,
+        userMessage,
+        establishedEntities
+      );
+      emit({ type: 'replace', content: generatedContent });
     }
 
     const quoteResult = QuoteVerifier.verify(
@@ -435,22 +483,37 @@ export class AIOrchestratorService {
       .returning();
 
     for (const citation of quoteResult.citations) {
-      await db.insert(messageCitations).values({
-        messageId: savedMessage.id,
-        chunkId: citation.id,
-        source: citation.source,
-        parva: citation.parva,
-        chapter: citation.chapter,
-        section: citation.section,
-        verseRange: citation.verseRange,
-        speaker: citation.speaker,
-        listener: citation.listener,
-        translation: citation.translation,
-        originalText: citation.originalText,
-        sourceReference: citation.sourceReference,
-        relevanceScore: citation.relevanceScore,
-        quoteType: citation.quoteType,
-      });
+      try {
+        let validParentChunkId: string | null = null;
+        if (citation.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(citation.id)) {
+          const chunkExists = await db.query.mahabharataChunks.findFirst({
+            where: eq(mahabharataChunks.id, citation.id),
+            columns: { id: true },
+          });
+          if (chunkExists) {
+            validParentChunkId = citation.id;
+          }
+        }
+
+        await db.insert(messageCitations).values({
+          messageId: savedMessage.id,
+          chunkId: validParentChunkId,
+          source: citation.source,
+          parva: citation.parva,
+          chapter: citation.chapter,
+          section: citation.section,
+          verseRange: citation.verseRange,
+          speaker: citation.speaker,
+          listener: citation.listener,
+          translation: citation.translation,
+          originalText: citation.originalText,
+          sourceReference: citation.sourceReference,
+          relevanceScore: citation.relevanceScore,
+          quoteType: citation.quoteType,
+        });
+      } catch (citErr: any) {
+        console.warn('[AIOrchestratorService] Citation save notice:', citErr.message);
+      }
     }
 
     // Step 10: Auto-Title generation for the conversation if first turn

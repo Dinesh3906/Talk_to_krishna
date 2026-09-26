@@ -20,7 +20,7 @@ export interface GroundingValidationResult {
 }
 
 export class GroundingValidator {
-  private static readonly EPIC_CHARACTERS = [
+  public static readonly EPIC_CHARACTERS = [
     'arjuna', 'arjun', 'karna', 'gandhari', 'draupadi', 'bhishma', 'bheeshma',
     'yudhishthira', 'yudhisthir', 'kunti', 'vidura', 'bhima', 'bheem',
     'duryodhana', 'duryodhan', 'drona', 'ashwatthama', 'abhimanyu',
@@ -34,6 +34,26 @@ export class GroundingValidator {
     'sauptika', 'exile', 'lac palace', 'lakshagriha', 'vishvarupa', 'visvarupa'
   ];
 
+  private static readonly CHARACTER_ALIASES: Record<string, string[]> = {
+    yudhishthira: ['yudhishthira', 'yudhishtira', 'yudhisthir', 'dharmaraja', 'son of dharma'],
+    yudhisthir: ['yudhishthira', 'yudhishtira', 'yudhisthir', 'dharmaraja', 'son of dharma'],
+    arjuna: ['arjuna', 'arjun', 'partha', 'dhananjaya', 'phalguna', 'vibhatsu'],
+    arjun: ['arjuna', 'arjun', 'partha', 'dhananjaya'],
+    bhima: ['bhima', 'bheem', 'bhimasena', 'vrikodara'],
+    bheem: ['bhima', 'bheem', 'bhimasena', 'vrikodara'],
+    karna: ['karna', 'radheya', 'vaikartana', 'vrisha'],
+    draupadi: ['draupadi', 'panchali', 'yajnaseni', 'krishnaa'],
+    bhishma: ['bhishma', 'bheeshma', 'gangeya', 'devavrata'],
+    bheeshma: ['bhishma', 'bheeshma', 'gangeya', 'devavrata'],
+    duryodhana: ['duryodhana', 'duryodhan', 'suyodhana'],
+    duryodhan: ['duryodhana', 'duryodhan', 'suyodhana'],
+    drona: ['drona', 'dronacharya', 'bharadvaja'],
+    ashwatthama: ['ashwatthama', 'aswatthaman', 'drauni'],
+    jayadratha: ['jayadratha', 'saindhava'],
+    shantanu: ['shantanu', 'santanu'],
+    dhritarashtra: ['dhritarashtra', 'dhritarastra'],
+  };
+
   /**
    * Evaluates generated text against retrieved canonical evidence to ensure:
    * 1. No epic character is referenced unless present in retrieved passages.
@@ -44,10 +64,14 @@ export class GroundingValidator {
   public static validate(
     generatedText: string,
     retrievedPassages: RetrievedPassage[],
-    corpusDoesNotEstablish: boolean
+    corpusDoesNotEstablish: boolean,
+    userQuery?: string,
+    establishedEntities: string[] = []
   ): GroundingValidationResult {
     const claims: GroundingClaimCheck[] = [];
     const lowerText = generatedText.toLowerCase();
+    const lowerQuery = (userQuery || '').toLowerCase();
+    const lowerEstablished = establishedEntities.map(e => e.toLowerCase());
 
     // 1. Character Extraction & Verification
     const mentionedCharacters: string[] = [];
@@ -76,27 +100,47 @@ export class GroundingValidator {
           mentionedCharacters.push(charName);
         }
 
+        // Check if explicitly asked by the seeker in userQuery
+        const askedByUser = regex.test(lowerQuery);
+
+        // Aliases to look for in retrieved passages
+        const aliases = this.CHARACTER_ALIASES[charName] || [charName];
+
+        // Check if already established in earlier turns of the conversation
+        const isEstablishedInConversation = aliases.some(alias => 
+          lowerEstablished.includes(alias) || lowerEstablished.includes(charName)
+        );
+
         // Check if supported by retrieved evidence
         let supportedChunkId: string | undefined;
         for (const p of retrievedPassages) {
-          const inChars = p.characters && p.characters.some(c => c.toLowerCase() === charName);
-          const inTranslation = p.translation.toLowerCase().includes(charName);
-          const inContext = p.contextSummary && p.contextSummary.toLowerCase().includes(charName);
-          const inRef = p.sourceReference && p.sourceReference.toLowerCase().includes(charName);
+          const trans = p.translation.toLowerCase();
+          const orig = (p.originalText || '').toLowerCase();
+          const ctx = (p.contextSummary || '').toLowerCase();
+          const ref = (p.sourceReference || '').toLowerCase();
+          const pChars = (p.characters || []).map(c => c.toLowerCase());
 
-          if (inChars || inTranslation || inContext || inRef) {
+          const matchesAnyAlias = aliases.some(alias => 
+            pChars.includes(alias) ||
+            trans.includes(alias) ||
+            orig.includes(alias) ||
+            ctx.includes(alias) ||
+            ref.includes(alias)
+          );
+
+          if (matchesAnyAlias) {
             supportedChunkId = p.id;
             break;
           }
         }
 
-        if (supportedChunkId) {
+        if (supportedChunkId || askedByUser || isEstablishedInConversation) {
           supportedCharacters.push(charName);
           claims.push({
             item: charName,
             type: 'character',
             supported: true,
-            evidenceChunkId: supportedChunkId,
+            evidenceChunkId: supportedChunkId || (askedByUser ? 'user_prompt_entity' : 'conversation_established_entity'),
           });
         } else {
           unsupportedCharacters.push(charName);
@@ -112,12 +156,30 @@ export class GroundingValidator {
 
     // 2. Quote Extraction & Verification (Quotation marks "..." or “...”)
     const unsupportedQuotes: string[] = [];
-    const quoteMatches = generatedText.match(/["“]([^"”]{6,})["”]/g) || [];
+    const quoteMatches = generatedText.match(/["“]([^"”]{4,})["”]/g) || [];
 
     for (const rawQuote of quoteMatches) {
       const cleanQuote = rawQuote.replace(/["“”]/g, '').trim().toLowerCase();
+
+      // If the quote repeats words directly from the user's prompt (e.g. user asked about "not caring"), it's referencing user input, not scripture!
+      if (userQuery && userQuery.toLowerCase().includes(cleanQuote)) {
+        continue;
+      }
+
+      // Check if this quote is presented as scripture dialogue or character speech
+      const quoteIndex = generatedText.indexOf(rawQuote);
+      const precedingText = quoteIndex > 0 ? generatedText.substring(Math.max(0, quoteIndex - 60), quoteIndex).toLowerCase() : '';
+      
+      const isAttributedSpeech = /(?:said|spoke|told|declared|replied|cried|stated|says|verse|gita|shloka|words of|proclaimed)\s*(?:to\s+\w+\s*)?:?\s*$/i.test(precedingText);
+      const isLongQuote = cleanQuote.length > 50;
+
+      // Conversational concept or internal attitude quotes (e.g., "I must succeed", "not caring") that are not attributed to scripture characters
+      if (!isAttributedSpeech && !isLongQuote) {
+        continue;
+      }
+
       // Allow conversational colloquial questions if brief
-      if (cleanQuote.length < 15 && /\?$/.test(cleanQuote)) {
+      if (cleanQuote.length < 25 && /\?$/.test(cleanQuote)) {
         continue;
       }
 

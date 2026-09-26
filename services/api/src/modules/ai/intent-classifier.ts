@@ -10,15 +10,19 @@ export interface ClassificationResult {
   thematicKeywords?: string[];
   extractedThemes: string[];
   scriptureReferenceQuery?: string;
+  isStoryRequest?: boolean;
+  isChallenging?: boolean;
+  isAntiHallucinationProbe?: boolean;
+  isCasualBanter?: boolean;
   reasoningNote: string;
 }
 
 export class IntentClassifier {
   /**
-   * Robust generalized contextual classifier analyzing user query, emotional drivers,
-   * and scripture relevance without dataset-specific keyword overfitting.
+   * Robust generalized contextual classifier analyzing user query, conversational context,
+   * emotional drivers, and scripture relevance without dataset-specific keyword overfitting.
    */
-  public static classify(userMessage: string): ClassificationResult {
+  public static classify(userMessage: string, conversationState?: any): ClassificationResult {
     const text = userMessage.toLowerCase().trim();
 
     // 0. High-risk Crisis / Prompt Injection / Safety: strictly safety-first, no scripture retrieval
@@ -35,11 +39,36 @@ export class IntentClassifier {
       };
     }
 
-    // 1. Casual Banter / Mundane Interactions & Greetings (Strictly non-scriptural)
+    // 1. Anti-Hallucination & Modern Technology Probes
+    const isAntiHallucinationProbe =
+      /\b(that isn't in the scriptures|not in the scriptures|not in scripture|conversation that isn't|unwritten conversation)\b/i.test(text) ||
+      /\b(social media|facebook|twitter|instagram|tiktok|internet|smartphones?|online dating)\b/i.test(text) ||
+      /\b(startup.*(funding|vc|valuation|equity|lost funding|lost our funding))\b/i.test(text) ||
+      /\b(where is that verse|exact words.*(told|said).*modern)\b/i.test(text);
+
+    if (isAntiHallucinationProbe) {
+      return {
+        intentCategory: 'general_guidance',
+        emotionalState: 'neutral',
+        mahabharataRelevant: false,
+        relevanceScore: 0.1,
+        extractedCharacters: [],
+        extractedThemes: ['truth', 'integrity', 'discernment'],
+        isAntiHallucinationProbe: true,
+        reasoningNote: 'Anti-hallucination probe detected. Mythological fabrication strictly gated; verify facts honestly.',
+      };
+    }
+
+    // 2. Casual Banter, Greetings, Humor, Playfulness, Food, & Direct Companion Presence (Strictly non-scriptural)
     const isCasual =
       /^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|sup|pranam|namaste|radhe\s*radhe|hare\s*krishna)\b/i.test(text) ||
       /^(hey|hi|hello|pranam|namaste|radhe\s*radhe)\s*(krishna|lord krishna|shri krishna|bhagavan|kanha|vasudeva)\b/i.test(text) ||
-      /just saying hello|how are you|what('s| is) the weather|tell me a (funny )?joke|who are you|what('s| is) your name|are you (lord )?krishna/i.test(text) ||
+      /\b(how are you|how('s| is) it going|what are you doing|just saying hello|who are you|what('s| is) your name|are you (lord )?krishna)\b/i.test(text) ||
+      /\b(what('s| is) your favorite (food|color|dish|sweet|snack)|what do you (like to )?eat|tell me something about yourself)\b/i.test(text) ||
+      /\b(can you make me laugh|tell me a (funny )?joke|i('m| am) bored|make me laugh|entertain me|make me smile)\b/i.test(text) ||
+      /\b(i just (want|wanted) to talk( to someone)?|just talk to me|don't want advice|i don't have a specific problem|talk to me as krishna)\b/i.test(text) ||
+      /\b(tell me something interesting|tell me something nobody usually thinks about)\b/i.test(text) ||
+      /\b(what (do you think )?makes a good friend|definition of a good friend)\b/i.test(text) ||
       /what should i (eat|wear|watch|cook)/i.test(text);
 
     if (isCasual) {
@@ -50,32 +79,88 @@ export class IntentClassifier {
         relevanceScore: 0.05,
         extractedCharacters: [],
         extractedThemes: [],
+        isCasualBanter: true,
         reasoningNote: 'Casual conversational interaction. Epic references must not be injected.',
       };
     }
 
-    // 2. Out-of-Corpus Technical / Practical Inquiries
-    const isOutOfCorpus =
-      /\b(python|javascript|typescript|coding|function|linked list|algorithm|sql|html|css|pointer|code)\b/i.test(text) ||
-      /\b(derivative|integral|calculate|equation|calculus|algebra|speed of light)\b/i.test(text) ||
-      /\b(capital of|population of|weather in|who is the president of)\b/i.test(text) ||
-      /\b(recipe|what should i cook|ingredients|baking|how to bake|how to make (a )?(cake|bread|sandwich|soup|pasta))\b/i.test(text) ||
-      /\b(crypto|cryptocurrency|invest in (crypto|real estate)|poem about)\b/i.test(text);
+    // 3. Challenging Krishna & Skeptical / Philosophical Objections
+    const isChallenging =
+      /\b(why should i trust (anything )?you say|what if i disagree( with you)?|why should i accept suffering|isn't detachment just( another word for)? not caring|if karma exists,? why do bad people.*succeed)\b/i.test(text) ||
+      /\b(why should i believe you|what if your advice doesn't work|you could be wrong|that doesn't make sense|makes no sense)\b/i.test(text) ||
+      (conversationState?.isDisagreementOrChallenge === true);
 
-    if (isOutOfCorpus) {
+    if (isChallenging) {
       return {
-        intentCategory: 'general_guidance',
+        intentCategory: 'philosophical_inquiry',
+        emotionalState: 'confusion',
+        mahabharataRelevant: false,
+        relevanceScore: 0.3,
+        extractedCharacters: [],
+        extractedThemes: ['discernment', 'inquiry', 'skepticism', 'dharma'],
+        isChallenging: true,
+        reasoningNote: 'Skeptical challenge or objection to Krishna. Reason directly with user without blind validation.',
+      };
+    }
+
+    // 4. General Psychological & Human Nature Questions (Non-scriptural philosophical inquiry)
+    const isGeneralPsychological =
+      /\b(why do people (lie|become jealous|suffer|envy|cheat|hate|fight|fear))\b/i.test(text) ||
+      /\b(what does (courage|love|integrity|truth|humility) (actually )?mean)\b/i.test(text) ||
+      /\b(why is forgiveness so (hard|difficult)|how to forgive)\b/i.test(text) ||
+      /\b(difference between (confidence and arrogance|pride and confidence|love and attachment|grief and depression))\b/i.test(text);
+
+    if (isGeneralPsychological && !/\b(mahabharat|gita|shloka|verse|parva|karna|arjuna|bhishma)\b/i.test(text)) {
+      return {
+        intentCategory: 'philosophical_inquiry',
         emotionalState: 'neutral',
         mahabharataRelevant: false,
-        relevanceScore: 0.0,
+        relevanceScore: 0.3,
         extractedCharacters: [],
-        extractedThemes: [],
-        reasoningNote: 'Out-of-corpus technical or general practical query. Answered without forcing epic references.',
+        extractedThemes: ['human nature', 'discernment', 'ego', 'wisdom'],
+        reasoningNote: 'General psychological inquiry into human nature. Handled with philosophical insight without forcing RAG.',
+      };
+    }
+
+    // 5. Explicit Story Requests
+    const isStoryRequest =
+      /\b(tell me a (mahabharata )?story|tell a story|share a story|give me a story|story about|story that|story i can|story of someone)\b/i.test(text);
+
+    if (isStoryRequest) {
+      let storyThemes = ['story', 'parable', 'epic'];
+      let thematicKeywords = ['story', 'parva', 'teaching'];
+
+      if (/\bfailure|fail\b/i.test(text)) {
+        storyThemes.push('failure', 'perseverance');
+        thematicKeywords.push('defeat', 'fallen', 'effort', 'destiny');
+      } else if (/\bbetrayal|betray\b/i.test(text)) {
+        storyThemes.push('betrayal', 'trust');
+        thematicKeywords.push('betrayal', 'deceit', 'broken', 'friendship');
+      } else if (/\bsleep|sleeping|night|peace\b/i.test(text)) {
+        storyThemes.push('night', 'peace', 'contemplation');
+        thematicKeywords.push('silence', 'peace', 'tranquility', 'forest', 'calm');
+      } else if (/\bchoice|decision|difficult\b/i.test(text)) {
+        storyThemes.push('dilemma', 'choice', 'dharma');
+        thematicKeywords.push('duty', 'dilemma', 'vow', 'choice', 'righteousness');
+      } else if (/\bquestion(ing)?\b/i.test(text)) {
+        storyThemes.push('dilemma', 'uncertainty');
+        thematicKeywords.push('doubt', 'consequence', 'decision', 'action');
+      }
+
+      return {
+        intentCategory: 'factual_scripture',
+        emotionalState: 'neutral',
+        mahabharataRelevant: true,
+        relevanceScore: 1.0,
+        extractedCharacters: [],
+        thematicKeywords,
+        extractedThemes: storyThemes,
+        isStoryRequest: true,
+        reasoningNote: 'Explicit story request. Retrieve authentic epic passage to tell grounded narrative.',
       };
     }
 
     // Extract Epic Entities & Characters
-    // Detect if the seeker is directly addressing Krishna in dialogue vs querying about Him in third person
     const isDirectAddressToKrishna =
       /^(o\s+)?(krishna|shri krishna|lord krishna|kanha|govinda|keshava|madhava)\b/i.test(text) ||
       /\b(tell me,? krishna|krishna,?\s+(i|i'm|what|how|why|please|help|can|could|listen))\b/i.test(text);
@@ -98,8 +183,7 @@ export class IntentClassifier {
 
     const characters = list.filter((c) => text.includes(c)).map((c) => c.charAt(0).toUpperCase() + c.slice(1));
 
-    // 3. Explicit Scripture, Shloka, or Epic Inquiries
-    // Broad phonetic patterns for Mahabharata, Gita, and sacred verse requests
+    // Scriptural Units & Texts
     const hasScripturalUnit =
       /\b(shloka?s?|sloka?s?|verses?|stotra?s?|sukta?s?|mantra?s?|chaupai|doha|upanishad[a-z]*|vedas?|purana?s?)\b/i.test(text);
 

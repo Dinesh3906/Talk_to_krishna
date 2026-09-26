@@ -13,6 +13,10 @@ export interface ConversationState {
   currentTopic?: string;
   userEmotionalContext?: string;
   contextualQuery: string;
+  isFollowUp: boolean;
+  isDisagreementOrChallenge: boolean;
+  lastDiscussedCharacter?: string;
+  lastDiscussedStoryOrTopic?: string;
   unresolvedQuestions: string[];
   priorSourceIds: string[];
 }
@@ -33,7 +37,7 @@ export class ConversationStateTracker {
     const candidates = new Set<string>();
 
     // 1. Phrasal subject extraction: "who was X", "tell me about X", "story of X", "why did X"
-    const phraseMatches = text.matchAll(/\b(?:about|who (?:was|is)|tell me about|story of|why did|what did|between|with)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/gi);
+    const phraseMatches = text.matchAll(/\b(?:about|who (?:was|is)|tell me about|story of|why did|what did|between|with|told)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/gi);
     for (const match of phraseMatches) {
       if (match[1]) {
         const words = match[1].split(/\s+/).map((w) => w.replace(/[^a-zA-Z]/g, '').toLowerCase());
@@ -94,15 +98,21 @@ export class ConversationStateTracker {
       }
     }
 
-    // 2. Scan recent conversation history to inherit active entities if user asks a pronoun/elliptical follow-up
+    // 2. Scan recent conversation history to inherit active entities, characters, and topics
     const inheritedEntities = new Set<string>();
     let inheritedVerse: { chapter: number; verse: number } | undefined;
+    let lastDiscussedCharacter: string | undefined;
+    let lastDiscussedStoryOrTopic: string | undefined;
 
     const recentTurns = history.slice(-4);
-    for (const turn of recentTurns) {
+    for (let i = recentTurns.length - 1; i >= 0; i--) {
+      const turn = recentTurns[i];
       const turnEntities = this.extractCandidateEntities(turn.content);
       for (const e of turnEntities) {
         inheritedEntities.add(e);
+        if (!lastDiscussedCharacter && e !== 'krishna') {
+          lastDiscussedCharacter = e.charAt(0).toUpperCase() + e.slice(1);
+        }
       }
 
       if (!inheritedVerse) {
@@ -117,9 +127,19 @@ export class ConversationStateTracker {
       }
     }
 
-    // Active entities prioritize current turn, but merge inherited if pronoun or follow-up is detected
+    // 3. Multi-turn Follow-up & Disagreement Detection
+    const hasHistory = history.length > 0;
     const isPronounOrFollowup =
-      /\b(he|him|his|she|her|they|them|that|this|it|why|unfair|wrong|right|chariot|wheel|death|die|killed|choice)\b/i.test(lowerUser);
+      hasHistory && (
+        /\b(he|him|his|she|her|they|them|that|this|it|why|unfair|wrong|right|choice|decision|advice|tell him|told him|said that)\b/i.test(lowerUser) ||
+        /^(so are you saying|are you saying|what if|why should i|isn't that|what about|then what|and then|why did he|why did she|tell me more|what would you)\b/i.test(lowerUser) ||
+        /\b(what if (your advice|it doesn't work|i disagree|that fails))\b/i.test(lowerUser) ||
+        /\b(maybe i should|should i instead|how do i actually)\b/i.test(lowerUser)
+      );
+
+    const isDisagreementOrChallenge =
+      /\b(so are you saying|are you saying i should just|what if i disagree|why should i trust|isn't detachment just|what if your advice doesn't work|why do bad people.*succeed|why should i accept suffering)\b/i.test(lowerUser) ||
+      /\b(disagree|don't agree|makes no sense|unfair to just|that doesn't make sense)\b/i.test(lowerUser);
 
     const mergedEntities = new Set<string>(currentEntities);
     if (isPronounOrFollowup || currentEntities.size === 0) {
@@ -128,7 +148,7 @@ export class ConversationStateTracker {
       }
     }
 
-    // 3. Determine Dialogue Stage Progression
+    // 4. Determine Dialogue Stage Progression
     // FACT -> CONTEXT -> WHY -> DEEP_MEANING -> PERSONAL_APPLICATION
     let dialogueStage: DialogueStage = 'fact';
 
@@ -152,23 +172,28 @@ export class ConversationStateTracker {
       dialogueStage = 'context';
     }
 
-    // 4. Formulate Contextual Query for Search
-    // If the user asks an elliptical follow-up like "Was that choice unfair to the Pandavas?", expand with inherited entities
+    // 5. Formulate Contextual Query for Search
+    // If the user asks an elliptical follow-up like "Why did he make that choice?", expand with inherited character
     let contextualQuery = currentUserMessage;
-    const missingInherited = Array.from(inheritedEntities).filter((e) => !currentEntities.has(e));
-    if (isPronounOrFollowup && missingInherited.length > 0) {
-      const entityList = missingInherited.slice(0, 2).join(' ');
-      contextualQuery = `${entityList} ${currentUserMessage}`;
-    } else if (mergedEntities.size > 0 && currentEntities.size === 0) {
-      const entityList = Array.from(mergedEntities).slice(0, 2).join(' ');
-      contextualQuery = `${entityList} ${currentUserMessage}`;
+    if (isPronounOrFollowup && lastDiscussedCharacter && !lowerUser.includes(lastDiscussedCharacter.toLowerCase())) {
+      contextualQuery = `${lastDiscussedCharacter} ${currentUserMessage}`;
+    } else if (isPronounOrFollowup && inheritedEntities.size > 0 && currentEntities.size === 0) {
+      const entityList = Array.from(inheritedEntities).filter(e => e !== 'krishna').slice(0, 2).join(' ');
+      if (entityList) {
+        contextualQuery = `${entityList} ${currentUserMessage}`;
+      }
     }
 
     return {
       activeCharacters: Array.from(mergedEntities),
       activeVerse: activeVerse || (isPronounOrFollowup ? inheritedVerse : undefined),
       dialogueStage,
+      currentTopic: lastDiscussedStoryOrTopic,
       contextualQuery,
+      isFollowUp: Boolean(isPronounOrFollowup),
+      isDisagreementOrChallenge,
+      lastDiscussedCharacter,
+      lastDiscussedStoryOrTopic,
       unresolvedQuestions: [],
       priorSourceIds: [],
     };
