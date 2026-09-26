@@ -17,6 +17,7 @@ export interface RetrievedPassage {
   contextSummary?: string;
   relevanceForGuidance?: string;
   relevanceScore: number;
+  characters?: string[];
 }
 
 export interface HybridRetrievalResult {
@@ -94,6 +95,7 @@ export class HybridRetriever {
           return verses;
         } catch (err: any) {
           console.warn('[HybridRetriever] Unable to load gita_verses from DB, using canonical fallbacks:', err.message);
+          this.gitaCache = [];
           return [];
         }
       })();
@@ -126,7 +128,13 @@ export class HybridRetriever {
     'those', 'there', 'their', 'they', 'them', 'the', 'and', 'for', 'are', 'is',
     'was', 'were', 'been', 'being', 'context', 'specifically', 'variant', 'query',
     'relate', 'related', 'compare', 'comparing', 'describe', 'describing',
-    'mahabharata', 'epic', 'book'
+    'mahabharata', 'epic', 'book',
+    // Numbers and temporal words that cause false-positive matches on ancient texts
+    'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'first', 'second', 'third', 'fourth', 'fifth',
+    'month', 'months', 'year', 'years', 'day', 'days', 'week', 'weeks',
+    'today', 'yesterday', 'tomorrow', 'time', 'times', 'moment',
+    'walk', 'walked', 'walking', 'away', 'just', 'still', 'really', 'feel', 'feeling', 'feels'
   ]);
 
   private static readonly PARVA_MAP: Record<string, string> = {
@@ -277,7 +285,9 @@ export class HybridRetriever {
     queryText: string,
     extractedCharacters: string[] = [],
     extractedThemes: string[] = [],
-    limit: number = 3
+    limit: number = 3,
+    candidateArchetypes: string[] = [],
+    thematicKeywords: string[] = []
   ): Promise<HybridRetrievalResult> {
     const startTime = Date.now();
 
@@ -301,21 +311,24 @@ export class HybridRetriever {
 
       // 2. Extract Query Hints (Candidate Entities, Target Parva, Verse citations)
       const hints = this.extractQueryHints(queryText);
-      const allCandidateEntities = Array.from(new Set([...extractedCharacters, ...hints.candidateEntities]));
+      const allCandidateEntities = Array.from(new Set([...extractedCharacters, ...hints.candidateEntities, ...candidateArchetypes.map(a => a.toLowerCase())]));
       const targetParva = hints.targetParva || this.detectParva(queryText);
 
       // 3. Generate Real 768-dim Query Embedding (BAAI/bge-base-en-v1.5) with LRU Cache
       const tEmbStart = Date.now();
       let queryEmbedding: number[] | null = null;
-      const normalizedQueryKey = queryText.trim().toLowerCase();
+      const semanticEmbeddingText = (thematicKeywords && thematicKeywords.length > 0)
+        ? `${queryText.trim()} ${thematicKeywords.slice(0, 8).join(' ')}`
+        : queryText.trim();
+      const normalizedQueryKey = semanticEmbeddingText.toLowerCase();
       if (HybridRetriever.embeddingCache.has(normalizedQueryKey)) {
         queryEmbedding = HybridRetriever.embeddingCache.get(normalizedQueryKey)!;
       } else if (process.env.DISABLE_LOCAL_EMBEDDING !== 'true') {
         try {
           const { defaultEmbeddingProvider } = await import('./providers/bge-embedding.provider.js');
-          const embPromise = defaultEmbeddingProvider.embedQuery(queryText);
+          const embPromise = defaultEmbeddingProvider.embedQuery(semanticEmbeddingText);
           const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Embedding request timeout (2500ms)')), 2500)
+            setTimeout(() => reject(new Error('Embedding request timeout (4000ms)')), 4000)
           );
           const vec = await Promise.race([embPromise, timeoutPromise]);
           if (Array.isArray(vec) && vec.length === 768 && vec.some(v => v !== 0)) {
@@ -535,9 +548,15 @@ export class HybridRetriever {
 
       try {
         if (hasValidVector) {
+          const archetypeArray = candidateArchetypes.length > 0 ? candidateArchetypes : [];
+
           const vectorCte = targetParvaParam
             ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 25`
             : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 25`;
+
+          const archetypeCte = targetParvaParam
+            ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE ($5::text[] IS NOT NULL AND cardinality($5::text[]) > 0 AND characters && $5::text[]) AND parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 25`
+            : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE ($5::text[] IS NOT NULL AND cardinality($5::text[]) > 0 AND characters && $5::text[]) ORDER BY embedding <=> $1::vector ASC LIMIT 25`;
 
           const ftsCte = targetParvaParam
             ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $4::text AND search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`
@@ -546,6 +565,9 @@ export class HybridRetriever {
           const mbSql = `
             WITH vector_candidates AS (
               ${vectorCte}
+            ),
+            archetype_candidates AS (
+              ${archetypeCte}
             ),
             fts_candidates AS (
               ${ftsCte}
@@ -566,24 +588,20 @@ export class HybridRetriever {
               p.chapter,
               p.speaker,
               p.listener,
-              COALESCE(vc.vector_similarity, 0.0) AS vec_score,
+              GREATEST(COALESCE(vc.vector_similarity, 0.0), COALESCE(ac.vector_similarity, 0.0)) AS vec_score,
               COALESCE(fc.keyword_rank, 0.0) AS fts_score,
               (
-                CASE 
-                  WHEN vc.id IS NOT NULL AND fc.id IS NOT NULL THEN
-                    (COALESCE(vc.vector_similarity, 0.0) * 0.50) + (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.40)
-                  WHEN fc.id IS NOT NULL THEN
-                    (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.85)
-                  ELSE
-                    (COALESCE(vc.vector_similarity, 0.0) * 0.75)
-                END
-                + (CASE WHEN $4::text != '' AND c.parva = $4::text THEN 0.10 ELSE 0.0 END)
+                (GREATEST(COALESCE(vc.vector_similarity, 0.0), COALESCE(ac.vector_similarity, 0.0)) * 0.70)
+                + (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.20)
+                + (CASE WHEN ac.id IS NOT NULL THEN 0.10 ELSE 0.0 END)
+                + (CASE WHEN $4::text != '' AND c.parva = $4::text THEN 0.05 ELSE 0.0 END)
               ) AS combined_score
             FROM mahabharata_child_chunks c
             JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
             LEFT JOIN vector_candidates vc ON c.id = vc.id
+            LEFT JOIN archetype_candidates ac ON c.id = ac.id
             LEFT JOIN fts_candidates fc ON c.id = fc.id
-            WHERE vc.id IS NOT NULL OR fc.id IS NOT NULL
+            WHERE vc.id IS NOT NULL OR ac.id IS NOT NULL OR fc.id IS NOT NULL
             ORDER BY combined_score DESC
             LIMIT 30;
           `;
@@ -593,6 +611,7 @@ export class HybridRetriever {
             queryText,
             prefixQuery,
             targetParvaParam,
+            archetypeArray,
           ]);
 
           for (const r of mbRes.rows) {
@@ -615,6 +634,7 @@ export class HybridRetriever {
                 sourceReference: `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`,
                 contextSummary: `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`,
                 relevanceScore: score,
+                characters: r.characters || [],
               });
             }
           }
@@ -683,6 +703,7 @@ export class HybridRetriever {
                 sourceReference: `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`,
                 contextSummary: `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`,
                 relevanceScore: score,
+                characters: r.characters || [],
               });
             }
           }

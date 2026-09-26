@@ -22,11 +22,23 @@ export interface OrchestrationOptions {
   onStreamChunk?: (chunk: StreamChunk) => void;
 }
 
+export interface OrchestrationAuditRecord {
+  query: string;
+  retrieved_characters: string[];
+  retrieved_episodes: string[];
+  retrieved_chunks: string[];
+  retrieval_scores: number[];
+  reranked_chunks: string[];
+  evidence_used: string[];
+  generation_grounded: boolean;
+}
+
 export interface OrchestrationResult {
   message: Message;
   citations: Citation[];
   requestId: string;
   totalLatencyMs: number;
+  auditRecord: OrchestrationAuditRecord;
 }
 
 export class AIOrchestratorService {
@@ -93,6 +105,16 @@ export class AIOrchestratorService {
         citations: [],
         requestId,
         totalLatencyMs: Date.now() - startTime,
+        auditRecord: {
+          query: userMessage,
+          retrieved_characters: [],
+          retrieved_episodes: [],
+          retrieved_chunks: [],
+          retrieval_scores: [],
+          reranked_chunks: [],
+          evidence_used: [],
+          generation_grounded: true,
+        },
       };
     }
 
@@ -142,7 +164,9 @@ export class AIOrchestratorService {
         conversationState.contextualQuery,
         allCharacters,
         classification.extractedThemes,
-        3
+        3,
+        classification.candidateArchetypes || [],
+        classification.thematicKeywords || []
       );
       retrievedPassages = retrievalResult.passages;
       corpusDoesNotEstablish = retrievalResult.corpusDoesNotEstablish;
@@ -373,6 +397,39 @@ export class AIOrchestratorService {
         .where(eq(conversations.id, conversationId));
     }
 
+    const retrievedCharacters = Array.from(new Set(
+      retrievedPassages.flatMap(p => p.characters || [])
+    ));
+    const retrievedEpisodes = retrievedPassages.map(p => p.sourceReference);
+    const retrievedChunkIds = retrievedPassages.map(p => p.id);
+    const retrievalScores = retrievedPassages.map(p => p.relevanceScore);
+    const evidenceUsed = quoteResult.citations.map(c => c.id || c.sourceReference);
+
+    // Grounding check:
+    // If the model names specific Mahabharata characters (e.g. Karna, Gandhari, Arjuna, Draupadi, Bhishma, Kunti, etc.)
+    // they MUST be present in the retrieved passages.
+    const epicCharacters = [
+      'arjuna', 'karna', 'gandhari', 'draupadi', 'bhishma', 'kunti',
+      'yudhishthira', 'bhima', 'vidura', 'duryodhana', 'ashwatthama', 'abhimanyu', 'drona'
+    ];
+    const contentLower = quoteResult.verifiedContent.toLowerCase();
+    const mentionedCharacters = epicCharacters.filter(c => contentLower.includes(c));
+    const retrievedLower = retrievedCharacters.map(c => c.toLowerCase());
+
+    const hasUngroundedCharacter = mentionedCharacters.some(c => !retrievedLower.includes(c));
+    const generationGrounded = !quoteResult.hasUngroundedScriptureClaim && !hasUngroundedCharacter;
+
+    const auditRecord: OrchestrationAuditRecord = {
+      query: userMessage,
+      retrieved_characters: retrievedCharacters,
+      retrieved_episodes: retrievedEpisodes,
+      retrieved_chunks: retrievedChunkIds,
+      retrieval_scores: retrievalScores,
+      reranked_chunks: retrievedChunkIds,
+      evidence_used: evidenceUsed,
+      generation_grounded: generationGrounded,
+    };
+
     const totalLatencyMs = Date.now() - startTime;
     emit({
       type: 'telemetry',
@@ -420,6 +477,7 @@ export class AIOrchestratorService {
       citations: quoteResult.citations,
       requestId,
       totalLatencyMs,
+      auditRecord,
     };
   }
 }

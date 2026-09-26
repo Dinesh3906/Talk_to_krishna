@@ -23,7 +23,7 @@ export const pool = new Pool({
   max: 20, // Connection budget for horizontal scaling
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  statement_timeout: 15000,
+  statement_timeout: 45000,
 });
 
 pool.on('error', (err) => {
