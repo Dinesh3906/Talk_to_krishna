@@ -7,7 +7,6 @@ export interface ClassificationResult {
   mahabharataRelevant: boolean;
   relevanceScore: number; // 0.0 to 1.0
   extractedCharacters: string[];
-  candidateArchetypes?: string[];
   thematicKeywords?: string[];
   extractedThemes: string[];
   scriptureReferenceQuery?: string;
@@ -162,7 +161,6 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.9,
         extractedCharacters: characters,
-        candidateArchetypes: ['Karna', 'Yudhishthira', 'Arjuna'],
         thematicKeywords: ['failure', 'defeat', 'fallen', 'warrior', 'despair', 'perseverance', 'duty', 'karma'],
         extractedThemes: ['duty', 'karma yoga', 'action', 'perseverance'],
         reasoningNote: 'Modern career and performance pressure inquiry.',
@@ -188,7 +186,6 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.9,
         extractedCharacters: characters,
-        candidateArchetypes: ['Yudhishthira', 'Vidura', 'Bhishma', 'Arjuna'],
         thematicKeywords: ['dharma', 'righteousness', 'duty', 'moral', 'dilemma', 'conscience', 'truth', 'subtle'],
         extractedThemes: ['dharma', 'ethics', 'choice', 'svadharma'],
         reasoningNote: 'Personal or moral dilemma requiring discernment between competing duties.',
@@ -208,10 +205,6 @@ export class IntentClassifier {
         emotionalState = 'peace';
       }
 
-      const candidateArchetypes = isBereavement
-        ? ['Gandhari', 'Kunti', 'Yudhishthira', 'Subhadra']
-        : ['Karna', 'Draupadi', 'Kunti'];
-
       const thematicKeywords = isBereavement
         ? ['grief', 'death', 'mother', 'sorrow', 'lamentation', 'weeping', 'bereaved', 'departed', 'solace']
         : ['betrayal', 'abandonment', 'separated', 'beloved', 'heartbreak', 'broken', 'trust', 'attachment'];
@@ -222,7 +215,6 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.9,
         extractedCharacters: characters,
-        candidateArchetypes,
         thematicKeywords,
         extractedThemes: ['attachment', 'loss', 'resilience', 'impermanence'],
         reasoningNote: 'Relational or bereavement pain. Grounding in impermanence and self-worth.',
@@ -244,25 +236,20 @@ export class IntentClassifier {
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';
       let themes = ['fear', 'self-mastery', 'restraint', 'peace', 'dharma'];
-      let candidateArchetypes: string[] = ['Yudhishthira', 'Karna', 'Arjuna'];
       let thematicKeywords: string[] = ['deep', 'sorrow', 'heaviness', 'dejection', 'dispirited', 'solace'];
 
       if (hasAnger) {
         emotionalState = 'anger';
         themes = ['anger', 'self-mastery', 'restraint', 'dharma'];
-        candidateArchetypes = ['Draupadi', 'Bhima', 'Vidura', 'Yudhishthira'];
         thematicKeywords = ['burning', 'fury', 'wrath', 'rage', 'unrighteousness', 'corruption', 'adharma', 'restraint'];
       } else if (hasJealousy) {
         emotionalState = 'jealousy';
         themes = ['jealousy', 'contentment', 'dharma'];
-        candidateArchetypes = ['Duryodhana', 'Yudhishthira'];
         thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma'];
       } else if (hasFear) {
         emotionalState = 'fear';
-        candidateArchetypes = ['Arjuna', 'Yudhishthira'];
         thematicKeywords = ['restless', 'mind', 'turbulence', 'anxiety', 'steady', 'equanimity', 'fear'];
       } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people)\b/i.test(text)) {
-        candidateArchetypes = ['Bhishma', 'Karna', 'Yudhishthira'];
         thematicKeywords = ['solitary', 'loneliness', 'isolated', 'alone', 'bed', 'arrows', 'steadfast', 'duty'];
       }
 
@@ -272,7 +259,6 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.85,
         extractedCharacters: characters,
-        candidateArchetypes,
         thematicKeywords,
         extractedThemes: themes,
         reasoningNote: 'Acute emotional turmoil requiring centering guidance and steady perspective.',
@@ -303,7 +289,6 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.9,
         extractedCharacters: characters,
-        candidateArchetypes: ['Karna', 'Yudhishthira', 'Arjuna'],
         thematicKeywords: ['failure', 'defeat', 'fallen', 'warrior', 'despair', 'perseverance', 'fate'],
         extractedThemes: ['duty', 'karma yoga', 'action', 'perseverance'],
         reasoningNote: 'Career or performance reflection.',

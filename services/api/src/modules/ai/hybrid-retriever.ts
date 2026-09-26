@@ -24,6 +24,10 @@ export interface HybridRetrievalResult {
   passages: RetrievedPassage[];
   corpusDoesNotEstablish: boolean;
   retrievalLatencyMs: number;
+  topScore: number;
+  scoreGap: number;
+  confidence: 'high' | 'medium' | 'low';
+  hasSufficientEvidence: boolean;
   timings?: {
     entityExtractionMs: number;
     embeddingMs: number;
@@ -286,7 +290,6 @@ export class HybridRetriever {
     extractedCharacters: string[] = [],
     extractedThemes: string[] = [],
     limit: number = 3,
-    candidateArchetypes: string[] = [],
     thematicKeywords: string[] = []
   ): Promise<HybridRetrievalResult> {
     const startTime = Date.now();
@@ -306,12 +309,16 @@ export class HybridRetriever {
           passages: [],
           corpusDoesNotEstablish: true,
           retrievalLatencyMs: Date.now() - startTime,
+          topScore: 0,
+          scoreGap: 0,
+          confidence: 'low',
+          hasSufficientEvidence: false,
         };
       }
 
       // 2. Extract Query Hints (Candidate Entities, Target Parva, Verse citations)
       const hints = this.extractQueryHints(queryText);
-      const allCandidateEntities = Array.from(new Set([...extractedCharacters, ...hints.candidateEntities, ...candidateArchetypes.map(a => a.toLowerCase())]));
+      const allCandidateEntities = Array.from(new Set([...extractedCharacters, ...hints.candidateEntities]));
       const targetParva = hints.targetParva || this.detectParva(queryText);
 
       // 3. Generate Real 768-dim Query Embedding (BAAI/bge-base-en-v1.5) with LRU Cache
@@ -548,15 +555,9 @@ export class HybridRetriever {
 
       try {
         if (hasValidVector) {
-          const archetypeArray = candidateArchetypes.length > 0 ? candidateArchetypes : [];
-
           const vectorCte = targetParvaParam
-            ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 25`
-            : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 25`;
-
-          const archetypeCte = targetParvaParam
-            ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE ($5::text[] IS NOT NULL AND cardinality($5::text[]) > 0 AND characters && $5::text[]) AND parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 25`
-            : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE ($5::text[] IS NOT NULL AND cardinality($5::text[]) > 0 AND characters && $5::text[]) ORDER BY embedding <=> $1::vector ASC LIMIT 25`;
+            ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 35`
+            : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 35`;
 
           const ftsCte = targetParvaParam
             ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $4::text AND search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`
@@ -565,9 +566,6 @@ export class HybridRetriever {
           const mbSql = `
             WITH vector_candidates AS (
               ${vectorCte}
-            ),
-            archetype_candidates AS (
-              ${archetypeCte}
             ),
             fts_candidates AS (
               ${ftsCte}
@@ -588,20 +586,18 @@ export class HybridRetriever {
               p.chapter,
               p.speaker,
               p.listener,
-              GREATEST(COALESCE(vc.vector_similarity, 0.0), COALESCE(ac.vector_similarity, 0.0)) AS vec_score,
+              COALESCE(vc.vector_similarity, 0.0) AS vec_score,
               COALESCE(fc.keyword_rank, 0.0) AS fts_score,
               (
-                (GREATEST(COALESCE(vc.vector_similarity, 0.0), COALESCE(ac.vector_similarity, 0.0)) * 0.70)
-                + (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.20)
-                + (CASE WHEN ac.id IS NOT NULL THEN 0.10 ELSE 0.0 END)
+                (COALESCE(vc.vector_similarity, 0.0) * 0.75)
+                + (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.25)
                 + (CASE WHEN $4::text != '' AND c.parva = $4::text THEN 0.05 ELSE 0.0 END)
               ) AS combined_score
             FROM mahabharata_child_chunks c
             JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
             LEFT JOIN vector_candidates vc ON c.id = vc.id
-            LEFT JOIN archetype_candidates ac ON c.id = ac.id
             LEFT JOIN fts_candidates fc ON c.id = fc.id
-            WHERE vc.id IS NOT NULL OR ac.id IS NOT NULL OR fc.id IS NOT NULL
+            WHERE vc.id IS NOT NULL OR fc.id IS NOT NULL
             ORDER BY combined_score DESC
             LIMIT 30;
           `;
@@ -611,7 +607,6 @@ export class HybridRetriever {
             queryText,
             prefixQuery,
             targetParvaParam,
-            archetypeArray,
           ]);
 
           for (const r of mbRes.rows) {
@@ -789,13 +784,37 @@ export class HybridRetriever {
         : deduped.slice(0, Math.max(limit, 3));
 
       const topScore = finalPassages[0]?.relevanceScore || 0;
+      const secondScore = finalPassages[1]?.relevanceScore || 0;
+      const scoreGap = finalPassages.length > 1 ? (topScore - secondScore) : topScore;
       const corpusDoesNotEstablish = finalPassages.length === 0 || topScore < 0.15;
       const rerankingMs = Date.now() - tRerankStart;
+
+      // Evidence confidence evaluation (Requirement 11)
+      const isExplicitEpicQuery = (extractedCharacters.length > 0 || hints.verseReference !== null || hints.candidateEntities.length > 0);
+      let confidence: 'high' | 'medium' | 'low' = 'low';
+      let hasSufficientEvidence = false;
+
+      if (!corpusDoesNotEstablish && finalPassages.length > 0) {
+        if (topScore >= 0.65 || (isExplicitEpicQuery && topScore >= 0.45)) {
+          confidence = 'high';
+          hasSufficientEvidence = true;
+        } else if (topScore >= 0.52 || (isExplicitEpicQuery && topScore >= 0.38)) {
+          confidence = 'medium';
+          hasSufficientEvidence = true;
+        } else {
+          confidence = 'low';
+          hasSufficientEvidence = false;
+        }
+      }
 
       return {
         passages: corpusDoesNotEstablish ? [] : finalPassages,
         corpusDoesNotEstablish,
         retrievalLatencyMs: Date.now() - startTime,
+        topScore,
+        scoreGap,
+        confidence,
+        hasSufficientEvidence,
         timings: {
           entityExtractionMs: 0,
           embeddingMs,
@@ -810,6 +829,10 @@ export class HybridRetriever {
         passages: [],
         corpusDoesNotEstablish: true,
         retrievalLatencyMs: Date.now() - startTime,
+        topScore: 0,
+        scoreGap: 0,
+        confidence: 'low',
+        hasSufficientEvidence: false,
       };
     }
   }

@@ -12,6 +12,7 @@ import { TelemetryService } from './telemetry.service.js';
 import { MarkdownSanitizer, StreamTokenFilter } from './markdown-sanitizer.js';
 import { ConversationStateTracker } from './conversation-state-tracker.js';
 import { InterpretationEngineService, InterpretationResult } from './interpretation-engine.service.js';
+import { GroundingValidator, GroundingValidationResult } from './grounding-validator.js';
 import { Message, StreamChunk, Citation, ResponseMode } from '@talk-to-krisna/shared';
 
 export interface OrchestrationOptions {
@@ -24,13 +25,18 @@ export interface OrchestrationOptions {
 
 export interface OrchestrationAuditRecord {
   query: string;
+  retrieval_method: string;
+  retrieved_chunks: string[];
+  retrieved_scores: number[];
+  reranked_chunks: string[];
+  selected_evidence: string[];
   retrieved_characters: string[];
   retrieved_episodes: string[];
-  retrieved_chunks: string[];
-  retrieval_scores: number[];
-  reranked_chunks: string[];
-  evidence_used: string[];
-  generation_grounded: boolean;
+  generated_characters: string[];
+  generated_events: string[];
+  unsupported_claims: string[];
+  grounding_pass: boolean;
+  generation_attempts: number;
 }
 
 export interface OrchestrationResult {
@@ -107,13 +113,18 @@ export class AIOrchestratorService {
         totalLatencyMs: Date.now() - startTime,
         auditRecord: {
           query: userMessage,
+          retrieval_method: 'safety_bypass',
+          retrieved_chunks: [],
+          retrieved_scores: [],
+          reranked_chunks: [],
+          selected_evidence: [],
           retrieved_characters: [],
           retrieved_episodes: [],
-          retrieved_chunks: [],
-          retrieval_scores: [],
-          reranked_chunks: [],
-          evidence_used: [],
-          generation_grounded: true,
+          generated_characters: [],
+          generated_events: [],
+          unsupported_claims: [],
+          grounding_pass: true,
+          generation_attempts: 1,
         },
       };
     }
@@ -149,10 +160,12 @@ export class AIOrchestratorService {
       },
     });
 
-    // Step 5: Hybrid Retrieval (using contextual query & merged character guidance)
+    // Step 5: Hybrid Retrieval (using contextual query & query-extracted entity guidance)
     let retrievedPassages: RetrievedPassage[] = [];
     let corpusDoesNotEstablish = false;
     let retrievalLatencyMs = 0;
+    let retrievalConfidence: 'high' | 'medium' | 'low' = 'low';
+    let hasSufficientEvidence = false;
 
     if (isMahabharataRelevant) {
       const allCharacters = Array.from(new Set([
@@ -165,12 +178,21 @@ export class AIOrchestratorService {
         allCharacters,
         classification.extractedThemes,
         3,
-        classification.candidateArchetypes || [],
         classification.thematicKeywords || []
       );
       retrievedPassages = retrievalResult.passages;
       corpusDoesNotEstablish = retrievalResult.corpusDoesNotEstablish;
       retrievalLatencyMs = retrievalResult.retrievalLatencyMs;
+      retrievalConfidence = retrievalResult.confidence;
+      hasSufficientEvidence = retrievalResult.hasSufficientEvidence;
+
+      // Evidence Quality Gate (Requirement 10 & 11):
+      // If retrieval confidence is low for personal struggles without explicit epic entities,
+      // trigger No-Evidence Mode (conversational presence) instead of forcing weak/spurious analogies.
+      if (!hasSufficientEvidence && allCharacters.length === 0) {
+        retrievedPassages = [];
+        corpusDoesNotEstablish = true;
+      }
     }
 
     // Step 6: Dedicated Interpretation Engine (Cognitive Dimensions & Dharma Analysis)
@@ -321,10 +343,10 @@ export class AIOrchestratorService {
 
     const generationLatencyMs = Date.now() - generationStartTime;
 
-    // Step 8: Final Sanitize & Quote Verification Guard
+    // Step 8: Final Sanitize & Post-Generation Grounding Validation (Requirements 12 & 13)
     generatedContent = MarkdownSanitizer.sanitize(generatedContent);
 
-    // Safeguard: Intercept generic LLM corporate copyright refusals/disclaimers
+    // Safeguard: Intercept generic LLM corporate copyright refusals/disclaimers without injecting Arjuna
     const isCopyrightRefusal =
       /protected by copyright/i.test(generatedContent) ||
       /can'?t share the (shlokas?|verses?|text|epic)/i.test(generatedContent) ||
@@ -336,11 +358,54 @@ export class AIOrchestratorService {
     if (isCopyrightRefusal) {
       console.warn('[AIOrchestratorService] Intercepted corporate copyright refusal from LLM. Overriding with authentic Krishna teaching.');
       generatedContent =
-        "My friend, the sacred wisdom of the verses belongs to all who seek truth. Hear the eternal words I spoke to Arjuna upon the battlefield of Kurukshetra:\n\n" +
-        "Karmaṇy-evādhikāras te mā phaleṣu kadācana,\n" +
-        "Mā karma-phala-hetur bhūr mā te saṅgo 'stv akarmaṇi.\n\n" +
-        "You have a right only to your prescribed duty, but never to the fruits of action. Never let the fruits of your actions be your motive, nor let your attachment be to inaction.\n\n" +
-        "Focus your whole heart on the righteous deed before you, dedicate your efforts with love, and let go of anxiety over what is to come. In this selfless action lies true peace.";
+        "My friend, sacred wisdom belongs to all who seek truth with an honest heart. " +
+        "You do not need to carry this struggle in isolation. Let your effort be sincere, let go of the anxiety that clouds your peace, " +
+        "and tell me what is pressing most heavily upon your mind right now.";
+    }
+
+    let groundingResult = GroundingValidator.validate(
+      generatedContent,
+      retrievedPassages,
+      corpusDoesNotEstablish
+    );
+
+    let generationAttempts = 1;
+
+    // Controlled Regeneration Loop (Requirement 13)
+    // If grounding check fails, regenerate with explicit corrective instruction
+    if (!groundingResult.isValid && generationAttempts < 2) {
+      generationAttempts++;
+      console.warn(`[AIOrchestratorService] Grounding check failed on attempt 1: ${groundingResult.unsupportedClaims.join(', ')}. Triggering corrective regeneration.`);
+
+      const correctiveMessage = {
+        role: 'user' as const,
+        content: `CORRECTION MANDATE: Your previous response contained unsupported claims: ${groundingResult.unsupportedClaims.join('; ')}. ` +
+                 `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
+                 `If the retrieved evidence does not contain a suitable parallel, speak with pure conversational presence and warmth without naming unsupported characters or inventing stories. Rewrite now:`
+      };
+
+      try {
+        let retryContent = '';
+        await aiProvider.streamCompletion(
+          {
+            messages: [...chatMessages, { role: 'assistant', content: generatedContent }, correctiveMessage],
+            temperature: 0.5,
+            maxTokens: targetMaxTokens,
+          },
+          (token: string) => {
+            retryContent += token;
+          }
+        );
+        retryContent = MarkdownSanitizer.sanitize(retryContent);
+        const retryValidation = GroundingValidator.validate(retryContent, retrievedPassages, corpusDoesNotEstablish);
+        if (retryValidation.isValid || retryValidation.unsupportedClaims.length < groundingResult.unsupportedClaims.length) {
+          generatedContent = retryContent;
+          groundingResult = retryValidation;
+          emit({ type: 'replace', content: generatedContent });
+        }
+      } catch (retryErr: any) {
+        console.warn('[AIOrchestratorService] Corrective regeneration failed:', retryErr.message);
+      }
     }
 
     const quoteResult = QuoteVerifier.verify(
@@ -402,32 +467,22 @@ export class AIOrchestratorService {
     ));
     const retrievedEpisodes = retrievedPassages.map(p => p.sourceReference);
     const retrievedChunkIds = retrievedPassages.map(p => p.id);
-    const retrievalScores = retrievedPassages.map(p => p.relevanceScore);
-    const evidenceUsed = quoteResult.citations.map(c => c.id || c.sourceReference);
-
-    // Grounding check:
-    // If the model names specific Mahabharata characters (e.g. Karna, Gandhari, Arjuna, Draupadi, Bhishma, Kunti, etc.)
-    // they MUST be present in the retrieved passages.
-    const epicCharacters = [
-      'arjuna', 'karna', 'gandhari', 'draupadi', 'bhishma', 'kunti',
-      'yudhishthira', 'bhima', 'vidura', 'duryodhana', 'ashwatthama', 'abhimanyu', 'drona'
-    ];
-    const contentLower = quoteResult.verifiedContent.toLowerCase();
-    const mentionedCharacters = epicCharacters.filter(c => contentLower.includes(c));
-    const retrievedLower = retrievedCharacters.map(c => c.toLowerCase());
-
-    const hasUngroundedCharacter = mentionedCharacters.some(c => !retrievedLower.includes(c));
-    const generationGrounded = !quoteResult.hasUngroundedScriptureClaim && !hasUngroundedCharacter;
+    const retrievalScores = retrievedPassages.map(p => Number((p.relevanceScore || 0).toFixed(3)));
 
     const auditRecord: OrchestrationAuditRecord = {
       query: userMessage,
+      retrieval_method: 'hybrid_pgvector_fts',
+      retrieved_chunks: retrievedChunkIds,
+      retrieved_scores: retrievalScores,
+      reranked_chunks: retrievedChunkIds,
+      selected_evidence: retrievedEpisodes,
       retrieved_characters: retrievedCharacters,
       retrieved_episodes: retrievedEpisodes,
-      retrieved_chunks: retrievedChunkIds,
-      retrieval_scores: retrievalScores,
-      reranked_chunks: retrievedChunkIds,
-      evidence_used: evidenceUsed,
-      generation_grounded: generationGrounded,
+      generated_characters: groundingResult.mentionedCharacters,
+      generated_events: groundingResult.claims.filter(c => c.type === 'event').map(c => c.item),
+      unsupported_claims: groundingResult.unsupportedClaims,
+      grounding_pass: groundingResult.isValid,
+      generation_attempts: generationAttempts,
     };
 
     const totalLatencyMs = Date.now() - startTime;
