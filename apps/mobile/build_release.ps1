@@ -8,9 +8,9 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:PATH"
 Set-Location -Path 'd:\talk to krisna\apps\mobile\android'
 
 $apk = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\apk\release\app-release.apk'
-if (Test-Path $apk) {
-    Remove-Item -Path $apk -Force -ErrorAction SilentlyContinue
-}
+$aab = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\bundle\release\app-release.aab'
+if (Test-Path $apk) { Remove-Item -Path $apk -Force -ErrorAction SilentlyContinue }
+if (Test-Path $aab) { Remove-Item -Path $aab -Force -ErrorAction SilentlyContinue }
 
 Write-Host "=== Starting assembleRelease for Native Android APK ==="
 & .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache assembleRelease --console=plain
