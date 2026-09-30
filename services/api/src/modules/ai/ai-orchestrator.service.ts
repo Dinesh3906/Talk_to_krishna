@@ -14,6 +14,12 @@ import { ConversationStateTracker } from './conversation-state-tracker.js';
 import { InterpretationEngineService, InterpretationResult } from './interpretation-engine.service.js';
 import { GroundingValidator, GroundingValidationResult } from './grounding-validator.js';
 import { Message, StreamChunk, Citation, ResponseMode } from '@talk-to-krisna/shared';
+import { ConversationMemoryService } from './conversation-memory.service.js';
+import { ReferenceResolver } from './reference-resolver.js';
+import { ContextualQueryResolver } from './contextual-query-resolver.js';
+import { ChatMemoryRetriever, HistoricalMemoryResult } from './chat-memory-retriever.js';
+import { ResponsePlanner } from './response-planner.js';
+import { AntiRepetitionGuard } from './anti-repetition-guard.js';
 
 export interface OrchestrationOptions {
   userId: string;
@@ -129,58 +135,85 @@ export class AIOrchestratorService {
       };
     }
 
-    // Step 2: Fetch Recent Conversation History for Multi-Turn Context Tracking
-    const historyRows = await db.query.messages.findMany({
-      where: eq(messages.conversationId, conversationId),
-      orderBy: [asc(messages.createdAt)],
-      limit: 10,
+    // Step 2: Fetch Multi-Tier Conversation History & Working Memory State
+    const conversationState = await ConversationMemoryService.getState(conversationId, userId);
+    const history = await ConversationMemoryService.getRecentTurns(conversationId, 12);
+
+    // Step 3: Reference & Pronoun Resolution Across Multi-Turn Dialogue
+    const referenceResolution = ReferenceResolver.resolve(userMessage, history, {
+      activeTopic: conversationState.activeTopic,
+      activeEntities: conversationState.activeEntities,
+      lastDiscussedCharacter: conversationState.activeEntities[0],
+      establishedFacts: conversationState.establishedFacts,
     });
 
-    const history = historyRows.map((m) => ({
-      role: (m.sender === 'krishna' ? 'assistant' : 'user') as 'assistant' | 'user',
-      content: m.content,
-    }));
+    // Step 4: Historical Chat Memory Retrieval (Grounded per-chat recall)
+    let historicalMemory: HistoricalMemoryResult | undefined;
+    if (referenceResolution.isHistoricalRecall) {
+      historicalMemory = await ChatMemoryRetriever.retrieve(
+        conversationId,
+        userId,
+        referenceResolution.targetCharacterForRecall || conversationState.activeTopic,
+        history
+      );
+    }
 
-    // Step 3: Multi-Turn Conversation State Tracking & Query Rewriting
-    const conversationState = ConversationStateTracker.track(history, userMessage);
+    // Legacy tracker compatibility for downstream grounding/interpretation
+    const trackerState = ConversationStateTracker.track(history, userMessage);
+    if (referenceResolution.referentCharacter) {
+      trackerState.lastDiscussedCharacter = referenceResolution.referentCharacter;
+      if (!trackerState.activeCharacters.includes(referenceResolution.referentCharacter.toLowerCase())) {
+        trackerState.activeCharacters.push(referenceResolution.referentCharacter.toLowerCase());
+      }
+    }
 
-    // Step 4: Intent & Emotion Classification
-    const classification = IntentClassifier.classify(userMessage, conversationState);
-    const hasNonKrishnaCharacters = conversationState.activeCharacters.some(c => c.toLowerCase() !== 'krishna');
+    // Step 5: Intent & Emotion Classification
+    const classification = IntentClassifier.classify(userMessage, trackerState);
+    const hasNonKrishnaCharacters = trackerState.activeCharacters.some(c => c.toLowerCase() !== 'krishna');
     const isMahabharataRelevant =
+      !referenceResolution.isHistoricalRecall &&
       !classification.isCasualBanter &&
       !classification.isAntiHallucinationProbe &&
       (
         classification.mahabharataRelevant ||
         classification.isStoryRequest === true ||
         hasNonKrishnaCharacters ||
-        Boolean(conversationState.activeVerse)
+        Boolean(trackerState.activeVerse)
       );
+
+    // Step 6: Contextual Query Resolution (RAG query formulation vs. memory gating)
+    const queryPlan = ContextualQueryResolver.resolve(
+      userMessage,
+      referenceResolution,
+      conversationState.activeTopic,
+      trackerState.activeCharacters
+    );
 
     emit({
       type: 'metadata',
       metadata: {
         intent: classification.intentCategory,
         emotion: classification.emotionalState,
-        isMahabharataRelevant,
+        isMahabharataRelevant: isMahabharataRelevant && queryPlan.ragRequired,
       },
     });
 
-    // Step 5: Hybrid Retrieval (using contextual query & query-extracted entity guidance)
+    // Step 7: Hybrid Retrieval (using contextual query & query-extracted entity guidance)
     let retrievedPassages: RetrievedPassage[] = [];
     let corpusDoesNotEstablish = false;
     let retrievalLatencyMs = 0;
     let retrievalConfidence: 'high' | 'medium' | 'low' = 'low';
     let hasSufficientEvidence = false;
 
-    if (isMahabharataRelevant) {
+    if (isMahabharataRelevant && queryPlan.ragRequired) {
       const allCharacters = Array.from(new Set([
         ...classification.extractedCharacters,
-        ...conversationState.activeCharacters
+        ...trackerState.activeCharacters,
+        ...queryPlan.entitiesForRetrieval,
       ]));
 
       const retrievalResult = await HybridRetriever.retrieve(
-        conversationState.contextualQuery,
+        queryPlan.contextualQuery,
         allCharacters,
         classification.extractedThemes,
         3,
@@ -192,23 +225,20 @@ export class AIOrchestratorService {
       retrievalConfidence = retrievalResult.confidence;
       hasSufficientEvidence = retrievalResult.hasSufficientEvidence;
 
-      // Evidence Quality Gate (Requirement 10 & 11):
-      // If retrieval confidence is low for personal struggles without explicit epic entities,
-      // trigger No-Evidence Mode (conversational presence) instead of forcing weak/spurious analogies.
       if (!hasSufficientEvidence && allCharacters.length === 0) {
         retrievedPassages = [];
         corpusDoesNotEstablish = true;
       }
     }
 
-    // Step 6: Dedicated Interpretation Engine (Cognitive Dimensions & Dharma Analysis)
+    // Step 8: Dedicated Interpretation Engine (Cognitive Dimensions & Dharma Analysis)
     const interpretation: InterpretationResult | null = InterpretationEngineService.interpret(
       userMessage,
-      conversationState,
+      trackerState,
       retrievedPassages
     );
 
-    // Step 7: Fetch User Profile & Optional Long-Term Memory
+    // Step 9: Fetch User Profile & Optional Long-Term Memory
     const profile = await db.query.userProfiles.findFirst({
       where: eq(userProfiles.userId, userId),
     });
@@ -220,35 +250,39 @@ export class AIOrchestratorService {
         })
       : [];
 
-    // Determine explicit ResponseMode
-    const isImminentSelfHarm =
-      PromptSafetyGuard.evaluateInput(userMessage).category === 'self_harm' ||
-      /(?:suicid|kill myself|end my life|want to die|self[- ]harm)/i.test(userMessage);
+    // Step 10: Adaptive Response Planning & Dynamic Depth Policy
+    const responsePlan = ResponsePlanner.plan({
+      userMessage,
+      history,
+      activeTopic: referenceResolution.referentTopic || conversationState.activeTopic,
+      activeEntities: conversationState.activeEntities,
+      establishedFacts: conversationState.establishedFacts,
+      referenceResolution,
+      intentCategory: classification.intentCategory,
+      emotionalState: classification.emotionalState,
+      isCasualBanter: Boolean(classification.isCasualBanter),
+      isStoryRequest: Boolean(classification.isStoryRequest),
+      isMahabharataRelevant,
+      historicalMemory,
+    });
 
-    const isEmotionalDistress =
-      classification.intentCategory === 'emotional_distress' ||
-      classification.intentCategory === 'relationship_grief' ||
-      classification.emotionalState === 'grief' ||
-      classification.emotionalState === 'fear' ||
-      classification.emotionalState === 'loneliness' ||
-      classification.emotionalState === 'confusion' ||
-      /(?:depress|sad|lonely|heartbreak|grief|anxious|anxiety|hopeless|hurting|empty inside|overwhelm|crying|pain)/i.test(userMessage);
+    // Development Debug Mode Emitter
+    if (process.env.NODE_ENV !== 'production') {
+      emit({
+        type: 'debug',
+        debug: {
+          intent: classification.intentCategory,
+          activeTopic: responsePlan.activeTopic,
+          referenceResolution: referenceResolution.resolvedReferences,
+          retrievedChatMemory: historicalMemory?.found ? historicalMemory.honestStatement : null,
+          ragQuery: queryPlan.contextualQuery,
+          responseMode: responsePlan.responseMode,
+          responseDepth: responsePlan.responseDepth,
+        },
+      });
+    }
 
-    const isCasualBanter =
-      classification.isCasualBanter ||
-      classification.intentCategory === 'casual_banter';
-
-    const responseMode: ResponseMode = isImminentSelfHarm
-      ? 'crisis_safety'
-      : isCasualBanter
-      ? 'casual_greeting'
-      : isEmotionalDistress
-      ? 'emotional_conversation'
-      : (classification.isStoryRequest || isMahabharataRelevant)
-      ? 'narrative_storytelling'
-      : 'philosophical_inquiry';
-
-    // Step 8: Construct Persona Prompt with Source Evidence + Grounded Interpretation
+    // Step 11: Construct Persona Prompt with Multi-Tier Memory + Evidence
     const chatMessages = KrishnaPersonaService.buildPrompt(
       userMessage,
       history,
@@ -258,37 +292,33 @@ export class AIOrchestratorService {
         reflectionDepth: profile?.reflectionDepth as any,
         mahabharataDensity: profile?.mahabharataDensity as any,
         userMemories: memories.map((m) => ({ key: m.factKey, value: m.factValue })),
-        isMahabharataRelevant,
+        isMahabharataRelevant: isMahabharataRelevant && queryPlan.ragRequired,
         corpusDoesNotEstablish,
         interpretation,
         intentCategory: classification.intentCategory,
         emotionalState: classification.emotionalState,
-        responseMode,
+        responseMode: responsePlan.responseMode,
+        responsePlan,
+        activeTopic: responsePlan.activeTopic,
+        workingSummary: conversationState.recentSummary,
+        historicalMemory: historicalMemory?.honestStatement,
         isStoryRequest: classification.isStoryRequest,
         isChallenging: classification.isChallenging,
         isAntiHallucinationProbe: classification.isAntiHallucinationProbe,
         isCasualBanter: classification.isCasualBanter,
-        isFollowUp: conversationState.isFollowUp,
-        lastDiscussedCharacter: conversationState.lastDiscussedCharacter,
+        isFollowUp: referenceResolution.isFollowUp,
+        lastDiscussedCharacter: referenceResolution.referentCharacter || trackerState.lastDiscussedCharacter,
       }
     );
 
-    // Step 7: Real AI Generation (Fails cleanly with 503 if provider unavailable - NO FAKE DATA)
+    // Step 12: Real AI Generation (with Dynamic Token Budget)
     const aiProvider = AIProviderFactory.getProvider();
     const generationStartTime = Date.now();
     let generatedContent = '';
     let promptTokens: number | undefined;
     let completionTokens: number | undefined;
 
-    const maxTokensByDepth: Record<string, number> = {
-      concise: isMahabharataRelevant ? 220 : 150,
-      balanced: isMahabharataRelevant ? 450 : 250,
-      deep_philosophical: isMahabharataRelevant ? 600 : 400,
-    };
-
-    const targetMaxTokens = responseMode === 'emotional_conversation'
-      ? 240
-      : maxTokensByDepth[profile?.reflectionDepth || 'balanced'] || (isMahabharataRelevant ? 450 : 250);
+    const targetMaxTokens = responsePlan.targetTokens;
 
     const streamFilter = new StreamTokenFilter();
     try {
@@ -362,6 +392,17 @@ export class AIOrchestratorService {
     // Step 8: Final Sanitize & Post-Generation Grounding Validation (Requirements 12 & 13)
     generatedContent = MarkdownSanitizer.sanitize(generatedContent);
 
+    // Anti-Repetition Guard: Suppress repeated introductions and circular boilerplate
+    const repetitionCheck = AntiRepetitionGuard.filter(
+      generatedContent,
+      history,
+      referenceResolution.isFollowUp
+    );
+    if (repetitionCheck.hasRepetition) {
+      generatedContent = repetitionCheck.sanitizedContent;
+      emit({ type: 'replace', content: generatedContent });
+    }
+
     // Safeguard: Intercept generic LLM corporate copyright refusals/disclaimers without injecting Arjuna
     const isCopyrightRefusal =
       /protected by copyright/i.test(generatedContent) ||
@@ -381,8 +422,9 @@ export class AIOrchestratorService {
 
     // Collect established conversation entities to preserve multi-turn context
     const establishedEntities: string[] = [];
-    if (conversationState.lastDiscussedCharacter) {
-      establishedEntities.push(conversationState.lastDiscussedCharacter);
+    const charToEstablish = trackerState.lastDiscussedCharacter || conversationState.activeEntities[0];
+    if (charToEstablish) {
+      establishedEntities.push(charToEstablish);
     }
     for (const h of history.slice(-2)) {
       for (const char of GroundingValidator.EPIC_CHARACTERS) {
@@ -516,8 +558,31 @@ export class AIOrchestratorService {
       }
     }
 
-    // Step 10: Auto-Title generation for the conversation if first turn
-    if (historyRows.length <= 1) {
+    // Step 10: Asynchronous Multi-Tier Memory Recording (State + Topic Segments)
+    const resolvedChar = referenceResolution.referentCharacter || conversationState.activeEntities[0];
+    const topicToRecord = referenceResolution.isTopicReturn
+      ? (referenceResolution.restoredTopic || conversationState.activeTopic)
+      : (resolvedChar ? `${resolvedChar}'s dilemma` : conversationState.activeTopic);
+
+    const activeEntitiesToRecord = Array.from(new Set([
+      ...conversationState.activeEntities,
+      ...(resolvedChar ? [resolvedChar.toLowerCase()] : [])
+    ]));
+
+    ConversationMemoryService.recordTurnAndUpdateMemory({
+      conversationId,
+      userId,
+      userMessage,
+      assistantMessage: quoteResult.verifiedContent,
+      activeTopic: topicToRecord,
+      activeEntities: activeEntitiesToRecord,
+      isTopicShift: referenceResolution.isTopicShift,
+      establishedFact: quoteResult.citations[0]?.contextSummary || (isMahabharataRelevant ? `Discussed ${topicToRecord}` : undefined),
+      philosophicalTheme: classification.extractedThemes[0] || 'dharma',
+    }).catch(err => console.warn('[AIOrchestratorService] Asynchronous memory update notice:', err.message));
+
+    // Step 11: Auto-Title generation for the conversation if first turn
+    if (history.length <= 1) {
       const autoTitle = userMessage.slice(0, 40).trim() || 'Reflection';
       await db
         .update(conversations)

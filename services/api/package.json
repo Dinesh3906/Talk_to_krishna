@@ -17,7 +17,8 @@
     "ingest:full": "tsx src/modules/ingestion/run-full-ingestion-cli.ts",
     "ingest:child": "tsx src/modules/ingestion/run-parallel-child-ingestion-cli.ts",
     "ingest:child:seq": "tsx src/modules/ingestion/run-child-chunk-ingestion-cli.ts",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

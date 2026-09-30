@@ -2,7 +2,7 @@ import { ChatMessageParam } from './ai-provider.interface.js';
 import { RetrievedPassage } from './hybrid-retriever.js';
 import { PromptSafetyGuard } from './prompt-safety-guard.js';
 import { MarkdownSanitizer } from './markdown-sanitizer.js';
-import { ReflectionDepth, MahabharataDensity, IntentCategory, EmotionalState, ResponseMode } from '@talk-to-krisna/shared';
+import { ReflectionDepth, MahabharataDensity, IntentCategory, EmotionalState, ResponseMode, ResponsePlan } from '@talk-to-krisna/shared';
 import { InterpretationResult } from './interpretation-engine.service.js';
 
 export interface PersonaContextOptions {
@@ -16,6 +16,10 @@ export interface PersonaContextOptions {
   intentCategory?: IntentCategory;
   emotionalState?: EmotionalState;
   responseMode?: ResponseMode;
+  responsePlan?: ResponsePlan;
+  activeTopic?: string;
+  workingSummary?: string;
+  historicalMemory?: string;
   isStoryRequest?: boolean;
   isChallenging?: boolean;
   isAntiHallucinationProbe?: boolean;
@@ -26,8 +30,8 @@ export interface PersonaContextOptions {
 
 export class KrishnaPersonaService {
   /**
-   * Constructs the structured prompt for the LLM.
-   * Strictly avoids Markdown syntax inside the system prompt so the LLM does not mirror formatting.
+   * Constructs the structured prompt for the LLM with multi-tier hierarchical memory,
+   * adaptive response depth, and strict anti-repetition boundaries.
    */
   public static buildPrompt(
     userMessage: string,
@@ -36,23 +40,20 @@ export class KrishnaPersonaService {
     options: PersonaContextOptions
   ): ChatMessageParam[] {
     const userExplicitName = options.preferredName?.trim();
-    const depth = options.reflectionDepth || 'balanced';
-    const isEmotionalMode =
-      options.responseMode === 'emotional_conversation' ||
-      options.intentCategory === 'emotional_distress' ||
-      options.intentCategory === 'relationship_grief';
+    const plan = options.responsePlan;
 
-    let lengthInstruction = 'Target length: 70 to 180 words. Keep it natural, focused, and conversational.';
-    if (options.isCasualBanter || options.responseMode === 'casual_greeting') {
-      lengthInstruction = 'Target length: 30 to 100 words. Be lively, witty, warm, and natural.';
-    } else if (options.isStoryRequest || (options.isMahabharataRelevant && passages.length > 0)) {
-      lengthInstruction = 'Target length: 130 to 240 words. Tell the story with living narrative flow, unpack its tension, and connect it to the seeker.';
-    } else if (isEmotionalMode) {
-      lengthInstruction = 'Target length: 80 to 180 words. Speak with intimate, warm companion presence, not an essay or lecture.';
-    } else if (depth === 'concise') {
-      lengthInstruction = 'Target length: 20 to 60 words. Be brief, direct, and memorable.';
-    } else if (depth === 'deep_philosophical') {
-      lengthInstruction = 'Target length: 90 to 200 words. Provide deep philosophical contemplation with clarity.';
+    // Dynamic length instruction based on ResponsePlan depth
+    let lengthInstruction = 'Target length: 70 to 160 words. Keep it natural, focused, and conversational.';
+    if (plan?.responseDepth === 'very_short' || options.isCasualBanter) {
+      lengthInstruction = 'Target length: 20 to 60 words. Be immediate, warm, and concise.';
+    } else if (plan?.responseDepth === 'short') {
+      lengthInstruction = 'Target length: 40 to 90 words. Directly answer the question without re-explaining background context. Assume shared understanding.';
+    } else if (plan?.responseDepth === 'moderate') {
+      lengthInstruction = 'Target length: 80 to 150 words. Focus on the core distinction and depth without repeating established details.';
+    } else if (plan?.responseDepth === 'detailed' || options.isStoryRequest) {
+      lengthInstruction = 'Target length: 140 to 240 words. Tell the story or explain the dilemma with living narrative flow.';
+    } else if (plan?.responseDepth === 'comprehensive') {
+      lengthInstruction = 'Target length: 180 to 280 words. Provide thorough philosophical contemplation with clarity.';
     }
 
     const nameInstruction = userExplicitName
@@ -101,7 +102,7 @@ Never use generic AI assistant cliches or canned therapy tropes:
 - Do NOT say: "Everything happens for a reason" or "Never give up" or "Believe in yourself" (these are empty platitudes; offer genuine philosophical discernment instead).
 - Do NOT speak like a textbook or clinical therapist.
 
-${options.isCasualBanter || options.responseMode === 'casual_greeting' ? `
+${options.isCasualBanter || plan?.responseMode === 'casual_conversation' || plan?.responseMode === 'casual_greeting' ? `
 CASUAL & PLAYFUL CONVERSATION MODE (ACTIVE):
 The seeker is speaking casually, offering a greeting, asking about your favorite things, asking for a joke, expressing boredom, or simply asking to talk as a companion without lectures.
 - Respond with warmth, charm, wit, and affectionate presence.
@@ -112,44 +113,75 @@ The seeker is speaking casually, offering a greeting, asking about your favorite
 - If told "I just want to talk" or "I don't want advice. Just talk to me": listen warmly, be a comforting presence, and speak as a dear friend without unsolicited advice.
 ` : ''}
 
-${options.isChallenging || options.isFollowUp ? `
-CONVERSATIONAL CONTINUITY & ENGAGING WITH CHALLENGES (ACTIVE):
-The seeker is continuing the conversation or posing a direct objection, doubt, or skepticism (e.g. "So are you saying I should just accept failure?", "Why should I trust anything you say?", "What if I disagree with you?", "What if your advice doesn't work?").
-- Address their specific objection or question immediately and directly.
-- DO NOT start over with greetings or re-introduce the background. Continue the dialogue seamlessly.
-- Reason with intellectual clarity and affection. Krishna welcomes honest skepticism and questions.
-- If the seeker misunderstands (e.g. confusing acceptance of present facts with surrender of future effort, or detachment with apathy), clearly illuminate the difference.
+${options.isFollowUp || plan?.responseMode === 'direct_followup' ? `
+CONVERSATIONAL CONTINUITY & ENGAGING FOLLOW-UPS (ACTIVE):
+The seeker is continuing an active dialogue.
+CRITICAL CONTINUATION & ANTI-REPETITION MANDATE:
+- DO NOT restart the topic or re-introduce the character/event (e.g. do not re-explain that Arjuna was a great warrior, or why Karna was loyal).
+- Assume shared context from earlier turns.
+- Answer directly what is NEW in this turn.
+- Acknowledge the distinction smoothly (e.g. "Yes, and that is precisely where the dilemma deepens...", "That is an important distinction...").
+` : ''}
+
+${plan?.responseMode === 'historical_recall' ? `
+HISTORICAL CHAT RECALL MODE (ACTIVE):
+The seeker is asking what was discussed earlier in this chat.
+- State accurately and directly what the seeker asked and what was discussed earlier in this conversation.
+- Rely strictly on the recalled conversation memory provided below.
+- NEVER fabricate, guess, or invent past discussions that did not occur in this chat.
+` : ''}
+
+${plan?.responseMode === 'topic_shift' ? `
+TOPIC SHIFT (ACTIVE):
+The seeker has shifted to a new subject or character.
+- Acknowledge the new inquiry directly and cleanly.
+- DO NOT drag in previous characters or baggage unless relevant to a comparison.
 ` : ''}
 
 ${options.isAntiHallucinationProbe ? `
 ANTI-HALLUCINATION & FACTUAL INTEGRITY (ACTIVE):
-The seeker is asking about modern technology, contemporary events (e.g. social media, startup funding, smartphones), or non-existent verses/dialogues not found in scriptures.
-- Honestly and directly clarify that the ancient epic and scriptures do not speak of modern technologies, venture capital, or corporate startup funding.
-- If the seeker asks for an exact parallel to a modern event (like startup funding or tech companies), explicitly clarify that no such exact event exists in the Mahabharata, and do not invent an autobiographical scene or invoke Arjuna.
-- NEVER invent an unrecorded dialogue, quote, or fictitious verse. State clearly that scriptures do not record words outside the text.
-- Address the human psychological reality (disappointment, uncertainty, financial stress) through calm, timeless philosophical reasoning without fabricating mythology.
+The seeker is asking about modern technology, contemporary events, or non-existent verses/dialogues not found in scriptures.
+- Honestly and directly clarify that the ancient epic and scriptures do not speak of modern technologies or contemporary events.
+- NEVER invent an unrecorded dialogue, quote, or fictitious verse.
+- Address the human psychological reality through calm, timeless philosophical reasoning without fabricating mythology.
 ` : ''}
 
-${options.isStoryRequest || (options.isMahabharataRelevant && passages.length > 0) ? `
+${(options.isStoryRequest || (plan?.storyRequired && passages.length > 0)) ? `
 LIVING CONVERSATIONAL STORYTELLING (ACTIVE):
-When recounting a Mahabharata episode or applying an epic teaching from the retrieved evidence:
+When recounting a Mahabharata episode from the retrieved evidence:
 1. Respond naturally to the seeker's immediate feeling or question.
 2. Introduce the relevant person, event, or dilemma conversationally.
 3. Tell the story conversationally from what actually happened in the retrieved evidence.
 4. Explain the deeper meaning—explore the tension, conflict, ethical trade-off, or uncomfortable truth.
 5. Connect the teaching to the seeker's situation with discerning insight.
-6. Continue the conversation naturally.
-DO NOT use formulaic opening templates ("Come, let us go to...") or forced pauses ("Now pause here."). Let the narrative breathe organically.
 ` : ''}
 
-${isEmotionalMode && !options.isCasualBanter ? `
+${(plan?.responseMode === 'emotional_guidance' || options.intentCategory === 'emotional_distress') && !options.isCasualBanter ? `
 EMOTIONAL & PERSONAL STRUGGLE GUIDANCE (ACTIVE):
 The seeker is experiencing pain, sadness, grief, heartbreak, fear, or feelings of failure.
 - Meet them with sincere emotional presence, warmth, and depth.
-- NEVER sound like a clinical therapy bot ("I hear you", "Your feelings are valid", "Come, sit beside me", "Tell me what is weighing on you").
-- If relevant Mahabharata evidence was retrieved, connect the genuine story or teaching to their situation with subtlety.
-- If no relevant evidence was retrieved (No-Evidence Mode), offer steady, compassionate perspective without inventing mythological parallels.
-- Speak as a loving friend and wise charioteer who helps them steady their heart.
+- NEVER sound like a clinical therapy bot.
+- Offer steady, compassionate perspective as a loving friend and charioteer.
+` : ''}
+
+${plan?.previousInformationToAvoidRepeating && plan.previousInformationToAvoidRepeating.length > 0 ? `
+INFORMATION ALREADY ESTABLISHED (DO NOT REPEAT):
+${plan.previousInformationToAvoidRepeating.map(item => `- ${item}`).join('\n')}
+` : ''}
+
+${plan?.newInformationRequired && plan.newInformationRequired.length > 0 ? `
+NEW INFORMATION REQUIRED FOR THIS TURN:
+${plan.newInformationRequired.map(item => `- ${item}`).join('\n')}
+` : ''}
+
+${options.historicalMemory ? `
+RECALLED CHAT MEMORY:
+${options.historicalMemory}
+` : ''}
+
+${options.workingSummary ? `
+WORKING CONVERSATION SUMMARY (SHARED CONTEXT):
+${options.workingSummary}
 ` : ''}
 
 RESPONSE BUDGET:
@@ -167,10 +199,10 @@ The following passages were retrieved from the real corpus. Your response MUST b
 
 MANDATORY GROUNDING & INTEGRITY RULES:
 1. CHARACTER GROUNDING RULE: Mention an epic character ONLY if that character is explicitly listed under CHARACTERS or present in the PASSAGE text below. Never default to Arjuna or the Kurukshetra battlefield unless established in the retrieved passage.
-2. EPISODE GROUNDING RULE: If you share a Mahabharata incident, it must be traceable to the specific retrieved passage below. Paraphrase concrete details from the passage. Do not merely name-drop a character ("Remember Karna, he suffered") without concrete textual connection.
+2. EPISODE GROUNDING RULE: If you share a Mahabharata incident, it must be traceable to the specific retrieved passage below. Paraphrase concrete details from the passage. Do not merely name-drop a character without concrete textual connection.
 3. NO FABRICATED QUOTES: NEVER put words inside quotation marks ("...") unless that exact wording appears verbatim in the retrieved PASSAGE text. Clearly paraphrase instead.
-4. NO FABRICATED KRISHNA AUTOBIOGRAPHY: Do NOT generate claims like "I remember when...", "I was there when...", "I told Gandhari...", "I sat beside..." unless the retrieved passage explicitly records Krishna's presence in that episode. Speak naturally as Krishna without inventing personal memories.
-5. NO GENERIC MAHABHARATA FILLER & TEMPLATES: Do NOT follow a repetitive template (such as "Come, sit beside me...", "Your pain is like...", "Remember [character]...", "Their story teaches us..."). Vary your opening, sentence structure, emotional rhythm, and closing naturally.
+4. NO FABRICATED KRISHNA AUTOBIOGRAPHY: Do NOT generate claims like "I remember when...", "I was there when..." unless the retrieved passage explicitly records Krishna's presence in that episode.
+5. NO GENERIC MAHABHARATA FILLER & TEMPLATES: Do NOT follow a repetitive template. Vary your opening, sentence structure, emotional rhythm, and closing naturally.
 6. NO-EVIDENCE MODE: If the retrieved passages do not contain a relevant story parallel for this seeker, DO NOT invent a story. Speak purely conversationally from divine empathy, presence, and timeless wisdom.\n\n`;
 
       passages.forEach((p, idx) => {
@@ -204,14 +236,14 @@ NO-EVIDENCE MODE ACTIVE:
 [General Conversation Mode - No Scripture Retrieval Needed]
 MANDATORY RULES:
 - DO NOT introduce any epic characters (Arjuna, Karna, Bhishma, etc.) or claim historical epic events occurred.
-- If asked about modern topics (startups, social media, technology) or fictitious verses, clearly clarify that scriptures do not contain them and do not invent parallels.
+- If asked about modern topics or fictitious verses, clearly clarify that scriptures do not contain them and do not invent parallels.
 - Speak naturally, warmly, and thoughtfully as Krishna.\n`;
     }
 
     if (options.interpretation) {
       const interp = options.interpretation;
-      contextPrompt += `\n\nGROUNDED NARRATIVE & COGNITIVE INTERPRETATION (Weave into your natural storytelling arc without headers):\n`;
-      if (interp.narrativeArc) {
+      contextPrompt += `\n\nGROUNDED NARRATIVE & COGNITIVE INTERPRETATION:\n`;
+      if (interp.narrativeArc && (options.isStoryRequest || plan?.storyRequired)) {
         contextPrompt += `Scene Entry Setting: ${interp.narrativeArc.sceneEntry}\n`;
         contextPrompt += `Dramatic Tension & Stakes: ${interp.narrativeArc.dramaticTension}\n`;
         contextPrompt += `Human Choice & Conflict: ${interp.narrativeArc.humanChoice}\n`;
@@ -232,8 +264,8 @@ MANDATORY RULES:
       { role: 'system', content: systemPrompt + contextPrompt },
     ];
 
-    // Include recent conversation history (bounded to last 6 turns for tight context)
-    const recentHistory = history.slice(-6);
+    // Include recent conversation history (Level 1: bounded to sliding window of last 8 turns)
+    const recentHistory = history.slice(-8);
     for (const h of recentHistory) {
       messages.push({
         role: h.role,

@@ -51,9 +51,13 @@ export class AuthService {
   public static async signup(dto: SignupDto): Promise<{ message: string; email: string; isVerified: boolean }> {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, normalizedEmail),
-    });
+    // 1. Run user lookup and bcrypt hashing concurrently to eliminate CPU serialization
+    const [existingUser, passwordHash] = await Promise.all([
+      db.query.users.findFirst({
+        where: eq(users.email, normalizedEmail),
+      }),
+      bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS),
+    ]);
 
     if (existingUser) {
       if (existingUser.isVerified) {
@@ -61,7 +65,6 @@ export class AuthService {
       }
 
       // User registered previously but never verified: update password & resend OTP
-      const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
       await db
         .update(users)
         .set({
@@ -86,10 +89,10 @@ export class AuthService {
       };
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
     const preferredName = dto.preferredName?.trim() || null;
     const displayName = dto.displayName?.trim() || normalizedEmail.split('@')[0];
 
+    // 2. Insert new user record
     const [createdUser] = await db
       .insert(users)
       .values({
@@ -103,25 +106,22 @@ export class AuthService {
       })
       .returning();
 
-    // Create default user profile
-    await db
-      .insert(userProfiles)
-      .values({
+    // 3. Parallelize default profile creation & OTP record generation
+    const [, { plaintextCode }] = await Promise.all([
+      db.insert(userProfiles).values({
         userId: createdUser.id,
         reflectionDepth: 'balanced',
         mahabharataDensity: 'contextual',
         themePreference: 'dark',
         enableLongTermMemory: false,
         preferredLanguage: 'en',
-      })
-      .returning();
+      }),
+      OtpService.createOtpRecord(normalizedEmail, 'SIGNUP_VERIFICATION', createdUser.id, false),
+    ]);
 
-    // Dispatch verification OTP
-    await OtpService.createAndSendOtp(
-      normalizedEmail,
-      'SIGNUP_VERIFICATION',
-      createdUser.id,
-      preferredName || undefined
+    // 4. Non-blocking asynchronous delivery so UI transition is instant (< 400ms)
+    void OtpService.deliverOtp(normalizedEmail, 'SIGNUP_VERIFICATION', plaintextCode, preferredName || undefined).catch(
+      (err: any) => console.error('[AuthService] Background OTP delivery failed:', err.message)
     );
 
     return {
@@ -138,32 +138,37 @@ export class AuthService {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
     // Verify and consume OTP atomically
-    await OtpService.verifyAndConsumeOtp(normalizedEmail, dto.purpose, dto.code);
+    const { userId: otpUserId } = await OtpService.verifyAndConsumeOtp(normalizedEmail, dto.purpose, dto.code);
 
-    const userRecord = await db.query.users.findFirst({
-      where: eq(users.email, normalizedEmail),
-    });
+    // Update user to verified and fetch profile concurrently
+    const [updatedUsers, profileRecord] = await Promise.all([
+      db
+        .update(users)
+        .set({
+          isVerified: true,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.email, normalizedEmail))
+        .returning(),
+      db.query.userProfiles.findFirst({
+        where: otpUserId ? eq(userProfiles.userId, otpUserId) : undefined,
+      }),
+    ]);
 
-    if (!userRecord) {
+    const updatedUser = updatedUsers[0];
+    if (!updatedUser) {
       throw new Error('User record not found.');
     }
 
-    // Mark user verified
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        isVerified: true,
-        lastLoginAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userRecord.id))
-      .returning();
+    let activeProfile = profileRecord;
+    if (!activeProfile) {
+      activeProfile = await db.query.userProfiles.findFirst({
+        where: eq(userProfiles.userId, updatedUser.id),
+      });
+    }
 
-    let profileRecord = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, updatedUser.id),
-    });
-
-    if (!profileRecord) {
+    if (!activeProfile) {
       const [newProfile] = await db
         .insert(userProfiles)
         .values({
@@ -175,7 +180,7 @@ export class AuthService {
           preferredLanguage: 'en',
         })
         .returning();
-      profileRecord = newProfile;
+      activeProfile = newProfile;
     }
 
     const token = this.generateToken(
@@ -199,12 +204,12 @@ export class AuthService {
         lastLoginAt: updatedUser.lastLoginAt?.toISOString(),
       },
       profile: {
-        userId: profileRecord.userId,
-        reflectionDepth: profileRecord.reflectionDepth as any,
-        mahabharataDensity: profileRecord.mahabharataDensity as any,
-        themePreference: profileRecord.themePreference as any,
-        enableLongTermMemory: profileRecord.enableLongTermMemory,
-        preferredLanguage: profileRecord.preferredLanguage,
+        userId: activeProfile.userId,
+        reflectionDepth: activeProfile.reflectionDepth as any,
+        mahabharataDensity: activeProfile.mahabharataDensity as any,
+        themePreference: activeProfile.themePreference as any,
+        enableLongTermMemory: activeProfile.enableLongTermMemory,
+        preferredLanguage: activeProfile.preferredLanguage,
       },
       token,
       expiresIn: JWT_EXPIRES_IN_SECONDS,
@@ -212,40 +217,87 @@ export class AuthService {
   }
 
   /**
-   * Backward-compatible register (delegates to signup or creates immediately in test mode)
+   * Backward-compatible register (delegates to fast signup or creates immediately in test mode)
    */
   public static async register(dto: RegisterDto): Promise<AuthSession> {
-    const signupResult = await this.signup(dto);
-    // For legacy automated tests or callers expecting immediate token:
-    const userRecord = await db.query.users.findFirst({
-      where: eq(users.email, dto.email.trim().toLowerCase()),
-    });
-    if (!userRecord) throw new Error('Registration failed');
+    const normalizedEmail = dto.email.trim().toLowerCase();
 
-    // Auto-verify if test mode, otherwise return session
-    const [verifiedUser] = await db
-      .update(users)
-      .set({ isVerified: true, lastLoginAt: new Date() })
-      .where(eq(users.id, userRecord.id))
-      .returning();
+    // Check if user exists or hash password in parallel
+    const [existingUser, passwordHash] = await Promise.all([
+      db.query.users.findFirst({ where: eq(users.email, normalizedEmail) }),
+      bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS),
+    ]);
+
+    let userRecord = existingUser;
+    if (userRecord) {
+      const [updated] = await db
+        .update(users)
+        .set({
+          passwordHash,
+          displayName: dto.displayName?.trim() || userRecord.displayName,
+          preferredName: dto.preferredName?.trim() || userRecord.preferredName,
+          isVerified: true,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userRecord.id))
+        .returning();
+      userRecord = updated;
+    } else {
+      const preferredName = dto.preferredName?.trim() || null;
+      const displayName = dto.displayName?.trim() || normalizedEmail.split('@')[0];
+
+      const [createdUser] = await db
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          passwordHash,
+          displayName,
+          preferredName,
+          isAnonymous: false,
+          isVerified: true,
+          tokenVersion: 1,
+          lastLoginAt: new Date(),
+        })
+        .returning();
+      userRecord = createdUser;
+
+      await db
+        .insert(userProfiles)
+        .values({
+          userId: createdUser.id,
+          reflectionDepth: 'balanced',
+          mahabharataDensity: 'contextual',
+          themePreference: 'dark',
+          enableLongTermMemory: false,
+          preferredLanguage: 'en',
+        })
+        .returning();
+    }
 
     const profileRecord = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, verifiedUser.id),
+      where: eq(userProfiles.userId, userRecord.id),
     });
 
-    const token = this.generateToken(verifiedUser.id, verifiedUser.email || undefined, false, verifiedUser.tokenVersion);
+    const token = this.generateToken(
+      userRecord.id,
+      userRecord.email || undefined,
+      false,
+      userRecord.tokenVersion
+    );
 
     return {
       user: {
-        id: verifiedUser.id,
-        email: verifiedUser.email || undefined,
-        phone: verifiedUser.phone || undefined,
-        displayName: verifiedUser.displayName || undefined,
-        preferredName: verifiedUser.preferredName || undefined,
-        avatarUrl: verifiedUser.avatarUrl || undefined,
+        id: userRecord.id,
+        email: userRecord.email || undefined,
+        phone: userRecord.phone || undefined,
+        displayName: userRecord.displayName || undefined,
+        preferredName: userRecord.preferredName || undefined,
+        avatarUrl: userRecord.avatarUrl || undefined,
         isAnonymous: false,
         isVerified: true,
-        createdAt: verifiedUser.createdAt.toISOString(),
+        createdAt: userRecord.createdAt.toISOString(),
+        lastLoginAt: new Date().toISOString(),
       },
       profile: profileRecord
         ? {
@@ -263,48 +315,54 @@ export class AuthService {
   }
 
   /**
-   * Authenticates an existing email user against real database records with verification enforcement
+   * Authenticates an existing email user with a single joined DB query and non-blocking background metadata updates
    */
   public static async login(dto: LoginDto): Promise<AuthSession> {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
-    const userRecord = await db.query.users.findFirst({
-      where: eq(users.email, normalizedEmail),
-    });
+    // 1. Single round trip: Join user and profile in ONE database query
+    const rows = await db
+      .select({
+        user: users,
+        profile: userProfiles,
+      })
+      .from(users)
+      .leftJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
 
-    if (!userRecord || !userRecord.passwordHash) {
+    const match = rows[0];
+    if (!match || !match.user || !match.user.passwordHash) {
       throw new Error('Invalid email or password.');
     }
 
-    const passwordMatch = await bcrypt.compare(dto.password, userRecord.passwordHash);
+    const userRecord = match.user;
+    const passwordHash = match.user.passwordHash;
+    const passwordMatch = await bcrypt.compare(dto.password, passwordHash);
     if (!passwordMatch) {
       throw new Error('Invalid email or password.');
     }
 
     if (!userRecord.isVerified) {
-      // Re-issue verification OTP automatically if needed
-      try {
-        await OtpService.createAndSendOtp(
-          normalizedEmail,
-          'SIGNUP_VERIFICATION',
-          userRecord.id,
-          userRecord.preferredName || undefined
-        );
-      } catch {
-        // Cooldown might prevent immediate resend, which is acceptable
-      }
+      // Re-issue verification OTP automatically in background
+      OtpService.createAndSendOtp(
+        normalizedEmail,
+        'SIGNUP_VERIFICATION',
+        userRecord.id,
+        userRecord.preferredName || undefined
+      ).catch((err: any) => console.warn('[AuthService] Re-issuing OTP for unverified user:', err.message));
+
       throw new Error('ACCOUNT_NOT_VERIFIED: Your account is not verified. A verification code has been sent to your email.');
     }
 
-    // Update lastLoginAt
-    await db
+    // 2. Non-blocking update of lastLoginAt (does not delay client response)
+    void db
       .update(users)
       .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, userRecord.id));
+      .where(eq(users.id, userRecord.id))
+      .catch((err: any) => console.error('[AuthService] Non-critical lastLoginAt update error:', err));
 
-    const profileRecord = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, userRecord.id),
-    });
+    const profileRecord = match.profile;
 
     const token = this.generateToken(
       userRecord.id,

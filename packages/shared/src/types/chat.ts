@@ -25,12 +25,77 @@ export type EmotionalState =
   | 'neutral';
 
 export type ResponseMode =
+  | 'direct_followup'
+  | 'explanation'
+  | 'story'
+  | 'philosophical'
+  | 'comparison'
+  | 'clarification'
+  | 'emotional_guidance'
+  | 'summary'
+  | 'historical_recall'
+  | 'topic_shift'
+  | 'casual_conversation'
   | 'emotional_conversation'
   | 'philosophical_inquiry'
   | 'moral_guidance'
   | 'narrative_storytelling'
   | 'casual_greeting'
   | 'crisis_safety';
+
+export type ResponseDepth = 'very_short' | 'short' | 'moderate' | 'detailed' | 'comprehensive';
+
+export interface TopicSegment {
+  id: string;
+  conversationId: string;
+  segmentIndex: number;
+  topic: string;
+  subtopic?: string | null;
+  startTurn: number;
+  endTurn: number;
+  entities: string[];
+  summary: string;
+  keyFacts: string[];
+  keywords: string[];
+  createdAt: string;
+}
+
+export interface ConversationStateDto {
+  activeTopic: string | null;
+  activeSubtopic: string | null;
+  activeEntities: string[];
+  activeStory: string | null;
+  unresolvedQuestions: string[];
+  discussedQuestions: string[];
+  establishedFacts: string[];
+  philosophicalThemes: string[];
+  userIntent: string | null;
+  recentSummary: string;
+  conversationSummary: string;
+  topicHistory: TopicSegment[];
+  lastUserMessage?: string | null;
+  lastAssistantMessage?: string | null;
+  turnCount: number;
+}
+
+export interface ResponsePlan {
+  intent: string;
+  responseMode: ResponseMode;
+  responseDepth: ResponseDepth;
+  activeTopic: string;
+  topicShift: boolean;
+  topicReturn: boolean;
+  resolvedReferences: Record<string, string>;
+  relevantMemory: string[];
+  ragRequired: boolean;
+  ragQuery: string;
+  newInformationRequired: string[];
+  previousInformationToAvoidRepeating: string[];
+  storyRequired: boolean;
+  lessonRequired: boolean;
+  targetTokens: number;
+  continuityAcknowledgement?: string;
+}
 
 export type QuoteType = 'direct_quote' | 'paraphrase' | 'inspired_guidance';
 
@@ -81,6 +146,7 @@ export type StreamChunkType =
   | 'citation'
   | 'reflection'
   | 'telemetry'
+  | 'debug'
   | 'done'
   | 'replace'
   | 'error';
@@ -103,6 +169,15 @@ export interface StreamChunk {
     requestId: string;
     totalLatencyMs: number;
     retrievedChunkCount: number;
+  };
+  debug?: {
+    intent?: string;
+    activeTopic?: string;
+    referenceResolution?: Record<string, any>;
+    retrievedChatMemory?: any;
+    ragQuery?: string;
+    responseMode?: string;
+    responseDepth?: string;
   };
   error?: string;
   errorCode?: string;

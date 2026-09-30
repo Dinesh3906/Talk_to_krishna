@@ -26,68 +26,112 @@ export class OtpService {
   }
 
   /**
-   * Creates, hashes, persists, and delivers an OTP for a specific purpose
+   * Atomically creates, hashes, and persists an OTP record in database with optional cooldown check
+   */
+  public static async createOtpRecord(
+    destination: string,
+    purpose: OtpPurpose,
+    userId?: string,
+    enforceCooldown: boolean = true
+  ): Promise<{ plaintextCode: string; expiresAt: Date }> {
+    const normalizedDest = destination.trim().toLowerCase();
+
+    // 1. Check Cooldown rate limit if requested
+    if (enforceCooldown) {
+      const latestOtp = await db.query.otpVerifications.findFirst({
+        where: and(
+          eq(otpVerifications.destination, normalizedDest),
+          eq(otpVerifications.purpose, purpose)
+        ),
+        orderBy: [desc(otpVerifications.createdAt)],
+      });
+
+      if (latestOtp) {
+        const elapsedSeconds = (Date.now() - latestOtp.createdAt.getTime()) / 1000;
+        if (elapsedSeconds < OTP_RESEND_COOLDOWN_SECONDS) {
+          const waitSeconds = Math.ceil(OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds);
+          throw new Error(`Please wait ${waitSeconds} seconds before requesting another code.`);
+        }
+      }
+    }
+
+    // 2. Generate new secure code & hash
+    const plaintextCode = this.generateCode();
+    const codeHash = this.hashOtp(plaintextCode);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000);
+
+    // 3. Invalidate older unconsumed OTPs (if resend/cooldown flow) and persist new OTP
+    if (enforceCooldown) {
+      await Promise.all([
+        db
+          .update(otpVerifications)
+          .set({ consumedAt: new Date() })
+          .where(
+            and(
+              eq(otpVerifications.destination, normalizedDest),
+              eq(otpVerifications.purpose, purpose),
+              isNull(otpVerifications.consumedAt)
+            )
+          ),
+        db.insert(otpVerifications).values({
+          userId: userId || null,
+          destination: normalizedDest,
+          purpose,
+          codeHash,
+          expiresAt,
+          attempts: 0,
+          maxAttempts: OTP_MAX_ATTEMPTS,
+        }),
+      ]);
+    } else {
+      await db.insert(otpVerifications).values({
+        userId: userId || null,
+        destination: normalizedDest,
+        purpose,
+        codeHash,
+        expiresAt,
+        attempts: 0,
+        maxAttempts: OTP_MAX_ATTEMPTS,
+      });
+    }
+
+    return { plaintextCode, expiresAt };
+  }
+
+  /**
+   * Delivers an OTP via the configured provider
+   */
+  public static async deliverOtp(
+    destination: string,
+    purpose: OtpPurpose,
+    code: string,
+    preferredName?: string
+  ): Promise<void> {
+    const normalizedDest = destination.trim().toLowerCase();
+    const provider = OtpProviderFactory.getProvider();
+    await provider.sendOtp({
+      destination: normalizedDest,
+      code,
+      purpose,
+      preferredName,
+    });
+  }
+
+  /**
+   * Creates, hashes, persists, and delivers an OTP (delivery is non-blocking to prevent UI hangs)
    */
   public static async createAndSendOtp(
     destination: string,
     purpose: OtpPurpose,
     userId?: string,
-    preferredName?: string
+    preferredName?: string,
+    enforceCooldown: boolean = true
   ): Promise<void> {
-    const normalizedDest = destination.trim().toLowerCase();
+    const { plaintextCode } = await this.createOtpRecord(destination, purpose, userId, enforceCooldown);
 
-    // 1. Check Cooldown rate limit
-    const latestOtp = await db.query.otpVerifications.findFirst({
-      where: and(
-        eq(otpVerifications.destination, normalizedDest),
-        eq(otpVerifications.purpose, purpose)
-      ),
-      orderBy: [desc(otpVerifications.createdAt)],
-    });
-
-    if (latestOtp) {
-      const elapsedSeconds = (Date.now() - latestOtp.createdAt.getTime()) / 1000;
-      if (elapsedSeconds < OTP_RESEND_COOLDOWN_SECONDS) {
-        const waitSeconds = Math.ceil(OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds);
-        throw new Error(`Please wait ${waitSeconds} seconds before requesting another code.`);
-      }
-    }
-
-    // 2. Invalidate older unconsumed OTPs for this destination & purpose
-    await db
-      .update(otpVerifications)
-      .set({ consumedAt: new Date() })
-      .where(
-        and(
-          eq(otpVerifications.destination, normalizedDest),
-          eq(otpVerifications.purpose, purpose),
-          isNull(otpVerifications.consumedAt)
-        )
-      );
-
-    // 3. Generate new secure code & hash
-    const plaintextCode = this.generateCode();
-    const codeHash = this.hashOtp(plaintextCode);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000);
-
-    // 4. Persist in database
-    await db.insert(otpVerifications).values({
-      userId: userId || null,
-      destination: normalizedDest,
-      purpose,
-      codeHash,
-      expiresAt,
-      attempts: 0,
-      maxAttempts: OTP_MAX_ATTEMPTS,
-    });
-
-    // 5. Deliver via provider
-    const provider = OtpProviderFactory.getProvider();
-    await provider.sendOtp({
-      destination: normalizedDest,
-      code: plaintextCode,
-      purpose,
-      preferredName,
+    // Non-blocking asynchronous delivery so client response is instant
+    void this.deliverOtp(destination, purpose, plaintextCode, preferredName).catch((err: any) => {
+      console.error(`[OtpService] Async OTP delivery failed for ${destination}:`, err.message);
     });
   }
 

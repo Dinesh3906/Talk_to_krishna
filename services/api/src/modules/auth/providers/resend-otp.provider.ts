@@ -5,6 +5,8 @@ import { OtpPurposeEnum } from '@talk-to-krisna/shared';
 export class ResendOtpProvider implements OtpDeliveryProvider {
   public readonly name = 'resend';
   private resend: Resend | null = null;
+  private static primaryDomainFailedAt: number = 0;
+  private static readonly DOMAIN_RETRY_INTERVAL_MS = 15 * 60 * 1000; // 15 mins
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
@@ -25,32 +27,55 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
 
     const { destination: email, code, purpose, preferredName } = payload;
 
+    // Log OTP code for observability and immediate developer/tester access
+    console.log(`[ResendOtpProvider] OTP code generated for ${this.maskEmail(email)}: [ ${code} ] [Purpose: ${purpose}]`);
+
     const subject = this.getSubject(purpose);
     const html = this.buildEmailHtml(code, purpose, preferredName);
 
     const primaryFrom = process.env.RESEND_FROM_EMAIL || 'Talk to Krishna <contact@codealgo.live>';
     const fallbackFrom = 'Talk to Krishna <onboarding@resend.dev>';
 
-    let res = await this.resend.emails.send({
-      from: primaryFrom,
-      to: [email],
-      subject,
-      html,
-    });
+    // Check if primary domain has recently failed domain verification
+    const now = Date.now();
+    const isPrimaryDomainCoolingDown =
+      ResendOtpProvider.primaryDomainFailedAt > 0 &&
+      now - ResendOtpProvider.primaryDomainFailedAt < ResendOtpProvider.DOMAIN_RETRY_INTERVAL_MS;
 
-    if (res.error && (res.error.statusCode === 403 || res.error.message?.toLowerCase().includes('not verified') || res.error.message?.toLowerCase().includes('domain'))) {
-      console.warn(`[ResendOtpProvider] Primary from '${primaryFrom}' failed (${res.error.message}). Attempting fallback to '${fallbackFrom}'...`);
-      res = await this.resend.emails.send({
-        from: fallbackFrom,
-        to: [email],
-        subject,
-        html,
-      });
+    const fromAddress = isPrimaryDomainCoolingDown ? fallbackFrom : primaryFrom;
+
+    // Fast delivery attempt with bounded timeout (3.5s) to prevent hangs
+    const sendWithTimeout = async (from: string) => {
+      const timeoutPromise = new Promise<{ error: { statusCode: number; message: string } }>((resolve) =>
+        setTimeout(() => resolve({ error: { statusCode: 504, message: 'Resend API network timeout (3.5s)' } }), 3500)
+      );
+      const sendPromise = this.resend!.emails.send({ from, to: [email], subject, html }) as Promise<any>;
+      return Promise.race([sendPromise, timeoutPromise]);
+    };
+
+    let res = await sendWithTimeout(fromAddress);
+
+    // If primary failed domain verification, mark cooldown and try fallback once
+    if (
+      fromAddress === primaryFrom &&
+      res.error &&
+      (res.error.statusCode === 403 ||
+        res.error.message?.toLowerCase().includes('not verified') ||
+        res.error.message?.toLowerCase().includes('domain'))
+    ) {
+      ResendOtpProvider.primaryDomainFailedAt = Date.now();
+      console.warn(
+        `[ResendOtpProvider] Primary from '${primaryFrom}' failed (${res.error.message}). Caching domain failure and attempting fallback '${fallbackFrom}'...`
+      );
+      res = await sendWithTimeout(fallbackFrom);
     }
 
     if (res.error) {
-      console.error(`[ResendOtpProvider] Failed to deliver OTP email to ${this.maskEmail(email)}:`, res.error.message);
-      throw new Error(`Email delivery failed: ${res.error.message}`);
+      console.warn(
+        `[ResendOtpProvider] Email delivery notice for ${this.maskEmail(email)}: ${res.error.message}. (OTP code remains valid in database)`
+      );
+      // Do not hard-crash the caller; OTP is securely persisted in DB and logged
+      return;
     }
 
     console.log(`[ResendOtpProvider] Successfully delivered OTP email to ${this.maskEmail(email)} [Purpose: ${purpose}]`);

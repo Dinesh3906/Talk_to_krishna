@@ -214,3 +214,46 @@ export const aiRequestTelemetry = pgTable('ai_request_telemetry', {
   errorCode: varchar('error_code', { length: 50 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Explicit Conversation State Table (Active working memory & dialogue tracking per conversation)
+export const conversationStates = pgTable('conversation_states', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }).unique(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  activeTopic: varchar('active_topic', { length: 255 }),
+  activeSubtopic: varchar('active_subtopic', { length: 255 }),
+  activeEntities: text('active_entities').array().notNull().default(sql`'{}'`),
+  activeStory: text('active_story'),
+  unresolvedQuestions: text('unresolved_questions').array().notNull().default(sql`'{}'`),
+  discussedQuestions: text('discussed_questions').array().notNull().default(sql`'{}'`),
+  establishedFacts: text('established_facts').array().notNull().default(sql`'{}'`),
+  philosophicalThemes: text('philosophical_themes').array().notNull().default(sql`'{}'`),
+  userIntent: varchar('user_intent', { length: 100 }),
+  recentSummary: text('recent_summary').notNull().default(''),
+  conversationSummary: text('conversation_summary').notNull().default(''),
+  turnCount: integer('turn_count').notNull().default(0),
+  lastUserMessage: text('last_user_message'),
+  lastAssistantMessage: text('last_assistant_message'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Topic Segments Table (Hierarchical historical chat memory within the same chat)
+export const conversationSegments = pgTable('conversation_segments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  segmentIndex: integer('segment_index').notNull(),
+  topic: varchar('topic', { length: 255 }).notNull(),
+  subtopic: varchar('subtopic', { length: 255 }),
+  startTurn: integer('start_turn').notNull(),
+  endTurn: integer('end_turn').notNull(),
+  entities: text('entities').array().notNull().default(sql`'{}'`),
+  summary: text('summary').notNull(),
+  keyFacts: text('key_facts').array().notNull().default(sql`'{}'`),
+  keywords: text('keywords').array().notNull().default(sql`'{}'`),
+  searchVector: tsvector('search_vector'),
+  embedding: vector('embedding'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
