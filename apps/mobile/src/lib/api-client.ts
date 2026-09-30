@@ -1,6 +1,9 @@
 import { StreamChunk } from '@talk-to-krisna/shared';
 
+let activeBaseUrl: string | null = null;
+
 export function getApiBaseUrl(): string {
+  if (activeBaseUrl) return activeBaseUrl;
   if (typeof window !== 'undefined' && window.localStorage) {
     const customUrl = window.localStorage.getItem('TALK_TO_KRISHNA_API_URL');
     if (customUrl) return customUrl.replace(/\/+$/, '');
@@ -10,6 +13,7 @@ export function getApiBaseUrl(): string {
 
 export function setCustomApiUrl(url: string): void {
   const sanitized = url.trim().replace(/\/+$/, '');
+  activeBaseUrl = sanitized || null;
   if (typeof window !== 'undefined' && window.localStorage) {
     if (sanitized) {
       window.localStorage.setItem('TALK_TO_KRISHNA_API_URL', sanitized);
@@ -24,6 +28,32 @@ export async function checkBackendHealth(testUrl?: string): Promise<{
   database: 'connected' | 'disconnected' | 'unknown';
   error?: string;
 }> {
+  // If no explicit testUrl provided and not yet resolved, probe fast local USB bridge (127.0.0.1:4000)
+  if (!testUrl && !activeBaseUrl) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 350);
+      const localRes = await fetch('http://127.0.0.1:4000/api/v1/health', {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (localRes.ok) {
+        const localData = await localRes.json();
+        if (localData.status === 'healthy') {
+          activeBaseUrl = 'http://127.0.0.1:4000/api/v1';
+          console.log('[ApiClient] Fast local development server connected via USB reverse (127.0.0.1:4000)');
+          return {
+            healthy: true,
+            database: localData.database || 'connected',
+          };
+        }
+      }
+    } catch {
+      // Local server not available, fall back to production cloud URL seamlessly
+    }
+  }
+
   const base = (testUrl || getApiBaseUrl()).replace(/\/+$/, '');
   try {
     const res = await fetch(`${base}/health`, { method: 'GET' });
