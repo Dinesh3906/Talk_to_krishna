@@ -12,6 +12,7 @@ export interface ConversationState {
   dialogueStage: DialogueStage;
   currentTopic?: string;
   userEmotionalContext?: string;
+  emotionalTrajectory?: string[];
   contextualQuery: string;
   isFollowUp: boolean;
   isDisagreementOrChallenge: boolean;
@@ -19,6 +20,17 @@ export interface ConversationState {
   lastDiscussedStoryOrTopic?: string;
   unresolvedQuestions: string[];
   priorSourceIds: string[];
+  previouslyCitedChunkIds?: string[];
+  previouslyCitedEpisodeIds?: string[];
+  previouslyMentionedCharacters?: string[];
+  previouslyUsedTeachings?: string[];
+  previouslyUsedThemes?: string[];
+  recentResponseSummaries?: string[];
+  recentResponseOpenings?: string[];
+  lastRetrievedEvidence?: string[];
+  crisisState?: boolean;
+  crisisTurnCount?: number;
+  personaEstablished?: boolean;
 }
 
 export class ConversationStateTracker {
@@ -184,6 +196,9 @@ export class ConversationStateTracker {
       }
     }
 
+    const hasAssistantTurn = history.some(h => h.role === 'assistant');
+    const isCrisisMessage = /\b(want to die|kill myself|commit suicide|end my life|slit my wrist|overdose|nothing matters anymore|don't think i can keep going|cant keep going|can't keep going|want to kill|revenge by killing)\b/i.test(lowerUser);
+
     return {
       activeCharacters: Array.from(mergedEntities),
       activeVerse: activeVerse || (isPronounOrFollowup ? inheritedVerse : undefined),
@@ -196,6 +211,9 @@ export class ConversationStateTracker {
       lastDiscussedStoryOrTopic,
       unresolvedQuestions: [],
       priorSourceIds: [],
+      personaEstablished: hasAssistantTurn,
+      crisisState: isCrisisMessage,
+      crisisTurnCount: isCrisisMessage ? 1 : 0,
     };
   }
 }

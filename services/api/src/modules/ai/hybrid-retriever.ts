@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { pool } from '../../db/index.js';
 
 export interface RetrievedPassage {
@@ -58,12 +61,44 @@ export interface CachedGitaVerse {
   embArray?: Float32Array;
 }
 
+export interface PreviouslyUsedEvidence {
+  citedChunkIds?: string[];
+  citedEpisodeIds?: string[];
+  mentionedCharacters?: string[];
+  usedTeachings?: string[];
+}
+
 export class HybridRetriever {
   private static gitaCache: CachedGitaVerse[] | null = null;
   private static gitaCachePromise: Promise<CachedGitaVerse[]> | null = null;
   private static readonly embeddingCache = new Map<string, number[]>();
 
-  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 18000): Promise<any> {
+  public static findCorpusFile(relativePath: string): string | null {
+    const candidates = [
+      path.resolve(process.cwd(), relativePath),
+      path.resolve(process.cwd(), '../../', relativePath),
+      path.resolve(process.cwd(), '../', relativePath),
+    ];
+    try {
+      const currentDir = path.dirname(fileURLToPath(import.meta.url));
+      candidates.push(
+        path.resolve(currentDir, '../../../../../../', relativePath),
+        path.resolve(currentDir, '../../../../../', relativePath),
+        path.resolve(currentDir, '../../../../', relativePath),
+        path.resolve(currentDir, '../../../', relativePath)
+      );
+    } catch {
+      // ignore
+    }
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 2000): Promise<any> {
     const queryPromise = pool.query(text, params);
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`Query timeout (${timeoutMs}ms)`)), timeoutMs)
@@ -81,7 +116,7 @@ export class HybridRetriever {
                    translation, deep_meaning, krishna_teaching, provenance
             FROM gita_verses
             ORDER BY chapter ASC, verse ASC;
-          `, [], 30000);
+          `, [], 2000);
           const verses: CachedGitaVerse[] = res.rows.map((r: any) => ({
             id: r.id,
             chapter: r.chapter,
@@ -98,7 +133,31 @@ export class HybridRetriever {
           this.gitaCache = verses;
           return verses;
         } catch (err: any) {
-          console.warn('[HybridRetriever] Unable to load gita_verses from DB, using canonical fallbacks:', err.message);
+          console.warn('[HybridRetriever] Database connection unavailable for gita_verses, loading canonical corpus from disk:', err.message);
+          try {
+            const corpusPath = this.findCorpusFile('data/mahabharata/corpus/gita_700_canonical.json');
+            if (corpusPath && fs.existsSync(corpusPath)) {
+              const raw = fs.readFileSync(corpusPath, 'utf8');
+              const data = JSON.parse(raw);
+              const verses: CachedGitaVerse[] = data.map((r: any) => ({
+                id: r.id,
+                chapter: r.chapter,
+                verse: r.verse,
+                speaker: r.speaker,
+                listener: r.listener,
+                sanskrit: r.sanskrit,
+                transliteration: r.transliteration,
+                translation: r.translation,
+                deep_meaning: r.deepMeaning,
+                krishna_teaching: r.krishnaTeaching,
+                provenance: r.provenance,
+              }));
+              this.gitaCache = verses;
+              return verses;
+            }
+          } catch (fileErr: any) {
+            console.warn('[HybridRetriever] Failed to load canonical corpus from disk:', fileErr.message);
+          }
           this.gitaCache = [];
           return [];
         }
@@ -290,7 +349,8 @@ export class HybridRetriever {
     extractedCharacters: string[] = [],
     extractedThemes: string[] = [],
     limit: number = 3,
-    thematicKeywords: string[] = []
+    thematicKeywords: string[] = [],
+    previouslyUsed?: PreviouslyUsedEvidence
   ): Promise<HybridRetrievalResult> {
     const startTime = Date.now();
 
@@ -299,9 +359,9 @@ export class HybridRetriever {
 
       // 1. Calibrated Knowledge Boundary Check: Reject modern anachronisms & impossible myths
       const hasAnachronism = this.MODERN_ANACHRONISMS.some(term => lowerQ.includes(term));
-      const isImpossibleConjunction = 
-        lowerQ.includes('rama') && 
-        lowerQ.includes('arjuna') && 
+      const isImpossibleConjunction =
+        lowerQ.includes('rama') &&
+        lowerQ.includes('arjuna') &&
         (lowerQ.includes('fight') || lowerQ.includes('battle') || lowerQ.includes('alongside') || lowerQ.includes('kurukshetra') || lowerQ.includes('fifteen'));
 
       if (hasAnachronism || isImpossibleConjunction) {
@@ -483,12 +543,20 @@ export class HybridRetriever {
           for (const token of cleanTokens) {
             if (vText.includes(token)) ftsMatchCount++;
           }
+          let themeMatchCount = 0;
+          for (const kw of (thematicKeywords || [])) {
+            if (kw && vText.includes(kw.toLowerCase())) themeMatchCount++;
+          }
+          for (const th of (extractedThemes || [])) {
+            if (th && vText.includes(th.toLowerCase())) themeMatchCount++;
+          }
           const ftsRatio = cleanTokens.length > 0 ? ftsMatchCount / cleanTokens.length : 0;
-          const combinedGitaScore = (vecSim * 0.70) + (ftsRatio * 0.30) + (isPersonalDilemma ? 0.25 : 0.0);
+          const themeScore = Math.min(themeMatchCount * 0.15, 0.45);
+          const combinedGitaScore = (vecSim * 0.50) + (ftsRatio * 0.30) + (themeScore * 0.20) + (isPersonalDilemma ? 0.20 : 0.0);
 
           const isEligible = isScriptureQuery
-            ? (vecSim >= 0.30 || ftsRatio >= 0.10 || (isPersonalDilemma && vecSim >= 0.25))
-            : (vecSim >= gitaThreshold || ftsRatio >= 0.35);
+            ? (vecSim >= 0.30 || ftsRatio >= 0.10 || themeMatchCount > 0 || (isPersonalDilemma && (vecSim >= 0.25 || ftsMatchCount > 0)))
+            : (vecSim >= gitaThreshold || ftsRatio >= 0.25 || (ftsMatchCount >= 2 && themeMatchCount > 0) || (ftsMatchCount >= 1 && isPersonalDilemma && themeMatchCount >= 2));
 
           if (isEligible) {
             candidatePassages.push({
@@ -704,12 +772,47 @@ export class HybridRetriever {
           }
         }
       } catch (mbErr: any) {
-        console.warn('[HybridRetriever] Mahabharata chunks query failed, continuing with candidate passages:', mbErr.message);
+        console.warn('[HybridRetriever] Mahabharata chunks query failed, checking canonical episodes from disk:', mbErr.message);
+        try {
+          const episodesPath = this.findCorpusFile('data/mahabharata/corpus/mahabharata_episodes.json');
+          if (episodesPath && fs.existsSync(episodesPath)) {
+            const raw = fs.readFileSync(episodesPath, 'utf8');
+            const episodes = JSON.parse(raw);
+            for (const ep of episodes) {
+              const epText = (ep.title + ' ' + ep.summary + ' ' + (ep.themes || []).join(' ') + ' ' + (ep.relevanceForGuidance || '')).toLowerCase();
+              let matchCount = 0;
+              for (const t of cleanTokens) {
+                if (epText.includes(t)) matchCount++;
+              }
+              const score = cleanTokens.length > 0 ? matchCount / cleanTokens.length : 0;
+              if (score > 0.15 || (ep.characters || []).some((c: string) => cleanTokens.includes(c.toLowerCase()))) {
+                candidatePassages.push({
+                  id: ep.id,
+                  sourceType: 'mahabharata_source',
+                  parva: ep.parva,
+                  chapter: ep.chapter,
+                  translation: ep.summary,
+                  sourceReference: `Mahabharata (${ep.parva}, ${ep.title})`,
+                  contextSummary: `${ep.title}. Themes: ${(ep.themes || []).join(', ')}.`,
+                  relevanceForGuidance: ep.relevanceForGuidance,
+                  relevanceScore: Math.min(score + 0.5, 0.95),
+                  characters: ep.characters || [],
+                });
+              }
+            }
+          }
+        } catch (fErr: any) {
+          console.warn('[HybridRetriever] Failed to read canonical episodes from disk:', fErr.message);
+        }
       }
       const mbQueryMs = Date.now() - tMbStart;
 
       // 7. Multi-Signal Reranker & Non-Redundant Coverage Selection
       const tRerankStart = Date.now();
+      const prevChunks = previouslyUsed?.citedChunkIds || [];
+      const prevEpisodes = previouslyUsed?.citedEpisodeIds || [];
+      const prevChars = previouslyUsed?.mentionedCharacters || [];
+
       for (const p of candidatePassages) {
         const textLower = p.translation.toLowerCase();
         let tokenMatches = 0;
@@ -728,6 +831,89 @@ export class HybridRetriever {
             p.relevanceScore += 0.15;
           }
         }
+
+        // --- PART 4 & 5: Novelty & Recency-Decay Repetition Penalty ---
+        let repetitionPenalty = 0.0;
+        let noveltyBonus = 0.0;
+
+        // Check if user query explicitly refers to this passage's character, title, or reference
+        const isExplicitlyRequested =
+          (p.characters && p.characters.some(c => c.toLowerCase() !== 'krishna' && allCandidateEntities.map(e => e.toLowerCase()).includes(c.toLowerCase()))) ||
+          cleanTokens.some(t =>
+            (p.sourceReference && p.sourceReference.toLowerCase().includes(t)) ||
+            (p.chapter && String(p.chapter) === t)
+          );
+
+        // 1. Exact chunk recency penalty (decays to 0 within 3 turns)
+        if (prevChunks.length > 0) {
+          const chunkIndex = prevChunks.lastIndexOf(p.id);
+          if (chunkIndex !== -1) {
+            // How recently was it used? (0 = immediate preceding turn)
+            const recencyTurnsAgo = prevChunks.length - 1 - chunkIndex;
+            if (isExplicitlyRequested) {
+              // User specifically asked about this teaching or passage again: NO penalty, bonus for continuity
+              noveltyBonus += 0.12;
+            } else if (recencyTurnsAgo === 0) {
+              repetitionPenalty += 0.35; // Immediate prior turn: suppress back-to-back duplicate
+            } else if (recencyTurnsAgo === 1) {
+              repetitionPenalty += 0.18; // 2 turns ago: light dampening
+            } else if (recencyTurnsAgo === 2) {
+              repetitionPenalty += 0.08; // 3 turns ago: minimal dampening
+            } else {
+              // 4+ turns ago: recencyTurnsAgo >= 3 -> penalty decays to 0.00 and fully regains novelty eligibility
+              noveltyBonus += 0.08;
+            }
+          } else {
+            noveltyBonus += 0.08;
+          }
+        }
+
+        // 2. Same episode penalty (decays to 0 within 3 turns)
+        if (prevEpisodes.length > 0) {
+          let lastEpisodeIndex = -1;
+          for (let epIdx = prevEpisodes.length - 1; epIdx >= 0; epIdx--) {
+            const ep = prevEpisodes[epIdx];
+            if (!ep) continue;
+            const epLower = ep.toLowerCase();
+            const matches =
+              (p.sourceReference && epLower.includes(p.sourceReference.toLowerCase())) ||
+              (p.contextSummary && epLower.includes(p.contextSummary.toLowerCase())) ||
+              (p.sourceReference && p.sourceReference.toLowerCase().includes(epLower));
+            if (matches) {
+              lastEpisodeIndex = epIdx;
+              break;
+            }
+          }
+
+          if (lastEpisodeIndex !== -1) {
+            const epTurnsAgo = prevEpisodes.length - 1 - lastEpisodeIndex;
+            if (isExplicitlyRequested) {
+              noveltyBonus += 0.10;
+            } else if (epTurnsAgo === 0) {
+              repetitionPenalty += 0.28;
+            } else if (epTurnsAgo === 1) {
+              repetitionPenalty += 0.14;
+            } else if (epTurnsAgo === 2) {
+              repetitionPenalty += 0.05;
+            }
+            // epTurnsAgo >= 3: decays completely to 0!
+          }
+        }
+
+        // 3. Same character penalty (only on immediate prior turn if not requested)
+        if (prevChars.length > 0 && p.characters && p.characters.length > 0 && !isExplicitlyRequested) {
+          const lastChar = prevChars[prevChars.length - 1]?.toLowerCase();
+          const hasImmediatePriorChar = p.characters.some(c =>
+            c.toLowerCase() !== 'krishna' &&
+            !allCandidateEntities.map(e => e.toLowerCase()).includes(c.toLowerCase()) &&
+            c.toLowerCase() === lastChar
+          );
+          if (hasImmediatePriorChar) {
+            repetitionPenalty += 0.08;
+          }
+        }
+
+        p.relevanceScore = Math.max(0.01, p.relevanceScore + noveltyBonus - repetitionPenalty);
       }
 
       const seenIds = new Set<string>();

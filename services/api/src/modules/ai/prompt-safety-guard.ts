@@ -15,7 +15,7 @@ export class PromptSafetyGuard {
     // 1. Critical Crisis / Self-Harm
     const selfHarmPatterns = [
       /\b(kill myself|commit suicide|end(ing)? my life|want to die|hang myself|slit my wrist|overdose)\b/i,
-      /\b(better off dead|no reason to live|goodbye forever)\b/i,
+      /\b(better off dead|no reason to live|goodbye forever|nothing matters anymore|don't think i can keep going|cant keep going|can't keep going)\b/i,
     ];
 
     if (selfHarmPatterns.some((p) => p.test(text))) {
@@ -38,13 +38,15 @@ Please speak to someone right now who can walk beside you in this hour.`,
     // 2. Physical Violence / Harm to others
     const violencePatterns = [
       /\b(how to (make a )?bomb|how to (kill|poison)|how do i (kill|poison)|beat them to death|stab them|blow up)\b/i,
+      /\b(want to kill|going to kill|plan(ning)? to kill|gonna kill|murder|slay someone|kill someone|kill some one)\b/i,
+      /\b(ruined my life and i want revenge|take revenge by killing|murder him|murder her)\b/i,
       /\bhow do i poison someone\b/i,
     ];
 
     if (violencePatterns.some((p) => p.test(text))) {
       return {
         isSafe: false,
-        isHighRiskCrisis: false,
+        isHighRiskCrisis: true,
         category: 'violence',
         safeInterventionMessage: `I cannot assist with harming another human being, planning acts of violence, or creating dangerous weapons. The tragedy of Kurukshetra stands as the ultimate testament that violence leaves only grief in its wake. If you are experiencing intense anger or conflict, we can explore peaceful resolution, restraint, and seeking lawful justice.`,
       };

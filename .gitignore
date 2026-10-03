@@ -49,3 +49,5 @@ certificates_extracted/
 *.aab
 *.apk
 apps/mobile/*.png
+/assets/
+screenshot*.png

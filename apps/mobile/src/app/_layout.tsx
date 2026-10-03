@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../store/auth.store';
 import { darkTheme } from '../theme/colors';
 import { KrishnaAvatar } from '../components/KrishnaAvatar';
@@ -31,7 +32,9 @@ export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize);
 
   useEffect(() => {
-    initialize();
+    // Hide the native splash screen as soon as React root renders
+    SplashScreen.hideAsync().catch(() => {});
+    initialize().catch(() => {});
   }, []);
 
   return (

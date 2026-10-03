@@ -193,7 +193,7 @@ export class IntentClassifier {
     const isScriptureTeachingRequest =
       (hasScripturalUnit || hasEpicNamesOrTexts) &&
       (/\b(teach|tell|give|recite|share|quote|explain|learn|read|what\s+does|meaning|chant|shloka?s?|sloka?s?|verses?|wisdom|lesson|stories|story)\b/i.test(text) ||
-       !/\b(i |me |my |myself|i'm |we |our )\b/i.test(text));
+        !/\b(i |me |my |myself|i'm |we |our )\b/i.test(text));
 
     if (isScriptureTeachingRequest) {
       return {
@@ -278,7 +278,7 @@ export class IntentClassifier {
 
     // 6. Relationship Grief & Heartbreak (Generalized)
     const isRelationshipGrief =
-      /\b(breakup|ex-girlfriend|ex-boyfriend|ex-partner|divorce|infidelity|cheated|betray(ed|al)?|marriage|spouse|husband|wife|dating|alone forever|trust anyone|cut ties|brother|sibling|friendship|forgive|forgiveness|remorse|wronged me|lost my (mother|father|parent|son|daughter)|passed away|died|house feels so silent|unbearably silent|unrequited|aches?|faded|estranged)\b/i.test(text);
+      /\b(breakup|breackup|break up|broke up|broken up|ex-girlfriend|ex-boyfriend|ex-partner|divorce|infidelity|cheated|betray(ed|al)?|marriage|spouse|husband|wife|dating|alone forever|trust anyone|cut ties|brother|sibling|friendship|forgive|forgiveness|remorse|wronged me|lost my (mother|father|parent|son|daughter)|passed away|died|house feels so silent|unbearably silent|unrequited|aches?|faded|estranged)\b/i.test(text);
 
     if (isRelationshipGrief) {
       let emotionalState: EmotionalState = 'attachment';
@@ -315,7 +315,7 @@ export class IntentClassifier {
     const hasJealousy = /\b(jealous|jealousy|envious|envy|bitter at (others|peers|friends)|covet)\b/i.test(text) && !isNegatedJealousy;
     const hasFear = /\b(anxiety|anxious|panic|terrified|fearful|dread|racing mind|tight chest|fear)\b/i.test(text) && !isNegatedFear;
     const hasGrief =
-      (/\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart)\b/i.test(text)) && !isNegatedGrief;
+      (/\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart|ignore|ignored|ignores|nobody likes me|rejection|rejected|ugly|short|body image|unseen|invisible)\b/i.test(text)) && !isNegatedGrief;
 
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';
@@ -333,7 +333,8 @@ export class IntentClassifier {
       } else if (hasFear) {
         emotionalState = 'fear';
         thematicKeywords = ['restless', 'mind', 'turbulence', 'anxiety', 'steady', 'equanimity', 'fear'];
-      } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people)\b/i.test(text)) {
+      } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people|ignore|ignored|ignores|nobody likes me|unseen|invisible)\b/i.test(text)) {
+        emotionalState = 'loneliness';
         thematicKeywords = ['solitary', 'loneliness', 'isolated', 'alone', 'bed', 'arrows', 'steadfast', 'duty'];
       }
 
@@ -346,6 +347,40 @@ export class IntentClassifier {
         thematicKeywords,
         extractedThemes: themes,
         reasoningNote: 'Acute emotional turmoil requiring centering guidance and steady perspective.',
+      };
+    }
+
+    // 8. Compulsive Habits, Addiction, & Impulses
+    const isCompulsion =
+      /\b(addicted|addiction|adicted|can't stop smoking|cant stop smoking|stop smoking|quit smoking|smoking|cigarettes|nicotine|want sex i am|thinking about sex all the time|can't control myself|obsessed with sex|porn addiction|compulsion|compulsive)\b/i.test(text);
+
+    if (isCompulsion) {
+      return {
+        intentCategory: 'emotional_distress',
+        emotionalState: 'confusion',
+        mahabharataRelevant: false,
+        relevanceScore: 0.3,
+        extractedCharacters: characters,
+        thematicKeywords: ['self-mastery', 'restraint', 'senses', 'mind', 'steady'],
+        extractedThemes: ['self-mastery', 'restraint', 'peace'],
+        reasoningNote: 'Compulsive behavior or habit struggle. Meet with compassion and nonjudgmental grounding.',
+      };
+    }
+
+    // 9. Sudden Fortune / Celebration / Lottery
+    const isSuddenFortune =
+      /\b(won a lottery|won the lottery|lottery|suddenly rich|sudden wealth|huge windfall|won jackpot)\b/i.test(text);
+
+    if (isSuddenFortune) {
+      return {
+        intentCategory: 'general_guidance',
+        emotionalState: 'peace',
+        mahabharataRelevant: false,
+        relevanceScore: 0.2,
+        extractedCharacters: characters,
+        thematicKeywords: ['wealth', 'fortune', 'contentment', 'purpose'],
+        extractedThemes: ['purpose', 'discernment'],
+        reasoningNote: 'Sudden good fortune / celebration. Greet with warmth, joy, and lighthearted companionship.',
       };
     }
 

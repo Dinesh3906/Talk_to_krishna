@@ -185,7 +185,9 @@ export class ReferenceResolver {
         hasPronoun ||
         isShortFollowUp ||
         /^(so are you saying|are you saying|what if|why should i|isn't that|what about|then what|and then|why did he|why did she|tell me more|what would you)\b/i.test(lower) ||
-        /\b(what if (your advice|it doesn't work|i disagree|that fails))\b/i.test(lower)
+        /\b(what if (your advice|it doesn't work|i disagree|that fails))\b/i.test(lower) ||
+        /\b(maybe|i still|even so|my parents|they also|but now|now i|what should i do now|i feel like|i am simply|not good enough)\b/i.test(lower) ||
+        /^(i see|i understand|yes|so |but |and |then )\b/i.test(lower)
       );
 
     // 7. Detect Topic Shift

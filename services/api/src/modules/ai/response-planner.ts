@@ -18,6 +18,11 @@ export interface PlanContext {
     found: boolean;
     honestStatement: string;
   };
+  isCrisis?: boolean;
+  crisisTurnCount?: number;
+  previouslyCitedEpisodeIds?: string[];
+  previouslyUsedTeachings?: string[];
+  emotionalTrajectory?: string[];
 }
 
 export class ResponsePlanner {
@@ -38,7 +43,21 @@ export class ResponsePlanner {
     let ragRequired = ctx.isMahabharataRelevant;
     let continuityAcknowledgement: string | undefined;
 
-    if (referenceResolution.isHistoricalRecall) {
+    const isCrisis =
+      Boolean(ctx.isCrisis) ||
+      ctx.intentCategory === 'crisis_safety' ||
+      ctx.intentCategory === 'crisis_self_harm' ||
+      /\b(want to die|kill myself|commit suicide|end my life|want to kill|kill someone|kill some one|nothing matters anymore|don't think i can keep going|cant keep going)\b/i.test(lower) ||
+      /\b(ruined my life and i want revenge|take revenge by killing|don't know if i can control myself)\b/i.test(lower);
+
+    if (isCrisis) {
+      responseMode = 'crisis_safety';
+      responseDepth = 'short';
+      targetTokens = (ctx.crisisTurnCount && ctx.crisisTurnCount > 1) ? 120 : 150;
+      ragRequired = false;
+      storyRequired = false;
+      lessonRequired = false;
+    } else if (referenceResolution.isHistoricalRecall) {
       responseMode = 'historical_recall';
       responseDepth = 'short';
       targetTokens = 120;
@@ -62,21 +81,6 @@ export class ResponsePlanner {
       ragRequired = false;
       storyRequired = false;
       lessonRequired = false;
-    } else if (
-      ctx.intentCategory === 'emotional_distress' ||
-      ctx.emotionalState === 'grief' ||
-      ctx.emotionalState === 'loneliness' ||
-      ctx.emotionalState === 'fear'
-    ) {
-      responseMode = 'emotional_guidance';
-      responseDepth = 'moderate';
-      targetTokens = 180;
-      lessonRequired = false;
-    } else if (ctx.isStoryRequest) {
-      responseMode = 'story';
-      responseDepth = 'detailed';
-      targetTokens = 320;
-      storyRequired = true;
     } else if (referenceResolution.isShortFollowUp) {
       responseMode = 'direct_followup';
       responseDepth = 'short';
@@ -87,6 +91,21 @@ export class ResponsePlanner {
       responseDepth = 'short';
       targetTokens = 150;
       continuityAcknowledgement = 'That is an important distinction.';
+    } else if (ctx.isStoryRequest) {
+      responseMode = 'story';
+      responseDepth = 'detailed';
+      targetTokens = 320;
+      storyRequired = true;
+    } else if (
+      ctx.intentCategory === 'emotional_distress' ||
+      ctx.emotionalState === 'grief' ||
+      ctx.emotionalState === 'loneliness' ||
+      ctx.emotionalState === 'fear'
+    ) {
+      responseMode = 'emotional_guidance';
+      responseDepth = 'moderate';
+      targetTokens = 180;
+      lessonRequired = false;
     } else if (isFirstTurn && ctx.isMahabharataRelevant) {
       responseMode = 'explanation';
       responseDepth = 'detailed';
@@ -101,7 +120,7 @@ export class ResponsePlanner {
     const previousInformationToAvoidRepeating: string[] = [];
     if (!isFirstTurn && history.length > 0) {
       // Collect topics/facts already explained in recent assistant messages
-      const recentAssistantTurns = history.filter(h => h.role === 'assistant').slice(-2);
+      const recentAssistantTurns = history.filter(h => h.role === 'assistant').slice(-3);
       for (const turn of recentAssistantTurns) {
         if (/arjuna was (?:one of )?the greatest/i.test(turn.content)) {
           previousInformationToAvoidRepeating.push('Do NOT re-introduce Arjuna as a great warrior.');
@@ -112,7 +131,28 @@ export class ResponsePlanner {
         if (/bhishma took a vow/i.test(turn.content)) {
           previousInformationToAvoidRepeating.push('Do NOT re-explain Bhishma’s terrible vow of celibacy.');
         }
+        if (/draupadi.*(vastraharana|disrobing|assembly|cheerharan)/i.test(turn.content)) {
+          previousInformationToAvoidRepeating.push('Do NOT retell the story of Draupadi’s disrobing or assembly humiliation.');
+        }
       }
+
+      if (ctx.previouslyCitedEpisodeIds && ctx.previouslyCitedEpisodeIds.length > 0) {
+        for (const ep of ctx.previouslyCitedEpisodeIds.slice(-3)) {
+          previousInformationToAvoidRepeating.push(`Do NOT retell the plot/events of ${ep}. Focus on fresh insight or direct personal counsel.`);
+        }
+      }
+
+      if (ctx.previouslyUsedTeachings && ctx.previouslyUsedTeachings.length > 0) {
+        for (const th of ctx.previouslyUsedTeachings.slice(-2)) {
+          previousInformationToAvoidRepeating.push(`Do NOT re-explain the concept of ${th} from scratch; build forward.`);
+        }
+      }
+
+      if (isCrisis && ctx.crisisTurnCount && ctx.crisisTurnCount > 1) {
+        previousInformationToAvoidRepeating.push('Do NOT repeat the list of helpline telephone numbers; the UI already maintains them.');
+        previousInformationToAvoidRepeating.push('Do NOT repeat the exact sentences or breath questions used in previous turns.');
+      }
+
       if (ctx.establishedFacts.length > 0) {
         previousInformationToAvoidRepeating.push(...ctx.establishedFacts.slice(-3));
       }
@@ -120,7 +160,9 @@ export class ResponsePlanner {
 
     // 3. Identify New Information Required
     const newInformationRequired: string[] = [];
-    if (referenceResolution.isHistoricalRecall) {
+    if (isCrisis && ctx.crisisTurnCount && ctx.crisisTurnCount > 1) {
+      newInformationRequired.push('Respond tenderly and specifically to the seeker’s exact words in this turn, providing quiet companionship in this very minute.');
+    } else if (referenceResolution.isHistoricalRecall) {
       newInformationRequired.push('Directly and accurately state what the user asked earlier in this chat.');
     } else if (referenceResolution.isShortFollowUp) {
       newInformationRequired.push('Directly answer the user’s specific question without re-explaining background context.');

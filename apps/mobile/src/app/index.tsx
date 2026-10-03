@@ -1,26 +1,36 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../store/auth.store';
 import { darkTheme } from '../theme/colors';
 import { KrishnaAvatar } from '../components/KrishnaAvatar';
 import { checkBackendHealth } from '../lib/api-client';
 
-export default function SplashScreen() {
+export default function InitialSplashScreen() {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
+    // Hide the native splash screen immediately when component mounts
+    SplashScreen.hideAsync().catch(() => {});
+
     // Silently pre-warm Render server & database pool early to eliminate cold starts
     checkBackendHealth().catch(() => {});
 
     const timer = setTimeout(() => {
-      if (token) {
-        router.replace('/chat');
-      } else {
-        router.replace('/(auth)/onboarding');
+      try {
+        if (token) {
+          router.replace('/chat');
+        } else {
+          router.replace('/(auth)/onboarding');
+        }
+      } catch {
+        try {
+          router.replace('/onboarding' as any);
+        } catch {}
       }
-    }, 800);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [token]);

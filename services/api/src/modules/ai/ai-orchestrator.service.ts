@@ -72,22 +72,34 @@ export class AIOrchestratorService {
 
     // Step 1: Safety & Crisis Guardrail
     const safetyCheck = PromptSafetyGuard.evaluateInput(userMessage);
-    if (!safetyCheck.isSafe && safetyCheck.safeInterventionMessage) {
+    if (!safetyCheck.isSafe && (safetyCheck.category === 'prompt_injection' || safetyCheck.category === 'supernatural_authority') && safetyCheck.safeInterventionMessage) {
       const intervention = safetyCheck.safeInterventionMessage;
       emit({ type: 'token', token: intervention });
       emit({ type: 'done', conversationId, messageId: requestId });
 
       // Save assistant crisis message
-      const [savedMessage] = await db
-        .insert(messages)
-        .values({
+      let savedMessage: any = null;
+      try {
+        const [inserted] = await db
+          .insert(messages)
+          .values({
+            conversationId,
+            sender: 'krishna',
+            content: intervention,
+            intentCategory: 'emotional_distress',
+            emotionalState: 'grief',
+          })
+          .returning();
+        savedMessage = inserted;
+      } catch {
+        savedMessage = {
+          id: uuidv4(),
           conversationId,
           sender: 'krishna',
           content: intervention,
-          intentCategory: 'emotional_distress',
-          emotionalState: 'grief',
-        })
-        .returning();
+          createdAt: new Date(),
+        };
+      }
 
       await TelemetryService.record({
         requestId,
@@ -112,7 +124,7 @@ export class AIOrchestratorService {
           sender: 'krishna',
           content: intervention,
           citations: [],
-          createdAt: savedMessage.createdAt.toISOString(),
+          createdAt: (savedMessage.createdAt instanceof Date ? savedMessage.createdAt : new Date()).toISOString(),
         },
         citations: [],
         requestId,
@@ -181,12 +193,31 @@ export class AIOrchestratorService {
         Boolean(trackerState.activeVerse)
       );
 
+    // Crisis State Tracking across turns (PART 14)
+    const isCrisis =
+      safetyCheck.isHighRiskCrisis ||
+      safetyCheck.category === 'self_harm' ||
+      /\b(want to die|kill myself|commit suicide|end my life|slit my wrist|overdose|nothing matters anymore|don't think i can keep going|cant keep going|can't keep going)\b/i.test(userMessage.toLowerCase()) ||
+      /\b(want to kill|revenge by killing|murder him|murder her)\b/i.test(userMessage.toLowerCase());
+
+    const crisisTurnCount = isCrisis
+      ? (conversationState.crisisTurnCount || 0) + 1
+      : 0;
+
     // Step 6: Contextual Query Resolution (RAG query formulation vs. memory gating)
     const queryPlan = ContextualQueryResolver.resolve(
       userMessage,
       referenceResolution,
       conversationState.activeTopic,
-      trackerState.activeCharacters
+      trackerState.activeCharacters,
+      {
+        emotionalState: classification.emotionalState,
+        emotionalTrajectory: conversationState.emotionalTrajectory,
+        userIntent: classification.intentCategory,
+        recentUserTopics: conversationState.recentUserTopics,
+        previouslyUsedThemes: conversationState.previouslyUsedThemes,
+        history,
+      }
     );
 
     emit({
@@ -217,7 +248,13 @@ export class AIOrchestratorService {
         allCharacters,
         classification.extractedThemes,
         3,
-        classification.thematicKeywords || []
+        classification.thematicKeywords || [],
+        {
+          citedChunkIds: conversationState.previouslyCitedChunkIds,
+          citedEpisodeIds: conversationState.previouslyCitedEpisodeIds,
+          mentionedCharacters: conversationState.previouslyMentionedCharacters,
+          usedTeachings: conversationState.previouslyUsedTeachings,
+        }
       );
       retrievedPassages = retrievalResult.passages;
       corpusDoesNotEstablish = retrievalResult.corpusDoesNotEstablish;
@@ -239,16 +276,22 @@ export class AIOrchestratorService {
     );
 
     // Step 9: Fetch User Profile & Optional Long-Term Memory
-    const profile = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, userId),
-    });
+    let profile: any = null;
+    let memories: any[] = [];
+    try {
+      profile = await db.query.userProfiles.findFirst({
+        where: eq(userProfiles.userId, userId),
+      });
 
-    const memories = profile?.enableLongTermMemory
-      ? await db.query.userMemories.findMany({
+      memories = profile?.enableLongTermMemory
+        ? await db.query.userMemories.findMany({
           where: eq(userMemories.userId, userId),
           limit: 5,
         })
-      : [];
+        : [];
+    } catch {
+      // In-memory fallback
+    }
 
     // Step 10: Adaptive Response Planning & Dynamic Depth Policy
     const responsePlan = ResponsePlanner.plan({
@@ -264,6 +307,10 @@ export class AIOrchestratorService {
       isStoryRequest: Boolean(classification.isStoryRequest),
       isMahabharataRelevant,
       historicalMemory,
+      crisisTurnCount,
+      previouslyCitedEpisodeIds: conversationState.previouslyCitedEpisodeIds,
+      previouslyUsedTeachings: conversationState.previouslyUsedTeachings,
+      emotionalTrajectory: conversationState.emotionalTrajectory,
     });
 
     // Development Debug Mode Emitter
@@ -308,6 +355,12 @@ export class AIOrchestratorService {
         isCasualBanter: classification.isCasualBanter,
         isFollowUp: referenceResolution.isFollowUp,
         lastDiscussedCharacter: referenceResolution.referentCharacter || trackerState.lastDiscussedCharacter,
+        personaEstablished: Boolean(conversationState.turnCount > 0 || history.length > 0 || conversationState.personaEstablished),
+        crisisTurnCount,
+        previouslyCitedEpisodes: conversationState.previouslyCitedEpisodeIds,
+        previouslyMentionedCharacters: conversationState.previouslyMentionedCharacters,
+        previouslyUsedTeachings: conversationState.previouslyUsedTeachings,
+        emotionalTrajectory: [...conversationState.emotionalTrajectory, classification.emotionalState],
       }
     );
 
@@ -392,11 +445,15 @@ export class AIOrchestratorService {
     // Step 8: Final Sanitize & Post-Generation Grounding Validation (Requirements 12 & 13)
     generatedContent = MarkdownSanitizer.sanitize(generatedContent);
 
-    // Anti-Repetition Guard: Suppress repeated introductions and circular boilerplate
+    // Anti-Repetition Guard: Suppress repeated introductions, identity claims, and circular boilerplate
     const repetitionCheck = AntiRepetitionGuard.filter(
       generatedContent,
       history,
-      referenceResolution.isFollowUp
+      referenceResolution.isFollowUp,
+      {
+        personaEstablished: Boolean(conversationState.turnCount > 0 || history.length > 0 || conversationState.personaEstablished),
+        crisisTurnCount,
+      }
     );
     if (repetitionCheck.hasRepetition) {
       generatedContent = repetitionCheck.sanitizedContent;
@@ -453,9 +510,9 @@ export class AIOrchestratorService {
       const correctiveMessage = {
         role: 'user' as const,
         content: `CORRECTION MANDATE: Your previous response contained unsupported claims: ${groundingResult.unsupportedClaims.join('; ')}. ` +
-                 `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
-                 `Do NOT invent dialogue or put paraphrased teachings inside quotation marks. Never use quotation marks unless quoting the exact words from the retrieved passage above. ` +
-                 `If the retrieved evidence does not contain a suitable parallel, speak with pure conversational presence and warmth without naming unsupported characters or inventing stories. Rewrite now:`
+          `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
+          `Do NOT invent dialogue or put paraphrased teachings inside quotation marks. Never use quotation marks unless quoting the exact words from the retrieved passage above. ` +
+          `If the retrieved evidence does not contain a suitable parallel, speak with pure conversational presence and warmth without naming unsupported characters or inventing stories. Rewrite now:`
       };
 
       try {
@@ -513,16 +570,29 @@ export class AIOrchestratorService {
     }
 
     // Step 9: Persist Assistant Message and Citations to Database
-    const [savedMessage] = await db
-      .insert(messages)
-      .values({
+    let savedMessage: any = null;
+    try {
+      const [inserted] = await db
+        .insert(messages)
+        .values({
+          conversationId,
+          sender: 'krishna',
+          content: quoteResult.verifiedContent,
+          intentCategory: classification.intentCategory,
+          emotionalState: classification.emotionalState,
+        })
+        .returning();
+      savedMessage = inserted;
+    } catch (dbErr: any) {
+      console.warn('[AIOrchestratorService] Database insert message notice:', dbErr.message);
+      savedMessage = {
+        id: uuidv4(),
         conversationId,
         sender: 'krishna',
         content: quoteResult.verifiedContent,
-        intentCategory: classification.intentCategory,
-        emotionalState: classification.emotionalState,
-      })
-      .returning();
+        createdAt: new Date(),
+      };
+    }
 
     for (const citation of quoteResult.citations) {
       try {
@@ -569,6 +639,17 @@ export class AIOrchestratorService {
       ...(resolvedChar ? [resolvedChar.toLowerCase()] : [])
     ]));
 
+    // Extract personal user context / situation facts
+    let userSituationFact: string | undefined;
+    const lowerUser = userMessage.toLowerCase();
+    if (/\b(actually|truth is|to be honest|confess|lied about|was not actually)\b/i.test(lowerUser)) {
+      userSituationFact = `Clarification: ${userMessage.slice(0, 100).trim()}`;
+    } else if (/\b(i lost my|i quit|i resigned|i work at|i failed|my parents|my wife|my husband|my partner|my cofounder|my friend|my boss)\b/i.test(lowerUser)) {
+      userSituationFact = `User shared: ${userMessage.slice(0, 100).trim()}`;
+    }
+
+    const establishedFactToRecord = userSituationFact || quoteResult.citations[0]?.contextSummary || (isMahabharataRelevant ? `Discussed ${topicToRecord}` : undefined);
+
     ConversationMemoryService.recordTurnAndUpdateMemory({
       conversationId,
       userId,
@@ -577,17 +658,29 @@ export class AIOrchestratorService {
       activeTopic: topicToRecord,
       activeEntities: activeEntitiesToRecord,
       isTopicShift: referenceResolution.isTopicShift,
-      establishedFact: quoteResult.citations[0]?.contextSummary || (isMahabharataRelevant ? `Discussed ${topicToRecord}` : undefined),
+      establishedFact: establishedFactToRecord,
       philosophicalTheme: classification.extractedThemes[0] || 'dharma',
+      emotionalState: classification.emotionalState,
+      userIntent: classification.intentCategory,
+      citedChunkIds: quoteResult.citations.map(c => c.id).filter(Boolean) as string[],
+      citedEpisodeIds: quoteResult.citations.map(c => c.sourceReference || `${c.parva || ''} ${c.chapter || ''}`).filter(Boolean),
+      mentionedCharacters: groundingResult.mentionedCharacters,
+      usedTeachings: classification.extractedThemes,
+      retrievedEvidenceReferences: retrievedPassages.map(p => p.sourceReference),
+      isCrisis,
     }).catch(err => console.warn('[AIOrchestratorService] Asynchronous memory update notice:', err.message));
 
     // Step 11: Auto-Title generation for the conversation if first turn
     if (history.length <= 1) {
-      const autoTitle = userMessage.slice(0, 40).trim() || 'Reflection';
-      await db
-        .update(conversations)
-        .set({ title: autoTitle, updatedAt: new Date() })
-        .where(eq(conversations.id, conversationId));
+      try {
+        const autoTitle = userMessage.slice(0, 40).trim() || 'Reflection';
+        await db
+          .update(conversations)
+          .set({ title: autoTitle, updatedAt: new Date() })
+          .where(eq(conversations.id, conversationId));
+      } catch {
+        // Non-blocking auto-title update
+      }
     }
 
     const retrievedCharacters = Array.from(new Set(

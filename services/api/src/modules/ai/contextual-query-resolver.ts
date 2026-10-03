@@ -1,4 +1,5 @@
 import { ReferenceResolutionResult } from './reference-resolver.js';
+import { ConversationTurn } from './conversation-state-tracker.js';
 
 export interface ContextualQueryPlan {
   ragRequired: boolean;
@@ -7,26 +8,53 @@ export interface ContextualQueryPlan {
   reason: string;
 }
 
+export interface ContextualQueryState {
+  emotionalState?: string;
+  emotionalTrajectory?: string[];
+  userIntent?: string;
+  recentUserTopics?: string[];
+  previouslyUsedThemes?: string[];
+  history?: ConversationTurn[];
+}
+
 export class ContextualQueryResolver {
   private static readonly STOP_WORDS = new Set([
     'a', 'an', 'the', 'is', 'are', 'was', 'were', 'did', 'does', 'do',
     'will', 'would', 'could', 'should', 'can', 'in', 'on', 'at', 'to', 'for',
     'with', 'by', 'from', 'of', 'and', 'or', 'but', 'so', 'then', 'that', 'this',
-    'it', 'he', 'she', 'they', 'them', 'him', 'her', 'his'
+    'it', 'he', 'she', 'they', 'them', 'him', 'her', 'his', 'i', 'me', 'my'
   ]);
 
   /**
    * Resolves conversational references into a high-precision retrieval query for RAG,
-   * or gates RAG when conversational memory / banter is the appropriate source.
+   * incorporating multi-turn conversation history, emotional trajectory, and gating crisis/banter.
    */
   public static resolve(
     userMessage: string,
     resolution: ReferenceResolutionResult,
     activeTopic?: string | null,
-    activeEntities: string[] = []
+    activeEntities: string[] = [],
+    contextState?: ContextualQueryState
   ): ContextualQueryPlan {
     const text = userMessage.trim();
     const lower = text.toLowerCase();
+
+    // 0. Acute Crisis / Imminent Danger: GATED from scripture RAG (PART 17)
+    // During crisis, prioritize immediate human safety, de-escalation, and connection rather than scripture
+    const isAcuteCrisis =
+      /\b(want to die|kill myself|commit suicide|end my life|slit my wrist|overdose)\b/i.test(lower) ||
+      /\b(nothing matters anymore|don't think i can keep going|cant keep going|can't keep going)\b/i.test(lower) ||
+      /\b(want to kill|revenge by killing|murder him|murder her)\b/i.test(lower) ||
+      contextState?.emotionalState === 'crisis_safety';
+
+    if (isAcuteCrisis) {
+      return {
+        ragRequired: false,
+        contextualQuery: '',
+        entitiesForRetrieval: [],
+        reason: 'Acute crisis situation requires immediate safety intervention, empathy, and real-world support; scripture retrieval is gated.'
+      };
+    }
 
     // 1. Historical Recall: GATED from RAG. Handled by ChatMemoryRetriever.
     if (resolution.isHistoricalRecall) {
@@ -84,6 +112,30 @@ export class ContextualQueryResolver {
       queryTerms.push('conflict', 'duty', 'attachment');
     }
 
+    // 6. Multi-Turn Context Integration (PART 3)
+    const history = contextState?.history || [];
+    if (history.length > 0) {
+      const previousUserMessages = history.filter(h => h.role === 'user').slice(-3);
+      const combinedPriorUser = previousUserMessages.map(m => m.content).join(' ').toLowerCase();
+
+      // Academic/Performance Failure + Parental Expectations / Family Pressure
+      if (/\b(exam|test|grade|grades|study|studying|fail|failed|failure|academic|career|interview)\b/i.test(combinedPriorUser)) {
+        if (/\b(parent|parents|father|mother|family|expect|expected|expectation|pressure|disappoint)\b/i.test(lower)) {
+          queryTerms.push('family', 'expectations', 'parental', 'pressure', 'duty', 'svadharma');
+        }
+        if (/\b(not good enough|worth|worthless|capable|doubt|failure|am i bad)\b/i.test(lower)) {
+          queryTerms.push('self-worth', 'identity', 'doubt', 'effort', 'action', 'svadharma');
+        }
+      }
+
+      // Relationship Grief + Lingering Longing
+      if (/\b(breakup|broke up|ex|girlfriend|boyfriend|partner|marriage|divorce|separated)\b/i.test(combinedPriorUser)) {
+        if (/\b(miss|missing|still love|aches|empty|remember|can't forget)\b/i.test(lower)) {
+          queryTerms.push('attachment', 'longing', 'heartbreak', 'impermanence', 'grief');
+        }
+      }
+    }
+
     for (const w of words) {
       if (!queryTerms.some(qt => qt.toLowerCase() === w.toLowerCase())) {
         queryTerms.push(w);
@@ -103,7 +155,8 @@ export class ContextualQueryResolver {
       ragRequired: true,
       contextualQuery,
       entitiesForRetrieval,
-      reason: 'Contextual RAG query generated with resolved character and thematic intent.'
+      reason: 'Contextual RAG query generated with multi-turn context, resolved character, and thematic intent.'
     };
   }
 }
+
