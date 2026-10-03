@@ -11,14 +11,15 @@ export interface PlanContext {
   referenceResolution: ReferenceResolutionResult;
   intentCategory: string;
   emotionalState: string;
-  isCasualBanter: boolean;
-  isStoryRequest: boolean;
-  isMahabharataRelevant: boolean;
+  isCasualBanter?: boolean;
+  isStoryRequest?: boolean;
+  isMahabharataRelevant?: boolean;
   historicalMemory?: {
     found: boolean;
     honestStatement: string;
   };
   isCrisis?: boolean;
+  turnCount?: number;
   crisisTurnCount?: number;
   previouslyCitedEpisodeIds?: string[];
   previouslyUsedTeachings?: string[];
@@ -40,7 +41,7 @@ export class ResponsePlanner {
     let targetTokens = 250;
     let storyRequired = false;
     let lessonRequired = true;
-    let ragRequired = ctx.isMahabharataRelevant;
+    let ragRequired = Boolean(ctx.isMahabharataRelevant);
     let continuityAcknowledgement: string | undefined;
 
     const isCrisis =

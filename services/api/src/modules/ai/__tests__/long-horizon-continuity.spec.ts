@@ -9,9 +9,12 @@ import { AntiRepetitionGuard } from '../anti-repetition-guard.js';
 import { v4 as uuidv4 } from 'uuid';
 
 describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     process.env.DISABLE_LOCAL_EMBEDDING = 'true';
-  });
+    try {
+      await HybridRetriever.retrieve('dharma', [], [], 1);
+    } catch {}
+  }, 15000);
 
   // Test 1: 20-Turn State & Working Memory Tracking Without Context Drift
   it('maintains working summary, active entities, and topic milestones over 20 turns in session memory', () => {
@@ -128,7 +131,7 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
 
     const yakshaPassage = ret.passages.find(p =>
       p.sourceReference.toLowerCase().includes('yaksha') ||
-      p.contextSummary.toLowerCase().includes('yaksha') ||
+      Boolean(p.contextSummary && p.contextSummary.toLowerCase().includes('yaksha')) ||
       p.translation.toLowerCase().includes('yaksha')
     );
     expect(yakshaPassage).toBeDefined();
