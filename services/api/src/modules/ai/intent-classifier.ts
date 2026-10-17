@@ -323,12 +323,19 @@ export class IntentClassifier {
 
     const hasAnger = /\b(furious|enraged|rage|revenge|wrath|resentment|lose my temper|anger|angry|corrupt|injustice)\b/i.test(text) && !isNegatedAnger;
     const hasJealousy = /\b(jealous|jealousy|envious|envy|bitter at (others|peers|friends)|covet)\b/i.test(text) && !isNegatedJealousy;
-    const hasFear = /\b(anxiety|anxious|panic|terrified|fearful|dread|racing mind|tight chest|fear)\b/i.test(text) && !isNegatedFear;
+    const hasFear = /\b(anxiety|anxious|panic|terrified|fearful|dread|racing mind|tight chest|fear|scared|afraid|frightened|restless|overwhelmed|worried|worry|worrying|stress|stressed)\b/i.test(text) && !isNegatedFear;
     const hasDisabilityOrBodyLimitation =
       /\b(disab(led|ility)|handicap|amput(ee|ated)|lost (my )?(arm|hand|leg|limb|eye)|(don't|dont|do not) have (1|an?|one) (arm|hand|leg|limb|eye)|one (arm|hand|leg|eye)|1 (arm|hand|leg|eye)|missing (an?|one|my) (arm|hand|leg|limb)|blind|paraly(zed|sis)|wheelchair|physical deformity|deformed)\b/i.test(text);
 
+    const hasAcademicOrPerformanceFailure =
+      /\b(fail|failed|failing|failure|exam|exams|test|tests|grades?|stud(y|ies|ying)|academic)\b/i.test(text) &&
+      /\b(disappoint|disappointing|parents?|father|mother|future|scared|afraid|hard|try|trying|pressure|expectations?|fear)\b/i.test(text);
+
+    const hasRestlessMind =
+      /\b(restless\s*(?:and\s+unsteady\s*)?mind|mind\s+(?:is|feels|getting)\s+restless|calm\s+(?:my|the)\s+mind|peace\s+when\s+(?:my\s+)?mind\s+is\s+restless|find\s+peace.*restless|quiet\s+(?:my|the)\s+mind|control\s+(?:my|the)\s+mind|overthinking|racing\s+thoughts|scattered\s+mind)\b/i.test(text);
+
     const hasGrief =
-      (hasDisabilityOrBodyLimitation ||
+      (hasDisabilityOrBodyLimitation || hasAcademicOrPerformanceFailure || hasRestlessMind ||
       /\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart|ignore|ignored|ignores|nobody likes me|rejection|rejected|ugly|short|body image|unseen|invisible)\b/i.test(text)) && !isNegatedGrief;
 
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
@@ -344,6 +351,14 @@ export class IntentClassifier {
         emotionalState = 'jealousy';
         themes = ['jealousy', 'contentment', 'dharma'];
         thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma', '2.48'];
+      } else if (hasAcademicOrPerformanceFailure) {
+        emotionalState = 'fear';
+        themes = ['duty', 'action', 'attachment', 'karma yoga', 'perseverance', 'equanimity', 'solace'];
+        thematicKeywords = ['Arjuna', 'duty', 'action', 'attachment', 'fruits of action', 'results', 'effort', 'svadharma', 'perseverance', '2.47', '2.48', '6.40'];
+      } else if (hasRestlessMind) {
+        emotionalState = 'confusion';
+        themes = ['mind_control', 'dhyana_yoga', 'meditation', 'abhyasa', 'vairagya', 'peace', 'equanimity'];
+        thematicKeywords = ['Arjuna', 'restless', 'mind', 'control', 'Abhyasa', 'Vairagya', 'practice', 'detachment', 'charioteer', 'wind', 'peace', '6.26', '6.34', '6.35', '2.65'];
       } else if (hasFear) {
         emotionalState = 'fear';
         themes = ['fear', 'courage', 'equanimity', 'refuge'];
@@ -368,6 +383,10 @@ export class IntentClassifier {
         extractedThemes: themes,
         reasoningNote: hasDisabilityOrBodyLimitation
           ? 'Physical limitation or disability inquiry. Solace grounded in Atman vs Deha and the story of Ashtavakra.'
+          : hasAcademicOrPerformanceFailure
+          ? 'Academic failure anxiety or parental disappointment. Grounding in Bhagavad Gita 2.47/2.48 right action without attachment to fruits.'
+          : hasRestlessMind
+          ? 'Restless mind inquiry. Grounding in Bhagavad Gita 6.26/6.34/6.35 on steady practice (Abhyasa) and detachment (Vairagya).'
           : 'Emotional distress requiring deep comfort with Mahabharata/Gita solace as Lord Krishna.',
       };
     }

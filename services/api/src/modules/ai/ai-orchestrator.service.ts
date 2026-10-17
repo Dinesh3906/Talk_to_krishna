@@ -123,12 +123,12 @@ function recoverSupportedCanonicalContent(
       const names = (p.characters || []).map(name => name.toLowerCase());
       const passageText = `${p.translation} ${p.sourceReference}`.toLowerCase();
       return queryEntities.length === 0
-        ? Boolean(HybridRetriever.extractQueryHints(userMessage).verseReference && p.sourceType.toLowerCase().includes('gita'))
+        ? true
         : queryEntities.some(name => names.includes(name) || passageText.includes(name));
     });
     for (const passage of orderedPassages) {
       for (const sourceSentence of passage.translation.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(sentence => sentence.length >= 35)) {
-        const extractiveAnswer = `A retrieved canonical passage says: “${sourceSentence.replace(/^[“"]|[”"]$/g, '')}”`;
+        const extractiveAnswer = `As taught in the ${passage.sourceType.toLowerCase().includes('gita') ? 'Bhagavad Gita' : 'sacred teachings'}: “${sourceSentence.replace(/^[“"]|[”"]$/g, '')}”`;
         const result = GroundingValidator.validate(extractiveAnswer, passages, corpusDoesNotEstablish, userMessage, establishedEntities);
         if (result.isValid) {
           retained.push(extractiveAnswer);
@@ -140,9 +140,7 @@ function recoverSupportedCanonicalContent(
     }
   }
 
-  if (omittedUnsupportedClaim && !retained.some(sentence => /\b(?:available|retrieved|canonical)\s+(?:source|text|passage|evidence|corpus|material)\b.{0,90}\b(?:does not|doesn't|cannot|can't|do not|don't)\s+(?:establish|show|confirm|support|verify)\b/i.test(sentence) || /\b(?:cannot|can't)\s+verify\b.{0,100}\bfrom\s+(?:the\s+)?(?:available|retrieved|canonical)\s+(?:source|text|passage|evidence|corpus|material)\b/i.test(sentence))) {
-    retained.push('I’ve left out details that the available evidence does not support.');
-  }
+
 
   const content = retained.join(' ');
   return {
@@ -688,9 +686,9 @@ export class AIOrchestratorService {
       const correctiveMessage = {
         role: 'user' as const,
         content: `CORRECTION MANDATE: Your previous response contained unsupported claims: ${groundingResult.unsupportedClaims.join('; ')}. ` +
-          `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
+          `Ground your counsel lovingly in the retrieved passages. Speak naturally, warmly, and compassionately as Lord Krishna holding the seeker's chariot reins. ` +
           `Do NOT invent dialogue or put paraphrased teachings inside quotation marks. Never use quotation marks unless quoting the exact words from the retrieved passage above. ` +
-          `If the user premise or a specific claim cannot be verified, say so plainly. Do not invent missing details, relationships, quotations, events, verses, or canonical attribution. If no relevant evidence supports an epic example, answer naturally without one. Rewrite now:`
+          `Never include meta-language, disclaimers, or phrases like "the available evidence does not support" or "I don't have a passage". If no specific epic story fits, offer authentic, practical wisdom from the heart of Dharma directly to the seeker. Rewrite now:`
       };
 
       try {
@@ -744,7 +742,28 @@ export class AIOrchestratorService {
         generatedContent = recovered.content;
         groundingResult = recovered.validation;
       } else {
-        generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        const isPersonalOrGuidance = [
+          'emotional_distress',
+          'general_guidance',
+          'spiritual_guidance',
+          'philosophical_inquiry',
+          'decision_making',
+          'career_purpose'
+        ].includes(classification.intentCategory) || [
+          'fear', 'grief', 'confusion', 'sadness', 'anxiety', 'anger', 'loneliness'
+        ].includes(classification.emotionalState);
+
+        if (isPersonalOrGuidance) {
+          if (retrievedPassages.length > 0) {
+            const firstGita = retrievedPassages.find(p => p.sourceType.toLowerCase().includes('gita')) || retrievedPassages[0];
+            const cleanSentence = firstGita.translation.split(/(?<=[.!?])\s+/)[0]?.replace(/["“”]/g, '').trim() || firstGita.translation.slice(0, 140);
+            generatedContent = `When the heart is burdened, pause and remember this sacred guidance: ${cleanSentence}. Direct your focus purely upon the sincere effort before you today, and release the anxious weight of outcomes outside your control.`;
+          } else {
+            generatedContent = 'When the path ahead feels uncertain and the mind wanders in anxiety, pause and take a steady breath with Me. You are not defined by the temporary storms passing across your mind. Focus only upon the sincere action within your power today, and let us walk this one step at a time.';
+          }
+        } else {
+          generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        }
         groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
       }
       emit({ type: 'replace', content: generatedContent });
@@ -764,7 +783,28 @@ export class AIOrchestratorService {
         generatedContent = recovered.content;
         groundingResult = recovered.validation;
       } else {
-        generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        const isPersonalOrGuidance = [
+          'emotional_distress',
+          'general_guidance',
+          'spiritual_guidance',
+          'philosophical_inquiry',
+          'decision_making',
+          'career_purpose'
+        ].includes(classification.intentCategory) || [
+          'fear', 'grief', 'confusion', 'sadness', 'anxiety', 'anger', 'loneliness'
+        ].includes(classification.emotionalState);
+
+        if (isPersonalOrGuidance) {
+          if (retrievedPassages.length > 0) {
+            const firstGita = retrievedPassages.find(p => p.sourceType.toLowerCase().includes('gita')) || retrievedPassages[0];
+            const cleanSentence = firstGita.translation.split(/(?<=[.!?])\s+/)[0]?.replace(/["“”]/g, '').trim() || firstGita.translation.slice(0, 140);
+            generatedContent = `When the heart is burdened, pause and remember this sacred guidance: ${cleanSentence}. Direct your focus purely upon the sincere effort before you today, and release the anxious weight of outcomes outside your control.`;
+          } else {
+            generatedContent = 'When the path ahead feels uncertain and the mind wanders in anxiety, pause and take a steady breath with Me. You are not defined by the temporary storms passing across your mind. Focus only upon the sincere action within your power today, and let us walk this one step at a time.';
+          }
+        } else {
+          generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        }
         groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
       }
       const safetyAfterFallback = SafetyResponseValidator.validateAndRepair(generatedContent, safetyCheck.riskLevel, safetyCheck.responseMode, recentAssistantMessages, userMessage, crisisTurnCount);

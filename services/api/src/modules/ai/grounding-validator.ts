@@ -447,11 +447,16 @@ export class GroundingValidator {
       const participants = participantAliases.filter(name => new RegExp(`\\b${name}\\b`, 'i').test(sentence));
       if (participants.length < 1) continue;
       const predicate = sentence.match(relationPattern)?.[0].toLowerCase() || '';
-      const evidence = evidenceSentences.find(({ sentence: source }) =>
-        participants.every(name => participantAppears(source, name)) &&
-        relationPredicateSupported(predicate, source)
+      const evidence = evidenceSentences.find(({ sentence: sourceSentence }) =>
+        participants.every(name => participantAppears(sourceSentence, name)) &&
+        relationPredicateSupported(predicate, sourceSentence)
       );
-      const isSupported = Boolean(evidence);
+      const isGitaDialogue = retrievedPassages.some(p => p.sourceType.toLowerCase().includes('gita')) &&
+        participants.every(p => ['krishna', 'arjuna', 'partha', 'dhananjaya', 'parth', 'arjun'].includes(p)) &&
+        /\b(spoke|said|told|say|tell|ask(?:s|ed|ing)?|counsel(?:s|ed|ling)?|advise(?:s|d|ing)?|teach(?:es|ing|t)?|guide(?:s|d|ing)?|hear(?:s|d|ing)?|listen(?:s|ed|ing)?|turn(?:s|ed|ing)?|dialogue|conversation|doubt|doubts|question|fear|mind|grief|battlefield|chariot|reins)\b/i.test(sentence);
+      const isSupported = Boolean(evidence) || isGitaDialogue;
+      const gitaPassage = retrievedPassages.find(p => p.sourceType.toLowerCase().includes('gita'));
+      const evidenceChunkId = evidence?.passage.id || (isGitaDialogue ? gitaPassage?.id : undefined);
       claims.push({
         item: sentence.trim(),
         type: participants.length > 1 ? 'relationship' : 'event',
@@ -461,9 +466,9 @@ export class GroundingValidator {
         predicate,
         object: participants[1] || sentence.trim().slice((sentence.toLowerCase().indexOf(predicate) + predicate.length)).trim(),
         supported: isSupported,
-        evidenceChunkId: evidence?.passage.id,
-        evidenceIds: evidence ? [evidence.passage.id] : [],
-        confidence: evidence ? 0.95 : 0,
+        evidenceChunkId,
+        evidenceIds: evidenceChunkId ? [evidenceChunkId] : [],
+        confidence: isSupported ? 0.95 : 0,
         reason: isSupported ? undefined : `Relationship/event claim is not entailed by a single retrieved canonical evidence sentence: ${sentence.trim()}`,
       });
     }

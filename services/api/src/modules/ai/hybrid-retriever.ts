@@ -847,6 +847,7 @@ export class HybridRetriever {
             contextSummary: `Speaker: ${match.speaker}, Listener: ${match.listener}. Provenance: ${match.provenance}`,
             relevanceForGuidance: match.deep_meaning || match.krishna_teaching,
             relevanceScore: 1.0,
+            characters: ['Krishna', 'Arjuna'],
             retrievalScores: { exactReference: 1.0, fused: 1.0 },
           });
 
@@ -966,6 +967,7 @@ export class HybridRetriever {
               contextSummary: `Speaker: ${v.speaker}, Listener: ${v.listener}. ${v.deep_meaning || ''}`,
               relevanceForGuidance: v.krishna_teaching,
               relevanceScore: Math.min(combinedGitaScore, 0.98),
+              characters: ['Krishna', 'Arjuna'],
               retrievalScores: { vector: vecSim, lexical: ftsRatio, theme: themeScore, fused: combinedGitaScore },
             });
 
@@ -1684,7 +1686,7 @@ export class HybridRetriever {
         },
       };
     } catch (err: any) {
-      console.error('[HybridRetriever Error]: Retrieval failed.', {
+      console.error('[HybridRetriever Error]: Retrieval failed.', err?.message || err, err?.stack, {
         errorCode: typeof err?.code === 'string' && /^[A-Z0-9_]{2,32}$/.test(err.code) ? err.code : 'UNKNOWN',
       });
       return {

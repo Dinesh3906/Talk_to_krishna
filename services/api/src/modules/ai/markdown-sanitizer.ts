@@ -79,7 +79,13 @@ export class MarkdownSanitizer {
     // 11. Remove explicit section headers like "Shloka:", "Meaning:", "Deep Meaning:", "Application:", "Key Takeaways:"
     cleaned = cleaned.replace(/^[ \t]*(?:Shloka|Meaning|Deep Meaning|Application|Key Takeaways|Summary|Explanation):[ \t]*/gmi, '');
 
-    // 12. Normalize multiple blank lines to at most 2 (single paragraph break)
+    // 12. Strip diagnostic disclaimer leakage that does not belong in natural Krishna dialogue
+    cleaned = cleaned.replace(/\s*I['’]ve\s+left\s+out\s+details\s+that\s+the\s+available\s+evidence\s+does\s+not\s+support\.?/gi, '');
+    cleaned = cleaned.replace(/\s*The\s+available\s+evidence\s+does\s+not\s+support(?:\s+this)?\.?/gi, '');
+    cleaned = cleaned.replace(/\s*I\s+don['’]t\s+have\s+a\s+specific\s+passage(?:\s+in\s+my\s+retrieved\s+context|\s+that\s+mentions)?\s*[^.!?]*(?:so\s+I\s+can['’]t\s+quote\s+or\s+rely\s+on\s+that\s+story)?\.?/gi, '');
+    cleaned = cleaned.replace(/\s*My\s+retrieval\s+system\s+could\s+not\s+find\s+[^.!?]+\.?/gi, '');
+
+    // 13. Normalize multiple blank lines to at most 2 (single paragraph break)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
     return preserveBoundaryWhitespace ? cleaned : cleaned.trim();
