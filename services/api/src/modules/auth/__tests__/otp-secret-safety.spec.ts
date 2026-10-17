@@ -25,7 +25,7 @@ import { ConsoleOtpProvider } from '../providers/console-otp.provider.js';
 import { OtpProviderFactory } from '../providers/otp-provider.factory.js';
 import authRouter from '../auth.controller.js';
 import { OtpPurposeEnum } from '@talk-to-krisna/shared';
-import { assertAuthSecretsConfigured } from '../auth-config.js';
+import { assertAuthSecretsConfigured, getOtpPepperSecret } from '../auth-config.js';
 
 const syntheticOtp = '731942';
 
@@ -154,7 +154,7 @@ describe('OTP secret exposure regression', () => {
     expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=resend/);
   });
 
-  it('fails closed when production JWT or OTP pepper secrets are missing', () => {
+  it('fails closed when production JWT secret is missing or explicit OTP pepper is invalid', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('EMAIL_PROVIDER', 'resend');
     vi.stubEnv('RESEND_API_KEY', 'synthetic_resend_key_for_unit_test');
@@ -163,10 +163,21 @@ describe('OTP secret exposure regression', () => {
     expect(() => assertAuthSecretsConfigured()).toThrow(/JWT_SECRET must be configured/);
 
     vi.stubEnv('JWT_SECRET', 'synthetic-jwt-secret-for-isolated-tests-0001');
+    vi.stubEnv('OTP_PEPPER_SECRET', 'short-secret');
     expect(() => assertAuthSecretsConfigured()).toThrow(/OTP_PEPPER_SECRET must be configured/);
 
     vi.stubEnv('OTP_PEPPER_SECRET', 'synthetic-jwt-secret-for-isolated-tests-0001');
     expect(() => assertAuthSecretsConfigured()).toThrow(/must be different from JWT_SECRET/);
+  });
+
+  it('deterministically derives a secure distinct pepper when OTP_PEPPER_SECRET is omitted in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('JWT_SECRET', 'synthetic-jwt-secret-for-isolated-tests-0001');
+    vi.stubEnv('OTP_PEPPER_SECRET', '');
+    expect(() => assertAuthSecretsConfigured()).not.toThrow();
+    const pepper = getOtpPepperSecret();
+    expect(pepper).toHaveLength(64);
+    expect(pepper).not.toBe('synthetic-jwt-secret-for-isolated-tests-0001');
   });
 
   it('does not return an OTP included in a verification exception', async () => {

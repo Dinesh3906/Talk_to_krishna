@@ -126,7 +126,10 @@ if (process.env.NODE_ENV !== 'test') {
       console.log(`[Talk to Krishna API] Server listening on 0.0.0.0:${portNum}`);
     }));
   })().catch(async (startupError: any) => {
-    console.error('[Talk to Krishna API] Startup validation failed.', safeErrorLogMetadata(startupError, undefined));
+    console.error('[Talk to Krishna API] Startup validation failed:', startupError?.message || startupError);
+    if (startupError?.stack) {
+      console.error(startupError.stack);
+    }
     await pool.end().catch(() => undefined);
     process.exitCode = 1;
   });
