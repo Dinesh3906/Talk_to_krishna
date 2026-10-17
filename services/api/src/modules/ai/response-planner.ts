@@ -1,6 +1,7 @@
 import { ResponseMode, ResponseDepth, ResponsePlan } from '@talk-to-krisna/shared';
 import { ReferenceResolutionResult } from './reference-resolver.js';
 import { ConversationTurn } from './conversation-state-tracker.js';
+import { EmotionalConversationState } from './emotional-interpretation.js';
 
 export interface PlanContext {
   userMessage: string;
@@ -24,6 +25,11 @@ export interface PlanContext {
   previouslyCitedEpisodeIds?: string[];
   previouslyUsedTeachings?: string[];
   emotionalTrajectory?: string[];
+  emotionalInterpretation?: EmotionalConversationState;
+  scriptureExplicitlyRequested?: boolean;
+  riskLevel?: string;
+  safetyResponseMode?: string;
+  safetyGuidance?: string[];
 }
 
 export class ResponsePlanner {
@@ -41,20 +47,24 @@ export class ResponsePlanner {
     let targetTokens = 250;
     let storyRequired = false;
     let lessonRequired = true;
-    let ragRequired = Boolean(ctx.isMahabharataRelevant);
+    let ragRequired = Boolean(ctx.isMahabharataRelevant) && (ctx.scriptureExplicitlyRequested === true || ctx.intentCategory === 'factual_scripture' || ctx.intentCategory === 'moral_dilemma' || ctx.intentCategory === 'philosophical_inquiry');
     let continuityAcknowledgement: string | undefined;
 
     const isCrisis =
       Boolean(ctx.isCrisis) ||
+      ['MODERATE', 'PASSIVE_CONCERN', 'ACTIVE_IDEATION', 'INTENT', 'MEANS_PRESENT', 'IMMINENT', 'VIOLENCE_IDEATION', 'VIOLENCE_ESCALATION', 'HIGH'].includes(ctx.riskLevel || '') ||
       ctx.intentCategory === 'crisis_safety' ||
       ctx.intentCategory === 'crisis_self_harm' ||
       /\b(want to die|kill myself|commit suicide|end my life|want to kill|kill someone|kill some one|nothing matters anymore|don't think i can keep going|cant keep going)\b/i.test(lower) ||
       /\b(ruined my life and i want revenge|take revenge by killing|don't know if i can control myself)\b/i.test(lower);
 
     if (isCrisis) {
-      responseMode = 'crisis_safety';
+      responseMode = ctx.safetyResponseMode === 'VIOLENCE_DEESCALATION' ||
+        (['HIGH', 'VIOLENCE_ESCALATION'].includes(ctx.riskLevel || '') && ctx.safetyGuidance?.some(g => /confront|person/i.test(g)))
+        ? 'violence_deescalation'
+        : 'crisis_safety';
       responseDepth = 'short';
-      targetTokens = (ctx.crisisTurnCount && ctx.crisisTurnCount > 1) ? 120 : 150;
+      targetTokens = ctx.riskLevel === 'PASSIVE_CONCERN' ? 100 : (ctx.crisisTurnCount && ctx.crisisTurnCount > 1) ? 120 : 150;
       ragRequired = false;
       storyRequired = false;
       lessonRequired = false;
@@ -97,16 +107,29 @@ export class ResponsePlanner {
       responseDepth = 'detailed';
       targetTokens = 320;
       storyRequired = true;
+    } else if (ctx.scriptureExplicitlyRequested) {
+      responseMode = 'scriptural_teaching';
+      responseDepth = 'moderate';
+      targetTokens = 220;
+      ragRequired = true;
     } else if (
       ctx.intentCategory === 'emotional_distress' ||
       ctx.emotionalState === 'grief' ||
       ctx.emotionalState === 'loneliness' ||
       ctx.emotionalState === 'fear'
     ) {
-      responseMode = 'emotional_guidance';
+      responseMode = ctx.emotionalInterpretation
+        ? (isFirstTurn ? 'empathy_first' : 'reflective')
+        : 'emotional_guidance';
       responseDepth = 'moderate';
-      targetTokens = 180;
-      lessonRequired = false;
+      targetTokens = 220;
+      lessonRequired = responseMode !== 'empathy_first';
+      ragRequired = responseMode !== 'empathy_first' && Boolean(ctx.isMahabharataRelevant);
+    } else if (ctx.intentCategory === 'career_purpose' || ctx.intentCategory === 'decision_making') {
+      responseMode = 'practical_guidance';
+      responseDepth = isFirstTurn ? 'moderate' : 'short';
+      targetTokens = isFirstTurn ? 220 : 160;
+      ragRequired = Boolean(ctx.isMahabharataRelevant);
     } else if (isFirstTurn && ctx.isMahabharataRelevant) {
       responseMode = 'explanation';
       responseDepth = 'detailed';
@@ -161,6 +184,27 @@ export class ResponsePlanner {
 
     // 3. Identify New Information Required
     const newInformationRequired: string[] = [];
+    const turnNumber = ctx.turnCount || (history.filter(h => h.role === 'user').length + 1);
+    if (!isCrisis) {
+      if (turnNumber === 1) {
+        newInformationRequired.push('First message: Establish understanding and broader perspective on the seeker’s situation. Be warm, meaningful, and sufficiently detailed.');
+      } else if (turnNumber === 2) {
+        newInformationRequired.push('First follow-up: Directly answer the new question using previous context. Explore attachment, hesitation, or emotional nuance rather than restarting.');
+      } else if (turnNumber === 3) {
+        newInformationRequired.push('Second follow-up: Help with discernment and decision-making; clarify what is within the seeker’s control versus what is outside it.');
+      } else if (turnNumber >= 4) {
+        newInformationRequired.push('Later follow-up: Progressively deepen the conversation; offer a practical path forward and constructive steps for rebuilding.');
+      }
+    }
+    if (ctx.emotionalInterpretation?.latestQuestion) {
+      newInformationRequired.push(`Answer the latest question/message directly first: ${ctx.emotionalInterpretation.latestQuestion}`);
+    }
+    if (ctx.emotionalInterpretation?.userNeed) {
+      newInformationRequired.push(`Prioritize the user's current need: ${ctx.emotionalInterpretation.userNeed}.`);
+    }
+    if (ctx.safetyGuidance?.length) {
+      newInformationRequired.push(...ctx.safetyGuidance);
+    }
     if (isCrisis && ctx.crisisTurnCount && ctx.crisisTurnCount > 1) {
       newInformationRequired.push('Respond tenderly and specifically to the seeker’s exact words in this turn, providing quiet companionship in this very minute.');
     } else if (referenceResolution.isHistoricalRecall) {

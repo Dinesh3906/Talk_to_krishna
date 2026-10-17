@@ -5,6 +5,8 @@ export interface RepetitionCheckResult {
   repetitionScore: number; // 0.0 to 1.0
   sanitizedContent: string;
   removedRedundancies: string[];
+  majorMetaphors: string[];
+  poeticConstraintApplied: boolean;
 }
 
 export interface AntiRepetitionOptions {
@@ -13,6 +15,11 @@ export interface AntiRepetitionOptions {
 }
 
 export class AntiRepetitionGuard {
+  private static readonly METAPHOR_REPLACEMENTS: Record<string, string> = {
+    chariot: 'situation', battlefield: 'conflict', storm: 'difficulty', wind: 'mind', reins: 'control',
+    garment: 'body', lamp: 'clarity', ocean: 'depth', fire: 'anger', lotus: 'growth', journey: 'process', river: 'change',
+    seed: 'beginning', seeds: 'efforts', wave: 'feeling', waves: 'feelings',
+  };
   private static readonly STOCK_INTRODUCTIONS = [
     /^(?:as i (?:mentioned|explained|said) earlier,?)\s*/i,
     /^(?:in the (?:epic )?mahabharata,?)\s*/i,
@@ -41,6 +48,33 @@ export class AntiRepetitionGuard {
   ): RepetitionCheckResult {
     let sanitized = newContent.trim();
     const removedRedundancies: string[] = [];
+    sanitized = sanitized.replace(/cosmic chariot(?:\s+of\s+(?:existence|life))?/gi, 'journey of life');
+    sanitized = sanitized.replace(/great wheel of destiny/gi, 'unfolding of circumstances');
+    const recentMetaphors = new Set(previousAssistantTurnsFrom(history).flatMap(turn => this.detectMetaphors(turn.content)));
+    const seenMetaphors = new Set<string>();
+    let poeticConstraintApplied = false;
+
+    // Rolling metaphor registry, based on the last five assistant turns. Keep a useful
+    // image when it is fresh; flatten repeated or additional images into direct language.
+    for (const metaphor of this.detectMetaphors(sanitized)) {
+      if (metaphor === 'battlefield' && /\b(?:arjuna|kurukshetra|pandava|kaurava|warrior|bhishma|drona)\b/i.test(sanitized)) {
+        continue;
+      }
+      if (metaphor === 'reins' && /\b(?:horses|charioteer|senses|mind)\b/i.test(sanitized)) {
+        continue;
+      }
+      if (metaphor === 'chariot' && /\b(?:reins|horses|charioteer|kurukshetra|arjuna)\b/i.test(sanitized)) {
+        continue;
+      }
+      if (recentMetaphors.has(metaphor) || (seenMetaphors.size > 0 && !seenMetaphors.has(metaphor))) {
+        const replacement = this.METAPHOR_REPLACEMENTS[metaphor];
+        sanitized = sanitized.replace(new RegExp(`\\b${metaphor}\\b`, 'gi'), replacement);
+        removedRedundancies.push(`${metaphor} (poetic restraint)`);
+        poeticConstraintApplied = true;
+      } else {
+        seenMetaphors.add(metaphor);
+      }
+    }
 
     const hasPriorAssistant = history.some(h => h.role === 'assistant');
     const shouldSuppressIdentity = options?.personaEstablished || isFollowUp || hasPriorAssistant;
@@ -54,6 +88,22 @@ export class AntiRepetitionGuard {
           removedRedundancies.push(matched.trim());
           break;
         }
+      }
+    }
+
+    const addressPatterns: Record<string, RegExp> = {
+      parth: /\bparth\b/i, partha: /\bpartha\b/i, sakha: /\bsakha\b/i,
+      'my friend': /\bmy friend\b/i, 'dear one': /\bdear one\b/i,
+    };
+    const anyPriorAddressUsed = previousAssistantTurnsFrom(history).some(turn =>
+      Object.values(addressPatterns).some(pattern => pattern.test(turn.content))
+    );
+    if (shouldSuppressIdentity || anyPriorAddressUsed) {
+      const openingAddressRegex = /^(?:my friend|dear one|parth|partha|sakha)[,!:.]?\s*/i;
+      if (openingAddressRegex.test(sanitized)) {
+        const matched = sanitized.match(openingAddressRegex)?.[0] || '';
+        sanitized = sanitized.replace(openingAddressRegex, '').trim();
+        removedRedundancies.push(`${matched.trim()} (repeated form of address)`);
       }
     }
 
@@ -89,6 +139,8 @@ export class AntiRepetitionGuard {
         repetitionScore: 0.0,
         sanitizedContent: sanitized,
         removedRedundancies,
+        majorMetaphors: Array.from(seenMetaphors),
+        poeticConstraintApplied,
       };
     }
 
@@ -104,7 +156,7 @@ export class AntiRepetitionGuard {
       allPastSentences.push(...sents);
     }
 
-    // 5. Repetitive Metaphor suppression across turns
+    // 5. Repetitive Metaphor & Stock Template suppression across turns
     if (pastFullText.includes('chariot of life') && sanitized.toLowerCase().includes('chariot of life')) {
       sanitized = sanitized.replace(/chariot of life/gi, 'journey of life');
       removedRedundancies.push('chariot of life (repetitive metaphor)');
@@ -112,6 +164,18 @@ export class AntiRepetitionGuard {
     if (pastFullText.includes('wheel of destiny') && sanitized.toLowerCase().includes('wheel of destiny')) {
       sanitized = sanitized.replace(/wheel of destiny/gi, 'unfolding of circumstances');
       removedRedundancies.push('wheel of destiny (repetitive metaphor)');
+    }
+    if (/\b(?:seeds?|planted)\b/i.test(pastFullText) && /\b(?:seeds?|planting|planted)\b/i.test(sanitized)) {
+      sanitized = sanitized.replace(/\b(?:plant(?:ing|ed)?\s+(?:a\s+)?seeds?|seeds?\s+growing\s+into\s+change|seeds?\s+of\s+change)\b/gi, 'first honest effort');
+      removedRedundancies.push('seed metaphor (repetitive metaphor)');
+    }
+    if (/\b(?:rivers?|waves?)\b/i.test(pastFullText) && /\b(?:restless river|turbulent river|waves? of (?:the ocean|emotion|restlessness))\b/i.test(sanitized)) {
+      sanitized = sanitized.replace(/\b(?:restless river|turbulent river|waves? of (?:the ocean|emotion|restlessness))\b/gi, 'surging emotions');
+      removedRedundancies.push('river/wave metaphor (repetitive metaphor)');
+    }
+    if (/\b(?:breathe|breath|small steps?)\b/i.test(pastFullText) && /\b(?:take a (?:slow |deep )?breath|pause,?\s*and take (?:a |one )?small step)\b/i.test(sanitized)) {
+      sanitized = sanitized.replace(/\b(?:take a (?:slow |deep )?breath,?\s*(?:pause,?\s*)?(?:and |then )?take (?:one |a )?small step|pause and take a small step)\b/gi, 'focus directly on the task before you');
+      removedRedundancies.push('breath and small step formula (repetitive template)');
     }
 
     // 5. Compare current sentences against all past assistant sentences in the sliding window
@@ -165,7 +229,19 @@ export class AntiRepetitionGuard {
       repetitionScore,
       sanitizedContent: finalContent,
       removedRedundancies,
+      majorMetaphors: Array.from(seenMetaphors),
+      poeticConstraintApplied,
     };
+  }
+
+  private static detectMetaphors(text: string): string[] {
+    const lower = text.toLowerCase();
+    return Object.keys(this.METAPHOR_REPLACEMENTS)
+      .filter(term => new RegExp(`\\b${term}\\b`, 'i').test(lower))
+      .sort((a, b) => lower.indexOf(a) - lower.indexOf(b));
   }
 }
 
+function previousAssistantTurnsFrom(history: ConversationTurn[]): ConversationTurn[] {
+  return history.filter(turn => turn.role === 'assistant').slice(-5);
+}

@@ -20,6 +20,8 @@ import { ContextualQueryResolver } from './contextual-query-resolver.js';
 import { ChatMemoryRetriever, HistoricalMemoryResult } from './chat-memory-retriever.js';
 import { ResponsePlanner } from './response-planner.js';
 import { AntiRepetitionGuard } from './anti-repetition-guard.js';
+import { EmotionalInterpretation } from './emotional-interpretation.js';
+import { SafetyResponseValidator, SafetyResponseAudit } from './safety-response-validator.js';
 
 export interface OrchestrationOptions {
   userId: string;
@@ -36,13 +38,47 @@ export interface OrchestrationAuditRecord {
   retrieved_scores: number[];
   reranked_chunks: string[];
   selected_evidence: string[];
+  canonical_evidence: Array<{
+    id: string;
+    sourceType: string;
+    sourceReference: string;
+    text: string;
+    characters: string[];
+    verseRange?: string;
+    speaker?: string;
+    listener?: string;
+  }>;
   retrieved_characters: string[];
   retrieved_episodes: string[];
   generated_characters: string[];
   generated_events: string[];
   unsupported_claims: string[];
+  grounding_claims: GroundingValidationResult['claims'];
   grounding_pass: boolean;
+  response_mode: ResponseMode;
   generation_attempts: number;
+  safety_audit: SafetyResponseAudit;
+  retrieval_path: 'database' | 'canonical_disk_fallback' | 'database_timeout_fallback' | 'hybrid' | 'cache' | 'disk' | 'none';
+  retrieval_duration_ms: number;
+  retrieval_timeout: boolean;
+  retrieval_timings?: {
+    entityExtractionMs: number;
+    embeddingMs: number;
+    gitaSearchMs: number;
+    mbQueryMs: number;
+    rerankingMs: number;
+    queryConstructionMs: number;
+    connectionAcquisitionMs: number;
+    databaseRoundTripMs: number;
+    rowRetrievalMs: number;
+    diskFallbackMs: number;
+    citationConstructionMs: number;
+    databaseTimeout: boolean;
+    poolWaitingCount: number;
+  };
+  database_latency_ms: number;
+  fallback_used: boolean;
+  fallback_reason?: string;
 }
 
 export interface OrchestrationResult {
@@ -51,6 +87,56 @@ export interface OrchestrationResult {
   requestId: string;
   totalLatencyMs: number;
   auditRecord: OrchestrationAuditRecord;
+}
+
+function recoverSupportedCanonicalContent(
+  response: string,
+  passages: RetrievedPassage[],
+  corpusDoesNotEstablish: boolean,
+  userMessage: string,
+  establishedEntities: string[],
+): { content: string; validation: GroundingValidationResult } {
+  const sentences = response.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(Boolean);
+  const retained: string[] = [];
+  let omittedUnsupportedClaim = false;
+  for (const sentence of sentences) {
+    const result = GroundingValidator.validate(sentence, passages, corpusDoesNotEstablish, userMessage, establishedEntities);
+    if (result.isValid) retained.push(sentence);
+    else omittedUnsupportedClaim = true;
+  }
+
+  if (!retained.length && passages.length) {
+    const queryEntities = HybridRetriever.extractQueryHints(userMessage).candidateEntities.map(entity => entity.toLowerCase());
+    const orderedPassages = passages.filter(p => {
+      const names = (p.characters || []).map(name => name.toLowerCase());
+      const passageText = `${p.translation} ${p.sourceReference}`.toLowerCase();
+      return queryEntities.length === 0
+        ? Boolean(HybridRetriever.extractQueryHints(userMessage).verseReference && p.sourceType.toLowerCase().includes('gita'))
+        : queryEntities.some(name => names.includes(name) || passageText.includes(name));
+    });
+    for (const passage of orderedPassages) {
+      for (const sourceSentence of passage.translation.split(/(?<=[.!?])\s+/).map(sentence => sentence.trim()).filter(sentence => sentence.length >= 35)) {
+        const extractiveAnswer = `A retrieved canonical passage says: “${sourceSentence.replace(/^[“"]|[”"]$/g, '')}”`;
+        const result = GroundingValidator.validate(extractiveAnswer, passages, corpusDoesNotEstablish, userMessage, establishedEntities);
+        if (result.isValid) {
+          retained.push(extractiveAnswer);
+          omittedUnsupportedClaim = true;
+          break;
+        }
+      }
+      if (retained.length) break;
+    }
+  }
+
+  if (omittedUnsupportedClaim && !retained.some(sentence => /\b(?:available|retrieved|canonical)\s+(?:source|text|passage|evidence|corpus|material)\b.{0,90}\b(?:does not|doesn't|cannot|can't|do not|don't)\s+(?:establish|show|confirm|support|verify)\b/i.test(sentence) || /\b(?:cannot|can't)\s+verify\b.{0,100}\bfrom\s+(?:the\s+)?(?:available|retrieved|canonical)\s+(?:source|text|passage|evidence|corpus|material)\b/i.test(sentence))) {
+    retained.push('I’ve left out details that the available evidence does not support.');
+  }
+
+  const content = retained.join(' ');
+  return {
+    content,
+    validation: GroundingValidator.validate(content, passages, corpusDoesNotEstablish, userMessage, establishedEntities),
+  };
 }
 
 export class AIOrchestratorService {
@@ -71,7 +157,7 @@ export class AIOrchestratorService {
     emit({ type: 'start', conversationId, messageId: requestId });
 
     // Step 1: Safety & Crisis Guardrail
-    const safetyCheck = PromptSafetyGuard.evaluateInput(userMessage);
+    let safetyCheck = PromptSafetyGuard.evaluateInput(userMessage);
     if (!safetyCheck.isSafe && (safetyCheck.category === 'prompt_injection' || safetyCheck.category === 'supernatural_authority') && safetyCheck.safeInterventionMessage) {
       const intervention = safetyCheck.safeInterventionMessage;
       emit({ type: 'token', token: intervention });
@@ -136,13 +222,22 @@ export class AIOrchestratorService {
           retrieved_scores: [],
           reranked_chunks: [],
           selected_evidence: [],
+          canonical_evidence: [],
           retrieved_characters: [],
           retrieved_episodes: [],
           generated_characters: [],
           generated_events: [],
           unsupported_claims: [],
+          grounding_claims: [],
           grounding_pass: true,
+          response_mode: 'crisis_safety',
           generation_attempts: 1,
+          safety_audit: SafetyResponseValidator.validateAndRepair(intervention, safetyCheck.riskLevel).audit,
+          retrieval_path: 'none',
+          retrieval_duration_ms: 0,
+          retrieval_timeout: false,
+          database_latency_ms: 0,
+          fallback_used: false,
         },
       };
     }
@@ -150,6 +245,7 @@ export class AIOrchestratorService {
     // Step 2: Fetch Multi-Tier Conversation History & Working Memory State
     const conversationState = await ConversationMemoryService.getState(conversationId, userId);
     const history = await ConversationMemoryService.getRecentTurns(conversationId, 12);
+    safetyCheck = PromptSafetyGuard.evaluateInput(userMessage, conversationState.riskLevel);
 
     // Step 3: Reference & Pronoun Resolution Across Multi-Turn Dialogue
     const referenceResolution = ReferenceResolver.resolve(userMessage, history, {
@@ -181,41 +277,56 @@ export class AIOrchestratorService {
 
     // Step 5: Intent & Emotion Classification
     const classification = IntentClassifier.classify(userMessage, trackerState);
-    const hasNonKrishnaCharacters = trackerState.activeCharacters.some(c => c.toLowerCase() !== 'krishna');
+    const explicitVerseHint = HybridRetriever.extractQueryHints(userMessage).verseReference;
+    const scriptureExplicitlyRequested = Boolean(explicitVerseHint) || Boolean(classification.isStoryRequest || classification.scriptureReferenceQuery) ||
+      /\b(bhagavad\s*gita|\bgita\b|mahabharata|scripture|shloka|sloka|shlok|verse|sanskrit|teachings? of krishna|what does .* teach|meaning of|explain (?:this|the verse|the shloka)|karmany|armany|vadhikaraste|evadhikaras|phaleshu|kadachana|dharmakshetre|kurukshetre|yada yada|sambhavami|sthitaprajna|chindanti|vasamsi)\b/i.test(userMessage);
+    // RAG relevance must come from this turn or an explicitly resolved reference. A
+    // character mentioned several topics ago must not drag the conversation back to
+    // Mahabharata retrieval or contaminate the current search query.
+    const currentCanonicalEntities = Array.from(new Set([
+      ...classification.extractedCharacters.map(c => c.toLowerCase()),
+      ...(referenceResolution.referentCharacter ? [referenceResolution.referentCharacter.toLowerCase()] : []),
+    ]));
+    const hasNonKrishnaCharacters = currentCanonicalEntities.some(c => c !== 'krishna');
+    const explicitCanonicalQuestion = Boolean(explicitVerseHint) || scriptureExplicitlyRequested || classification.isStoryRequest === true || hasNonKrishnaCharacters ||
+      /\b(?:mahabharata|mahabharat|bhagavad\s*gita|\bgita\b|shloka|sloka|shlok|verse|parva|krishna'?s teachings?|sanskrit|meaning of)\b/i.test(userMessage) ||
+      (Boolean(trackerState.activeVerse) && (referenceResolution.isFollowUp || referenceResolution.isTopicReturn));
     const isMahabharataRelevant =
+      safetyCheck.riskLevel === 'NONE' &&
       !referenceResolution.isHistoricalRecall &&
       !classification.isCasualBanter &&
-      !classification.isAntiHallucinationProbe &&
-      (
-        classification.mahabharataRelevant ||
-        classification.isStoryRequest === true ||
-        hasNonKrishnaCharacters ||
-        Boolean(trackerState.activeVerse)
-      );
+      !classification.isAntiHallucinationProbe;
 
     // Crisis State Tracking across turns (PART 14)
     const isCrisis =
       safetyCheck.isHighRiskCrisis ||
-      safetyCheck.category === 'self_harm' ||
-      /\b(want to die|kill myself|commit suicide|end my life|slit my wrist|overdose|nothing matters anymore|don't think i can keep going|cant keep going|can't keep going)\b/i.test(userMessage.toLowerCase()) ||
-      /\b(want to kill|revenge by killing|murder him|murder her)\b/i.test(userMessage.toLowerCase());
+      ['PASSIVE_CONCERN', 'ACTIVE_IDEATION', 'MODERATE', 'INTENT', 'MEANS_PRESENT', 'IMMINENT', 'VIOLENCE_IDEATION', 'VIOLENCE_ESCALATION', 'HIGH'].includes(safetyCheck.riskLevel);
 
     const crisisTurnCount = isCrisis
       ? (conversationState.crisisTurnCount || 0) + 1
       : 0;
+    const emotionalInterpretation = EmotionalInterpretation.interpret(
+      userMessage,
+      classification.emotionalState,
+      history,
+      conversationState.emotionalTrajectory,
+      safetyCheck.riskLevel,
+      referenceResolution.isTopicReturn,
+    );
 
     // Step 6: Contextual Query Resolution (RAG query formulation vs. memory gating)
     const queryPlan = ContextualQueryResolver.resolve(
       userMessage,
       referenceResolution,
       conversationState.activeTopic,
-      trackerState.activeCharacters,
+      currentCanonicalEntities,
       {
         emotionalState: classification.emotionalState,
         emotionalTrajectory: conversationState.emotionalTrajectory,
         userIntent: classification.intentCategory,
         recentUserTopics: conversationState.recentUserTopics,
         previouslyUsedThemes: conversationState.previouslyUsedThemes,
+        thematicKeywords: classification.thematicKeywords,
         history,
       }
     );
@@ -235,16 +346,32 @@ export class AIOrchestratorService {
     let retrievalLatencyMs = 0;
     let retrievalConfidence: 'high' | 'medium' | 'low' = 'low';
     let hasSufficientEvidence = false;
+    let retrievalPath: OrchestrationAuditRecord['retrieval_path'] = 'none';
+    let databaseLatencyMs = 0;
+    let fallbackUsed = false;
+    let fallbackReason: string | undefined;
+    let retrievalTimings: OrchestrationAuditRecord['retrieval_timings'];
 
     if (isMahabharataRelevant && queryPlan.ragRequired) {
       const allCharacters = Array.from(new Set([
         ...classification.extractedCharacters,
-        ...trackerState.activeCharacters,
+        ...(referenceResolution.referentCharacter ? [referenceResolution.referentCharacter] : []),
         ...queryPlan.entitiesForRetrieval,
       ]));
 
+      const explicitVerseReference = HybridRetriever.extractQueryHints(userMessage).verseReference;
+      const recentVerseReference = history.slice(-12).reverse()
+        .map(turn => turn.content.match(/\b(?:Bhagavad\s*)?Gita\s*(\d{1,2})[.:](\d{1,2})\b/i))
+        .find(match => match)?.slice(1);
+      const needsResolvedVerse = /\b(?:that|the|same|exact)\s+(?:gita\s+)?(?:verse|shloka|wording|text)\b|\bquote (?:that|the|same)\b/i.test(userMessage);
+      const retrievalQuery = explicitVerseReference
+        ? `${userMessage} Bhagavad Gita ${explicitVerseReference.chapter}.${explicitVerseReference.verse}`
+        : needsResolvedVerse && recentVerseReference
+          ? `${userMessage} Bhagavad Gita ${recentVerseReference[0]}.${recentVerseReference[1]}`
+          : queryPlan.contextualQuery;
+
       const retrievalResult = await HybridRetriever.retrieve(
-        queryPlan.contextualQuery,
+        retrievalQuery,
         allCharacters,
         classification.extractedThemes,
         3,
@@ -261,6 +388,11 @@ export class AIOrchestratorService {
       retrievalLatencyMs = retrievalResult.retrievalLatencyMs;
       retrievalConfidence = retrievalResult.confidence;
       hasSufficientEvidence = retrievalResult.hasSufficientEvidence;
+      retrievalPath = retrievalResult.retrievalPath || 'none';
+      databaseLatencyMs = retrievalResult.databaseLatencyMs || 0;
+      fallbackUsed = retrievalResult.fallbackUsed || false;
+      fallbackReason = retrievalResult.fallbackReason;
+      retrievalTimings = retrievalResult.timings;
 
       if (!hasSufficientEvidence && allCharacters.length === 0) {
         retrievedPassages = [];
@@ -311,6 +443,13 @@ export class AIOrchestratorService {
       previouslyCitedEpisodeIds: conversationState.previouslyCitedEpisodeIds,
       previouslyUsedTeachings: conversationState.previouslyUsedTeachings,
       emotionalTrajectory: conversationState.emotionalTrajectory,
+      emotionalInterpretation,
+      scriptureExplicitlyRequested,
+      riskLevel: safetyCheck.riskLevel,
+      safetyResponseMode: safetyCheck.responseMode,
+      safetyGuidance: safetyCheck.safetyGuidance,
+      isCrisis,
+      turnCount: history.filter(h => h.role === 'user').length + 1,
     });
 
     // Development Debug Mode Emitter
@@ -361,6 +500,9 @@ export class AIOrchestratorService {
         previouslyMentionedCharacters: conversationState.previouslyMentionedCharacters,
         previouslyUsedTeachings: conversationState.previouslyUsedTeachings,
         emotionalTrajectory: [...conversationState.emotionalTrajectory, classification.emotionalState],
+        emotionalInterpretation,
+        riskLevel: safetyCheck.riskLevel,
+        safetyGuidance: safetyCheck.safetyGuidance,
       }
     );
 
@@ -445,6 +587,9 @@ export class AIOrchestratorService {
     // Step 8: Final Sanitize & Post-Generation Grounding Validation (Requirements 12 & 13)
     generatedContent = MarkdownSanitizer.sanitize(generatedContent);
 
+    // Keep deterministic safety policy visible to the generator's final response even when
+    // the legacy classifier does not classify a passive or newly phrased signal as high risk.
+
     // Anti-Repetition Guard: Suppress repeated introductions, identity claims, and circular boilerplate
     const repetitionCheck = AntiRepetitionGuard.filter(
       generatedContent,
@@ -512,7 +657,7 @@ export class AIOrchestratorService {
         content: `CORRECTION MANDATE: Your previous response contained unsupported claims: ${groundingResult.unsupportedClaims.join('; ')}. ` +
           `You must ONLY mention characters and episodes present in the retrieved evidence above. ` +
           `Do NOT invent dialogue or put paraphrased teachings inside quotation marks. Never use quotation marks unless quoting the exact words from the retrieved passage above. ` +
-          `If the retrieved evidence does not contain a suitable parallel, speak with pure conversational presence and warmth without naming unsupported characters or inventing stories. Rewrite now:`
+          `If the user premise or a specific claim cannot be verified, say so plainly. Do not invent missing details, relationships, quotations, events, verses, or canonical attribution. If no relevant evidence supports an epic example, answer naturally without one. Rewrite now:`
       };
 
       try {
@@ -529,13 +674,18 @@ export class AIOrchestratorService {
         );
         retryContent = MarkdownSanitizer.sanitize(retryContent);
         const retryValidation = GroundingValidator.validate(retryContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
-        if (retryValidation.isValid || retryValidation.unsupportedClaims.length < groundingResult.unsupportedClaims.length) {
+        if (retryValidation.isValid) {
+          generatedContent = retryContent;
+          groundingResult = retryValidation;
+          emit({ type: 'replace', content: generatedContent });
+        } else {
           generatedContent = retryContent;
           groundingResult = retryValidation;
           emit({ type: 'replace', content: generatedContent });
         }
       } catch (retryErr: any) {
         console.warn('[AIOrchestratorService] Corrective regeneration failed:', retryErr.message);
+        groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
       }
     }
 
@@ -555,11 +705,59 @@ export class AIOrchestratorService {
       emit({ type: 'replace', content: generatedContent });
     }
 
-    const quoteResult = QuoteVerifier.verify(
+    if (!groundingResult.isValid) {
+      const recovered = recoverSupportedCanonicalContent(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+      if (recovered.content && recovered.validation.isValid) {
+        generatedContent = recovered.content;
+        groundingResult = recovered.validation;
+      } else {
+        generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+      }
+      emit({ type: 'replace', content: generatedContent });
+    }
+
+    const recentAssistantMessages = history.filter(turn => turn.role === 'assistant').slice(-4).map(turn => turn.content);
+    const safetyResult = SafetyResponseValidator.validateAndRepair(generatedContent, safetyCheck.riskLevel, safetyCheck.responseMode, recentAssistantMessages, userMessage, crisisTurnCount);
+    const safetyAudit = safetyResult.audit;
+    if (safetyResult.content !== generatedContent) {
+      generatedContent = safetyResult.content;
+      emit({ type: 'replace', content: generatedContent });
+    }
+    groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+    if (!groundingResult.isValid) {
+      const recovered = recoverSupportedCanonicalContent(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+      if (recovered.content && recovered.validation.isValid) {
+        generatedContent = recovered.content;
+        groundingResult = recovered.validation;
+      } else {
+        generatedContent = 'I can’t verify that specific event or claim from the canonical material retrieved, and I don’t want to invent a story or quote. If you remember another detail, I can help check it against the source.';
+        groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+      }
+      const safetyAfterFallback = SafetyResponseValidator.validateAndRepair(generatedContent, safetyCheck.riskLevel, safetyCheck.responseMode, recentAssistantMessages, userMessage, crisisTurnCount);
+      generatedContent = safetyAfterFallback.content;
+      Object.assign(safetyAudit, safetyAfterFallback.audit);
+      emit({ type: 'replace', content: generatedContent });
+    }
+
+    let citationConstructionMs = 0;
+    const firstCitationBuildStart = performance.now();
+    let quoteResult = QuoteVerifier.verify(
       generatedContent,
       retrievedPassages,
-      corpusDoesNotEstablish
+      corpusDoesNotEstablish,
+      groundingResult.claims,
     );
+    citationConstructionMs += performance.now() - firstCitationBuildStart;
+
+    if (quoteResult.hasUngroundedScriptureClaim) {
+      generatedContent = 'I can’t verify that specific verse or claim from the canonical material retrieved, and I don’t want to invent a quotation. If you can share another detail, I can check it against the source.';
+      groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
+      const citationBuildStart = performance.now();
+      quoteResult = QuoteVerifier.verify(generatedContent, retrievedPassages, corpusDoesNotEstablish, groundingResult.claims);
+      citationConstructionMs += performance.now() - citationBuildStart;
+      emit({ type: 'replace', content: quoteResult.verifiedContent });
+    }
 
     if (isCopyrightRefusal || quoteResult.verifiedContent !== generatedContent) {
       emit({ type: 'replace', content: quoteResult.verifiedContent });
@@ -650,6 +848,7 @@ export class AIOrchestratorService {
 
     const establishedFactToRecord = userSituationFact || quoteResult.citations[0]?.contextSummary || (isMahabharataRelevant ? `Discussed ${topicToRecord}` : undefined);
 
+    ConversationMemoryService.setSafetyState(conversationId, userId, safetyCheck.riskLevel, isCrisis);
     ConversationMemoryService.recordTurnAndUpdateMemory({
       conversationId,
       userId,
@@ -668,6 +867,7 @@ export class AIOrchestratorService {
       usedTeachings: classification.extractedThemes,
       retrievedEvidenceReferences: retrievedPassages.map(p => p.sourceReference),
       isCrisis,
+      riskLevel: safetyCheck.riskLevel,
     }).catch(err => console.warn('[AIOrchestratorService] Asynchronous memory update notice:', err.message));
 
     // Step 11: Auto-Title generation for the conversation if first turn
@@ -692,18 +892,38 @@ export class AIOrchestratorService {
 
     const auditRecord: OrchestrationAuditRecord = {
       query: userMessage,
-      retrieval_method: 'hybrid_pgvector_fts',
+      retrieval_method: retrievalPath,
       retrieved_chunks: retrievedChunkIds,
       retrieved_scores: retrievalScores,
       reranked_chunks: retrievedChunkIds,
       selected_evidence: retrievedEpisodes,
+      canonical_evidence: retrievedPassages.map(p => ({
+        id: p.id,
+        sourceType: p.sourceType,
+        sourceReference: p.sourceReference,
+        text: p.translation,
+        characters: p.characters || [],
+        verseRange: p.verseRange,
+        speaker: p.speaker,
+        listener: p.listener,
+      })),
       retrieved_characters: retrievedCharacters,
       retrieved_episodes: retrievedEpisodes,
       generated_characters: groundingResult.mentionedCharacters,
       generated_events: groundingResult.claims.filter(c => c.type === 'event').map(c => c.item),
       unsupported_claims: groundingResult.unsupportedClaims,
-      grounding_pass: groundingResult.isValid,
+      grounding_claims: groundingResult.claims,
+      grounding_pass: groundingResult.isValid && !quoteResult.hasUngroundedScriptureClaim,
+      response_mode: responsePlan.responseMode,
       generation_attempts: generationAttempts,
+      safety_audit: safetyAudit,
+      retrieval_path: retrievalPath,
+      retrieval_duration_ms: retrievalLatencyMs,
+      retrieval_timeout: retrievalTimings?.databaseTimeout || retrievalPath === 'database_timeout_fallback',
+      retrieval_timings: retrievalTimings ? { ...retrievalTimings, citationConstructionMs } : undefined,
+      database_latency_ms: databaseLatencyMs,
+      fallback_used: fallbackUsed,
+      fallback_reason: fallbackReason,
     };
 
     const totalLatencyMs = Date.now() - startTime;

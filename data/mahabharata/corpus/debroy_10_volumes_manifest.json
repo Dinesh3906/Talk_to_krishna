@@ -1,0 +1,659 @@
+{
+  "sourceFile": "D:\\The Mahabharata Set of 10 Volumes.pdf",
+  "fileSizeMb": "54.40",
+  "sha256": "1c387059efc070f9e1c414a5968a7c9de465d736aaa33f98cd284c1a3c7f9863",
+  "totalPages": 3723,
+  "emptyPages": 100,
+  "totalChars": 12799324,
+  "approxWords": 2327150,
+  "volumes": [
+    {
+      "page": 4,
+      "title": "Volume 1",
+      "snippet": "The Mahabharata Volume 1 (Sections 1 to 15) Translated by BIBEK DEBROY PENGUIN BOOKS"
+    },
+    {
+      "page": 279,
+      "title": "Volume 2",
+      "snippet": "The Mahabharata Volume 2 (Sections 16 to 32) Translated By BIBEK DEBROY PENGUIN BOOKS"
+    },
+    {
+      "page": 489,
+      "title": "Volume 3",
+      "snippet": "The third volume will complete Aranyaka (Vana) Parva, the story of the so- journ in the forest and w"
+    },
+    {
+      "page": 816,
+      "title": "Volume 4",
+      "snippet": "The fourth volume will have Virata Parva and Udyoga Parva and cover Sec- tions 45 to 60 of the 100 p"
+    },
+    {
+      "page": 1133,
+      "title": "Volume 5",
+      "snippet": "The fifth volume will cover Sections 60 to 68 of the 100-parva classifica- tion. It will complete Ud"
+    },
+    {
+      "page": 1436,
+      "title": "Volume 6",
+      "snippet": "The sixth volume completes Drona Parva and features the deaths of Abhi- manyu, Jayadratha, Ghatotkac"
+    },
+    {
+      "page": 1726,
+      "title": "Volume 7",
+      "snippet": "The seventh volume will end the account of the war, with the deaths of Kar- na, Shalya and, most imp"
+    },
+    {
+      "page": 2245,
+      "title": "Volume 8",
+      "snippet": "With the war over, the eighth volume is on the aftermath of the war and covers Souptika Parva, Stri "
+    },
+    {
+      "page": 2739,
+      "title": "Volume 9",
+      "snippet": "pable of performing any action. No man on earth will see its end, but knows that there will be an en"
+    },
+    {
+      "page": 3357,
+      "title": "Volume 10",
+      "snippet": "Translated by Bibek Debroy THE MAHABHARATA Volume 10 (Sections 87 to 95)"
+    }
+  ],
+  "parvas": [
+    {
+      "page": 20,
+      "parva": "Adi Parva",
+      "snippet": "A few comments on the translation are now in order. First, there is the vexed question of diacritica"
+    },
+    {
+      "page": 20,
+      "parva": "Shanti Parva",
+      "snippet": "A few comments on the translation are now in order. First, there is the vexed question of diacritica"
+    },
+    {
+      "page": 21,
+      "parva": "Virata Parva",
+      "snippet": "that 1050 years elapsed between Parikshit’s birth and Mahapadma Nanda’s ascension. Others state that"
+    },
+    {
+      "page": 35,
+      "parva": "Sabha Parva",
+      "snippet": "verses and accounts and is adorned in many ways. It is accepted by the wise the way men who desire f"
+    },
+    {
+      "page": 35,
+      "parva": "Karna Parva",
+      "snippet": "verses and accounts and is adorned in many ways. It is accepted by the wise the way men who desire f"
+    },
+    {
+      "page": 35,
+      "parva": "Shalya Parva",
+      "snippet": "verses and accounts and is adorned in many ways. It is accepted by the wise the way men who desire f"
+    },
+    {
+      "page": 35,
+      "parva": "Stri Parva",
+      "snippet": "verses and accounts and is adorned in many ways. It is accepted by the wise the way men who desire f"
+    },
+    {
+      "page": 35,
+      "parva": "Anushasana Parva",
+      "snippet": "verses and accounts and is adorned in many ways. It is accepted by the wise the way men who desire f"
+    },
+    {
+      "page": 36,
+      "parva": "Adi Parva",
+      "snippet": "and the parva that describes the wise Bhishma’s ascent to heaven (90); next is Ashvamedha Parva (91)"
+    },
+    {
+      "page": 36,
+      "parva": "Sabha Parva",
+      "snippet": "and the parva that describes the wise Bhishma’s ascent to heaven (90); next is Ashvamedha Parva (91)"
+    },
+    {
+      "page": 37,
+      "parva": "Virata Parva",
+      "snippet": "was boundless, wanderings in search of weapons, his duel with Mahadeva who was in the form of a hunt"
+    },
+    {
+      "page": 37,
+      "parva": "Udyoga Parva",
+      "snippet": "was boundless, wanderings in search of weapons, his duel with Mahadeva who was in the form of a hunt"
+    },
+    {
+      "page": 38,
+      "parva": "Bhishma Parva",
+      "snippet": "Amba. These are the many accounts in the fifth parva of Bharata, titled Udyoga Parva and with incide"
+    },
+    {
+      "page": 38,
+      "parva": "Drona Parva",
+      "snippet": "Amba. These are the many accounts in the fifth parva of Bharata, titled Udyoga Parva and with incide"
+    },
+    {
+      "page": 38,
+      "parva": "Karna Parva",
+      "snippet": "Amba. These are the many accounts in the fifth parva of Bharata, titled Udyoga Parva and with incide"
+    },
+    {
+      "page": 38,
+      "parva": "Shalya Parva",
+      "snippet": "Amba. These are the many accounts in the fifth parva of Bharata, titled Udyoga Parva and with incide"
+    },
+    {
+      "page": 39,
+      "parva": "Stri Parva",
+      "snippet": "‘After that is told the pitiful Stri Parva. There is recounted the pitiful lamentations of the wives"
+    },
+    {
+      "page": 39,
+      "parva": "Shanti Parva",
+      "snippet": "‘After that is told the pitiful Stri Parva. There is recounted the pitiful lamentations of the wives"
+    },
+    {
+      "page": 39,
+      "parva": "Anushasana Parva",
+      "snippet": "‘After that is told the pitiful Stri Parva. There is recounted the pitiful lamentations of the wives"
+    },
+    {
+      "page": 39,
+      "parva": "Ashvamedhika Parva",
+      "snippet": "‘After that is told the pitiful Stri Parva. There is recounted the pitiful lamentations of the wives"
+    },
+    {
+      "page": 39,
+      "parva": "Ashramavasika Parva",
+      "snippet": "‘After that is told the pitiful Stri Parva. There is recounted the pitiful lamentations of the wives"
+    },
+    {
+      "page": 40,
+      "parva": "Mahaprasthanika Parva",
+      "snippet": "went to Dharmaraja and asked for permission to become an ascetic. All this is described in the sixte"
+    },
+    {
+      "page": 40,
+      "parva": "Svargarohana Parva",
+      "snippet": "went to Dharmaraja and asked for permission to become an ascetic. All this is described in the sixte"
+    },
+    {
+      "page": 280,
+      "parva": "Sabha Parva",
+      "snippet": "Contents About the Translator Dedication Family Tree Map of Bharatavarsha Introduction SECTION SIXTE"
+    },
+    {
+      "page": 294,
+      "parva": "Adi Parva",
+      "snippet": "ed in a translation of the Mahabharata? It doesn’t quite belong. Yet, it is described as a khila or "
+    },
+    {
+      "page": 294,
+      "parva": "Shanti Parva",
+      "snippet": "ed in a translation of the Mahabharata? It doesn’t quite belong. Yet, it is described as a khila or "
+    },
+    {
+      "page": 295,
+      "parva": "Adi Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 295,
+      "parva": "Virata Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 300,
+      "parva": "Adi Parva",
+      "snippet": "In the second volume, we cover Sections 16 to 32 of the 100-parva classifi- cation. This completes A"
+    },
+    {
+      "page": 300,
+      "parva": "Sabha Parva",
+      "snippet": "In the second volume, we cover Sections 16 to 32 of the 100-parva classifi- cation. This completes A"
+    },
+    {
+      "page": 326,
+      "parva": "Adi Parva",
+      "snippet": "‘Then, surrounded by masses of Maruts, the illustrious lord of the gods descended from the sky and s"
+    },
+    {
+      "page": 327,
+      "parva": "Sabha Parva",
+      "snippet": "Sabha Parva The word sabha means assembly hall or council and in the eighteen-parva classification o"
+    },
+    {
+      "page": 405,
+      "parva": "Vana Parva",
+      "snippet": "Aranyaka Parva The word aranya means forest and in the eighteen-parva classification of the Mahabhar"
+    },
+    {
+      "page": 405,
+      "parva": "Shanti Parva",
+      "snippet": "Aranyaka Parva The word aranya means forest and in the eighteen-parva classification of the Mahabhar"
+    },
+    {
+      "page": 570,
+      "parva": "Adi Parva",
+      "snippet": "A few comments on the translation are now in order. First, there is the vexed question of diacritica"
+    },
+    {
+      "page": 570,
+      "parva": "Shanti Parva",
+      "snippet": "A few comments on the translation are now in order. First, there is the vexed question of diacritica"
+    },
+    {
+      "page": 571,
+      "parva": "Virata Parva",
+      "snippet": "that 1050 years elapsed between Parikshit’s birth and Mahapadma Nanda’s ascension. Others state that"
+    },
+    {
+      "page": 575,
+      "parva": "Vana Parva",
+      "snippet": "The third volume completes the Vana Parva, the account of the Pandavas’ sojourn in the forest. It de"
+    },
+    {
+      "page": 816,
+      "parva": "Virata Parva",
+      "snippet": "The fourth volume will have Virata Parva and Udyoga Parva and cover Sec- tions 45 to 60 of the 100 p"
+    },
+    {
+      "page": 816,
+      "parva": "Udyoga Parva",
+      "snippet": "The fourth volume will have Virata Parva and Udyoga Parva and cover Sec- tions 45 to 60 of the 100 p"
+    },
+    {
+      "page": 852,
+      "parva": "Virata Parva",
+      "snippet": "1 Arjuna’s name, literally the one with a diadem on his head. 2 That is, they were comfortable and"
+    },
+    {
+      "page": 884,
+      "parva": "Udyoga Parva",
+      "snippet": "Contents About the Translator Dedication Family tree Map of Bharatavarsha Introduction SECTION FORTY"
+    },
+    {
+      "page": 901,
+      "parva": "Adi Parva",
+      "snippet": "readers off. Sacrificing academic purity, there is thus a conscious decision to avoid diacritical ma"
+    },
+    {
+      "page": 901,
+      "parva": "Shanti Parva",
+      "snippet": "readers off. Sacrificing academic purity, there is thus a conscious decision to avoid diacritical ma"
+    },
+    {
+      "page": 902,
+      "parva": "Virata Parva",
+      "snippet": "Kurukshetra war to around 1400 BCE. This is probably the best we can do, since we also know that the"
+    },
+    {
+      "page": 963,
+      "parva": "Virata Parva",
+      "snippet": "‘In accordance with the rites, the marriage between the Matsyas and the Parthas took place. Conch sh"
+    },
+    {
+      "page": 964,
+      "parva": "Udyoga Parva",
+      "snippet": "Udyoga Parva In the 18-parva classification of the Mahabharata, Udyoga Parva is fifth. The word udyo"
+    },
+    {
+      "page": 1133,
+      "parva": "Udyoga Parva",
+      "snippet": "The fifth volume will cover Sections 60 to 68 of the 100-parva classifica- tion. It will complete Ud"
+    },
+    {
+      "page": 1133,
+      "parva": "Bhishma Parva",
+      "snippet": "The fifth volume will cover Sections 60 to 68 of the 100-parva classifica- tion. It will complete Ud"
+    },
+    {
+      "page": 1133,
+      "parva": "Drona Parva",
+      "snippet": "The fifth volume will cover Sections 60 to 68 of the 100-parva classifica- tion. It will complete Ud"
+    },
+    {
+      "page": 1203,
+      "parva": "Adi Parva",
+      "snippet": "ardous venture, since Ganguly, Dutt and Lal are Bengalis, surely a fourth Bengali must also be pre-e"
+    },
+    {
+      "page": 1203,
+      "parva": "Shanti Parva",
+      "snippet": "ardous venture, since Ganguly, Dutt and Lal are Bengalis, surely a fourth Bengali must also be pre-e"
+    },
+    {
+      "page": 1204,
+      "parva": "Virata Parva",
+      "snippet": "Varahamihira). This doesn’t mesh with the timelines of Indian history. Mahapadma Nanda ascended the "
+    },
+    {
+      "page": 1208,
+      "parva": "Udyoga Parva",
+      "snippet": "Section Sixty Amba-Upakhyana Parva This parva has 755 shlokas and twenty-eight chapters. Chapter 833"
+    },
+    {
+      "page": 1230,
+      "parva": "Udyoga Parva",
+      "snippet": "va, Shalya and Brihadbala from Kosala followed at the rear, with Dhritarashtra’s son at the forefron"
+    },
+    {
+      "page": 1231,
+      "parva": "Bhishma Parva",
+      "snippet": "Bhishma Parva In the 18-parva classification of the Mahabharata, Bhishma Parva is sixth. This segmen"
+    },
+    {
+      "page": 1394,
+      "parva": "Bhishma Parva",
+      "snippet": "brahmanas, your valour and your supreme attachment to generosity. There is no man like you and you a"
+    },
+    {
+      "page": 1395,
+      "parva": "Drona Parva",
+      "snippet": "Drona Parva Drona Parva continues with the account of the war. After Bhishma’s death, Drona is insta"
+    },
+    {
+      "page": 1436,
+      "parva": "Drona Parva",
+      "snippet": "The sixth volume completes Drona Parva and features the deaths of Abhi- manyu, Jayadratha, Ghatotkac"
+    },
+    {
+      "page": 1481,
+      "parva": "Drona Parva",
+      "snippet": "225 Subhadra belonged to the Yadava lineage and is being referred to as Satvati. Lakshmana was Duryo"
+    },
+    {
+      "page": 1516,
+      "parva": "Adi Parva",
+      "snippet": "ardous venture, since Ganguly, Dutt and Lal are Bengalis, surely a fourth Bengali must also be pre-e"
+    },
+    {
+      "page": 1516,
+      "parva": "Shanti Parva",
+      "snippet": "ardous venture, since Ganguly, Dutt and Lal are Bengalis, surely a fourth Bengali must also be pre-e"
+    },
+    {
+      "page": 1517,
+      "parva": "Virata Parva",
+      "snippet": "Varahamihira). This doesn’t mesh with the timelines of Indian history. Mahapadma Nanda ascended the "
+    },
+    {
+      "page": 1521,
+      "parva": "Drona Parva",
+      "snippet": "Drona Parva continued After Bhishma’s death, Drona is instated as the commander of the Kourava army "
+    },
+    {
+      "page": 1709,
+      "parva": "Drona Parva",
+      "snippet": "Section Seventy-Two Narayana Astra Moksha Parva This parva has 538 shlokas and eight chapters. Chapt"
+    },
+    {
+      "page": 1725,
+      "parva": "Drona Parva",
+      "snippet": "he is the lord who destroys everything. He is the consumer. He is fierce. He is the powerful Agni, t"
+    },
+    {
+      "page": 1726,
+      "parva": "Karna Parva",
+      "snippet": "The seventh volume will end the account of the war, with the deaths of Kar- na, Shalya and, most imp"
+    },
+    {
+      "page": 1726,
+      "parva": "Shalya Parva",
+      "snippet": "The seventh volume will end the account of the war, with the deaths of Kar- na, Shalya and, most imp"
+    },
+    {
+      "page": 1755,
+      "parva": "Shalya Parva",
+      "snippet": "157 Duryodhana. 158 Bhima. 159 One of Duryodhana’s brothers. 160 Duryodhana. 161 Sahadeva. 162 To t"
+    },
+    {
+      "page": 1769,
+      "parva": "Karna Parva",
+      "snippet": "Contents About the Translator Dedication Family tree Map of Bharatavarsha Introduction Karna Parva S"
+    },
+    {
+      "page": 1771,
+      "parva": "Shalya Parva",
+      "snippet": "Chapter 1212(62): 62 shlokas Chapter 1213(63): 83 shlokas Chapter 1214(64): 32 shlokas Chapter 1215("
+    },
+    {
+      "page": 1790,
+      "parva": "Adi Parva",
+      "snippet": "natural and the closest—such as, Droupadi rather than Draupadi. There are rare instances where avoid"
+    },
+    {
+      "page": 1790,
+      "parva": "Shanti Parva",
+      "snippet": "natural and the closest—such as, Droupadi rather than Draupadi. There are rare instances where avoid"
+    },
+    {
+      "page": 1791,
+      "parva": "Virata Parva",
+      "snippet": "dom flourished between 1200 BCE and 800 BCE. To keep the record straight, archaeological material ha"
+    },
+    {
+      "page": 1795,
+      "parva": "Karna Parva",
+      "snippet": "Karna Parva Karna Parva continues with the account of the war. After Drona’s death, Karna is instate"
+    },
+    {
+      "page": 1966,
+      "parva": "Karna Parva",
+      "snippet": "about remaining alive and about the kingdom. Maharatha Karna has been killed. O bull among men! It i"
+    },
+    {
+      "page": 1967,
+      "parva": "Shalya Parva",
+      "snippet": "Shalya Parva Shalya Parva continues with the account of the war. After Karna’s death, Shalya is inst"
+    },
+    {
+      "page": 2108,
+      "parva": "Shalya Parva",
+      "snippet": "ther was slain by those inferior ones, through an extremely cruel deed. O king! But that did not tor"
+    },
+    {
+      "page": 2245,
+      "parva": "Stri Parva",
+      "snippet": "With the war over, the eighth volume is on the aftermath of the war and covers Souptika Parva, Stri "
+    },
+    {
+      "page": 2245,
+      "parva": "Shanti Parva",
+      "snippet": "With the war over, the eighth volume is on the aftermath of the war and covers Souptika Parva, Stri "
+    },
+    {
+      "page": 2255,
+      "parva": "Stri Parva",
+      "snippet": "Contents Dedication Praise for Previous Volumes About the Translator Family tree Map of Bharatavarsh"
+    },
+    {
+      "page": 2276,
+      "parva": "Adi Parva",
+      "snippet": "Mahabharata and BORI includes it as part of the critical edition, though in a separate volume. Hence"
+    },
+    {
+      "page": 2276,
+      "parva": "Shanti Parva",
+      "snippet": "Mahabharata and BORI includes it as part of the critical edition, though in a separate volume. Hence"
+    },
+    {
+      "page": 2277,
+      "parva": "Adi Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 2277,
+      "parva": "Virata Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 2326,
+      "parva": "Stri Parva",
+      "snippet": "Stri Parva Stri Parva is a parva concerning women. This parva is so named because it is about the gr"
+    },
+    {
+      "page": 2340,
+      "parva": "Stri Parva",
+      "snippet": "Section Eighty-one STRI PARVA"
+    },
+    {
+      "page": 2371,
+      "parva": "Stri Parva",
+      "snippet": "Chapter 1328(27) Vaishampayana said, ‘They reached the auspicious Ganga, desired by pious people. It"
+    },
+    {
+      "page": 2374,
+      "parva": "Shanti Parva",
+      "snippet": "Shanti Parva Shanti Parva is the twelfth in the 18-parva classification and is the longest parva of "
+    },
+    {
+      "page": 2772,
+      "parva": "Karna Parva",
+      "snippet": "CHAPTER 1315(14) 30 At the time of the gambling match, described in Section 27 (Volume 2). 31 Vris"
+    },
+    {
+      "page": 2980,
+      "parva": "Shanti Parva",
+      "snippet": "The ninth volume will complete Bhishma’s teachings in Shanti Parva, that is, it will complete the Mo"
+    },
+    {
+      "page": 2980,
+      "parva": "Anushasana Parva",
+      "snippet": "The ninth volume will complete Bhishma’s teachings in Shanti Parva, that is, it will complete the Mo"
+    },
+    {
+      "page": 2998,
+      "parva": "Anushasana Parva",
+      "snippet": "ing the incidents is both subjective and controversial and irrelevant for the purposes of this trans"
+    },
+    {
+      "page": 3001,
+      "parva": "Adi Parva",
+      "snippet": "translation of the Hari Vamsha will be published in a separate and independent volume. With the Hari"
+    },
+    {
+      "page": 3001,
+      "parva": "Shanti Parva",
+      "snippet": "translation of the Hari Vamsha will be published in a separate and independent volume. With the Hari"
+    },
+    {
+      "page": 3002,
+      "parva": "Adi Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 3002,
+      "parva": "Virata Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 3011,
+      "parva": "Shanti Parva",
+      "snippet": "Shanti Parva Shanti Parva is a parva that is about peace, shanti meaning peace. In the 18- parva cla"
+    },
+    {
+      "page": 3204,
+      "parva": "Shanti Parva",
+      "snippet": "‘B hishma said, “O king! The brahmana honoured the foremost among serpents. He made up his mind to b"
+    },
+    {
+      "page": 3205,
+      "parva": "Anushasana Parva",
+      "snippet": "Anushasana Parva Anusbasana means instruction or advice and Anushasana Parva continues with Bhishma’"
+    },
+    {
+      "page": 3288,
+      "parva": "Anushasana Parva",
+      "snippet": "earth, with its mountains and oceans, to ashes. He will control the fire of his anger for some time."
+    },
+    {
+      "page": 3359,
+      "parva": "Ashvamedhika Parva",
+      "snippet": "Contents About the Translator Praise for the Series Dedication Introduction Family tree Map of Bhara"
+    },
+    {
+      "page": 3359,
+      "parva": "Svargarohana Parva",
+      "snippet": "Contents About the Translator Praise for the Series Dedication Introduction Family tree Map of Bhara"
+    },
+    {
+      "page": 3367,
+      "parva": "Anushasana Parva",
+      "snippet": "ing the incidents is both subjective and controversial and irrelevant for the purposes of this trans"
+    },
+    {
+      "page": 3370,
+      "parva": "Adi Parva",
+      "snippet": "translation of the Hari Vamsha will be published in a separate and independent volume. With the Hari"
+    },
+    {
+      "page": 3370,
+      "parva": "Shanti Parva",
+      "snippet": "translation of the Hari Vamsha will be published in a separate and independent volume. With the Hari"
+    },
+    {
+      "page": 3371,
+      "parva": "Adi Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 3371,
+      "parva": "Virata Parva",
+      "snippet": "The Mahabharata is one of the greatest stories ever told. It has plots and subplots and meanderings "
+    },
+    {
+      "page": 3381,
+      "parva": "Anushasana Parva",
+      "snippet": "Anushasana Parva Anushasana means instruction or advice and Anushasana Parva continues with Bhishma’"
+    },
+    {
+      "page": 3511,
+      "parva": "Svargarohana Parva",
+      "snippet": "Section Eighty-Eight BHISHMA-SVARGAROHANA PARVA This section has 84 shlokas and 2 chapters. Chapte"
+    },
+    {
+      "page": 3514,
+      "parva": "Anushasana Parva",
+      "snippet": "sessed divine weapons and was immensely valorous. He has now been slain by Shikhandi. O kings! There"
+    },
+    {
+      "page": 3514,
+      "parva": "Svargarohana Parva",
+      "snippet": "sessed divine weapons and was immensely valorous. He has now been slain by Shikhandi. O kings! There"
+    },
+    {
+      "page": 3516,
+      "parva": "Ashvamedhika Parva",
+      "snippet": "Section Eighty-Nine ASHVAMEDHIKA PARVA This section has 2743 shlokas and 96 chapters. Chapter 1836"
+    },
+    {
+      "page": 3604,
+      "parva": "Ashvamedhika Parva",
+      "snippet": "J over, we will take our leave from you and depart.” While they were conversing, the extremely energ"
+    },
+    {
+      "page": 3664,
+      "parva": "Svargarohana Parva",
+      "snippet": "Section Ninety-Five SVARGAROHANA PARVA This section has 194 shlokas and 5 chapters. Chapter 1991(1"
+    },
+    {
+      "page": 3670,
+      "parva": "Svargarohana Parva",
+      "snippet": "Mahabharata in the evening, one is freed from one’s sins. O bull among the Bharata lineage! Everythi"
+    },
+    {
+      "page": 3700,
+      "parva": "Svargarohana Parva",
+      "snippet": "Section Eighty-Eight Bhishma-Svargarohana Parva 1 Bhishma. 2 Hastinapura. 3 Satyaki. 4 Another name"
+    },
+    {
+      "page": 3701,
+      "parva": "Ashvamedhika Parva",
+      "snippet": "Section Eighty-Nine Ashvamedhika Parva 1 To Bhishma. 2 This probably means father and mother, that "
+    },
+    {
+      "page": 3718,
+      "parva": "Svargarohana Parva",
+      "snippet": "Section Ninety-Five Svargarohana Parva 1 Karna. 2 The word used is tata. Given the context, it can "
+    }
+  ],
+  "scannedAt": "2026-10-16T05:57:34.689Z"
+}

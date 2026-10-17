@@ -283,25 +283,35 @@ export class IntentClassifier {
     if (isRelationshipGrief) {
       let emotionalState: EmotionalState = 'attachment';
       const isBereavement = /lost my (mother|father|parent|son|daughter)|passed away|died|house feels so silent|unbearably silent/i.test(text);
+      const isInfidelityGuilt = /\b(cheated|infidelity|betrayed my|guilt|guilty|scared to tell)\b/i.test(text);
       if (isBereavement || /breakup and feel so empty/i.test(text)) {
         emotionalState = 'grief';
+      } else if (isInfidelityGuilt) {
+        emotionalState = 'confusion';
       } else if (/forgive someone|relief/i.test(text)) {
         emotionalState = 'peace';
       }
 
-      const thematicKeywords = isBereavement
-        ? ['grief', 'death', 'mother', 'sorrow', 'lamentation', 'weeping', 'bereaved', 'departed', 'solace']
-        : ['betrayal', 'abandonment', 'separated', 'beloved', 'heartbreak', 'broken', 'trust', 'attachment'];
+      let thematicKeywords = ['attachment', 'Moha', 'Raga', 'longing', 'separation', 'impermanence', 'peace', 'solace', '2.62', '2.71', '12.13'];
+      let extractedThemes = ['attachment', 'loss', 'resilience', 'impermanence'];
+
+      if (isBereavement) {
+        thematicKeywords = ['grief', 'death', 'mother', 'sorrow', 'lamentation', 'weeping', 'bereaved', 'departed', 'solace', '2.11', '2.20'];
+        extractedThemes = ['atman', 'grief', 'immortality', 'solace'];
+      } else if (isInfidelityGuilt) {
+        thematicKeywords = ['guilt', 'remorse', 'repentance', 'Pashchattapa', 'Satya', 'truth', 'atonement', 'redemption', 'righteousness', '9.30', '9.31', '18.66'];
+        extractedThemes = ['satya', 'dharma', 'repentance', 'redemption'];
+      }
 
       return {
         intentCategory: 'relationship_grief',
         emotionalState,
         mahabharataRelevant: true,
-        relevanceScore: 0.9,
+        relevanceScore: 0.95,
         extractedCharacters: characters,
         thematicKeywords,
-        extractedThemes: ['attachment', 'loss', 'resilience', 'impermanence'],
-        reasoningNote: 'Relational or bereavement pain. Grounding in impermanence and self-worth.',
+        extractedThemes,
+        reasoningNote: 'Relational or bereavement pain. Grounding in Gita wisdom on truth, attachment, and solace.',
       };
     }
 
@@ -319,34 +329,36 @@ export class IntentClassifier {
 
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';
-      let themes = ['fear', 'self-mastery', 'restraint', 'peace', 'dharma'];
-      let thematicKeywords: string[] = ['deep', 'sorrow', 'heaviness', 'dejection', 'dispirited', 'solace'];
+      let themes = ['fear', 'self-mastery', 'restraint', 'peace', 'dharma', 'atman', 'solace'];
+      let thematicKeywords: string[] = ['Arjuna', 'dejection', 'grief', 'sorrow', 'Vishada', 'effort', 'duty', 'Nishkama', 'fruits of action', 'solace', '2.47', '2.14', '2.3', '6.5', '6.40'];
 
       if (hasAnger) {
         emotionalState = 'anger';
-        themes = ['anger', 'self-mastery', 'restraint', 'dharma'];
-        thematicKeywords = ['burning', 'fury', 'wrath', 'rage', 'unrighteousness', 'corruption', 'adharma', 'restraint'];
+        themes = ['anger', 'self-mastery', 'restraint', 'dharma', 'krodha'];
+        thematicKeywords = ['anger', 'wrath', 'fury', 'destruction', 'intellect', 'Krodha', 'peace', 'restraint', 'Sauptika', '2.63', '16.21'];
       } else if (hasJealousy) {
         emotionalState = 'jealousy';
         themes = ['jealousy', 'contentment', 'dharma'];
-        thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma'];
+        thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma', '2.48'];
       } else if (hasFear) {
         emotionalState = 'fear';
-        thematicKeywords = ['restless', 'mind', 'turbulence', 'anxiety', 'steady', 'equanimity', 'fear'];
-      } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people|ignore|ignored|ignores|nobody likes me|unseen|invisible)\b/i.test(text)) {
+        themes = ['fear', 'courage', 'equanimity', 'refuge'];
+        thematicKeywords = ['Arjuna', 'restless', 'mind', 'fear', 'steadfast', 'equanimity', 'refuge', '2.14', '6.5', '18.66'];
+      } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people|ignore|ignored|ignores|nobody likes me|unseen|invisible|short|ugly|height|body image)\b/i.test(text)) {
         emotionalState = 'loneliness';
-        thematicKeywords = ['solitary', 'loneliness', 'isolated', 'alone', 'bed', 'arrows', 'steadfast', 'duty'];
+        themes = ['atman', 'dignity', 'impermanence', 'inner worth', 'equal vision'];
+        thematicKeywords = ['Karna', 'outer appearance', 'garment', 'Atman', 'soul', 'rejection', 'dignity', 'equal vision', '2.22', '5.18', '9.29', '2.13'];
       }
 
       return {
         intentCategory: 'emotional_distress',
         emotionalState,
         mahabharataRelevant: true,
-        relevanceScore: 0.85,
+        relevanceScore: 0.95,
         extractedCharacters: characters,
         thematicKeywords,
         extractedThemes: themes,
-        reasoningNote: 'Acute emotional turmoil requiring centering guidance and steady perspective.',
+        reasoningNote: 'Emotional distress requiring deep comfort with Mahabharata/Gita solace as Lord Krishna.',
       };
     }
 
@@ -358,12 +370,12 @@ export class IntentClassifier {
       return {
         intentCategory: 'emotional_distress',
         emotionalState: 'confusion',
-        mahabharataRelevant: false,
-        relevanceScore: 0.3,
-        extractedCharacters: characters,
-        thematicKeywords: ['self-mastery', 'restraint', 'senses', 'mind', 'steady'],
-        extractedThemes: ['self-mastery', 'restraint', 'peace'],
-        reasoningNote: 'Compulsive behavior or habit struggle. Meet with compassion and nonjudgmental grounding.',
+        mahabharataRelevant: true,
+        relevanceScore: 0.95,
+        extractedCharacters: ['Arjuna'],
+        thematicKeywords: ['Arjuna', 'senses', 'restless mind', 'wind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', '6.34', '6.35', '2.67', '6.5'],
+        extractedThemes: ['self-mastery', 'restraint', 'peace', 'abhyasa', 'vairagya'],
+        reasoningNote: 'Compulsive behavior or habit struggle. Guided with compassionate Gita self-mastery (Abhyasa & Vairagya).',
       };
     }
 
@@ -375,12 +387,12 @@ export class IntentClassifier {
       return {
         intentCategory: 'general_guidance',
         emotionalState: 'peace',
-        mahabharataRelevant: false,
-        relevanceScore: 0.2,
+        mahabharataRelevant: true,
+        relevanceScore: 0.8,
         extractedCharacters: characters,
-        thematicKeywords: ['wealth', 'fortune', 'contentment', 'purpose'],
-        extractedThemes: ['purpose', 'discernment'],
-        reasoningNote: 'Sudden good fortune / celebration. Greet with warmth, joy, and lighthearted companionship.',
+        thematicKeywords: ['wealth', 'fortune', 'contentment', 'purpose', 'Lokasangraha', 'Artha', '2.48', '3.20'],
+        extractedThemes: ['purpose', 'discernment', 'equanimity', 'lokasangraha'],
+        reasoningNote: 'Sudden good fortune / celebration. Greet with warmth, joy, and companionable Gita wisdom on abundance.',
       };
     }
 

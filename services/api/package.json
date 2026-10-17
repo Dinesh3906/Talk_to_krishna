@@ -17,8 +17,11 @@
     "ingest:full": "tsx src/modules/ingestion/run-full-ingestion-cli.ts",
     "ingest:child": "tsx src/modules/ingestion/run-parallel-child-ingestion-cli.ts",
     "ingest:child:seq": "tsx src/modules/ingestion/run-child-chunk-ingestion-cli.ts",
+    "ingest:debroy": "tsx src/modules/ingestion/run-debroy-ingestion-cli.ts",
+    "ingest:raghavendra": "tsx src/modules/ingestion/run-raghavendra-ingestion-cli.ts",
+    "ingest:kaushik": "tsx src/modules/ingestion/run-kaushik-ingestion-cli.ts",
     "db:migrate": "tsx src/db/migrate.ts",
-    "test": "vitest run"
+    "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

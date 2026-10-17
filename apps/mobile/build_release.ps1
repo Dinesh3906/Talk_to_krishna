@@ -11,6 +11,8 @@ $apk = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\apk\release\app-
 $aab = 'd:\talk to krisna\apps\mobile\android\app\build\outputs\bundle\release\app-release.aab'
 if (Test-Path $apk) { Remove-Item -Path $apk -Force -ErrorAction SilentlyContinue }
 if (Test-Path $aab) { Remove-Item -Path $aab -Force -ErrorAction SilentlyContinue }
+if (Test-Path 'd:\talk to krisna\talk-to-krishna.apk') { Remove-Item -Path 'd:\talk to krisna\talk-to-krishna.apk' -Force -ErrorAction SilentlyContinue }
+if (Test-Path 'd:\talk to krisna\talk-to-krishna-release.aab') { Remove-Item -Path 'd:\talk to krisna\talk-to-krishna-release.aab' -Force -ErrorAction SilentlyContinue }
 
 Write-Host "=== Starting assembleRelease for Native Android APK ==="
 & .\gradlew.bat -g D:\.gradle --project-cache-dir D:\.gradle\project-cache assembleRelease --console=plain

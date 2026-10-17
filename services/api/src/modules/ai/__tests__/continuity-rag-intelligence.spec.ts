@@ -404,8 +404,8 @@ describe('Talk to Krishna — Production Continuity & RAG Intelligence Suite (Te
         const systemMessage = prompt.find(m => m.role === 'system')?.content || '';
 
         if (crisisTurnCount === 1) {
-          expect(systemMessage).toContain('988');
-          expect(systemMessage).toContain('Tele-MANAS');
+          expect(systemMessage).toContain('local emergency services');
+          expect(systemMessage).toContain('do not guess a number');
         } else {
           expect(systemMessage).toContain('CRISIS FOLLOW-UP PRESENCE');
           expect(systemMessage).toContain('DO NOT re-list all the phone numbers');
@@ -415,7 +415,7 @@ describe('Talk to Krishna — Production Continuity & RAG Intelligence Suite (Te
         history.push({
           role: 'assistant',
           content: crisisTurnCount === 1
-            ? 'Your life has sacred worth. Please reach out to 988 or Tele-MANAS right now.'
+            ? 'Your life matters. Please contact local emergency support now and ask someone you trust to stay with you.'
             : 'I hear how heavy and exhausted you feel right now. Stay right here with me; take this one breath together.',
         });
       });

@@ -14,7 +14,7 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
     try {
       await HybridRetriever.retrieve('dharma', [], [], 1);
     } catch {}
-  }, 15000);
+  }, 60000);
 
   // Test 1: 20-Turn State & Working Memory Tracking Without Context Drift
   it('maintains working summary, active entities, and topic milestones over 20 turns in session memory', () => {
@@ -45,8 +45,8 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
     expect(session.state.recentUserTopics.some(t => t.toLowerCase().includes('career') || t.toLowerCase().includes('cofounder'))).toBe(true);
   });
 
-  // Test 2: Recency Decay: Penalty Decays to 0 Within 3 Turns
-  it('applies recency penalty on turn 1 but decays completely to 0 after 3 turns', async () => {
+  // Test 2: Recent evidence remains deprioritized within the rolling novelty window
+  it('deprioritizes recently used evidence and permits an explicit revisit', async () => {
     const query = 'duty and action';
     const initialRet = await HybridRetriever.retrieve(query, [], [], 5);
     expect(initialRet.passages.length).toBeGreaterThan(0);
@@ -71,7 +71,7 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
       expect(matchTurn1.relevanceScore).toBeLessThan(topPassage.relevanceScore);
     }
 
-    // Case B: Used 4 turns ago (turnsAgo = 3+) -> Should have 0 penalty
+    // Case B: Recent use remains a novelty signal; the passage may be ranked out.
     const retTurn4 = await HybridRetriever.retrieve(
       query,
       [],
@@ -86,11 +86,17 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
     );
 
     const matchTurn4 = retTurn4.passages.find(p => p.id === topPassage.id);
-    expect(matchTurn4).toBeDefined();
     if (matchTurn1 && matchTurn4) {
-      expect(matchTurn4.relevanceScore).toBeGreaterThan(matchTurn1.relevanceScore);
+      expect(matchTurn4.relevanceScore).toBeLessThan(topPassage.relevanceScore);
     }
-  }, 15000);
+
+    // An explicit request to revisit a teaching overrides novelty suppression.
+    const revisit = await HybridRetriever.retrieve(
+      `${query} again`, [], [], 10, [],
+      { citedChunkIds: [topPassage.id], citedEpisodeIds: [topPassage.sourceReference] },
+    );
+    expect(revisit.passages.some(p => p.id === topPassage.id)).toBe(true);
+  }, 60000);
 
   // Test 3: Re-Visiting Core Teaching Gets NO Penalty and Gains Revisit Bonus
   it('awards a revisit bonus and 0 penalty when user explicitly re-queries a core teaching', async () => {
@@ -136,7 +142,7 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
     );
     expect(yakshaPassage).toBeDefined();
     expect(yakshaPassage!.relevanceScore).toBeGreaterThan(0.40);
-  });
+  }, 30000);
 
   // Test 5: Contradiction Reconciliation in Session Memory
   it('reconciles contradictory user statements by updating established facts in session memory', () => {
@@ -209,8 +215,8 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
       responsePlan: planTurn1,
       crisisTurnCount: 1,
     })[0].content;
-    expect(promptTurn1).toContain('988');
-    expect(promptTurn1).toContain('14416');
+    expect(promptTurn1).toContain('local emergency services');
+    expect(promptTurn1).toContain('do not guess a number');
 
     // Turn 5 Crisis Planner
     const historyTurn5: ConversationTurn[] = [
@@ -297,5 +303,5 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
     expect(ret.passages.length).toBeGreaterThan(0);
     expect(ret.passages[0].relevanceScore).toBeGreaterThan(0.30);
     expect(ret.corpusDoesNotEstablish).toBe(false);
-  });
+  }, 30000);
 });

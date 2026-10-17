@@ -41,7 +41,13 @@ export type ResponseMode =
   | 'moral_guidance'
   | 'narrative_storytelling'
   | 'casual_greeting'
-  | 'crisis_safety';
+  | 'crisis_safety'
+  | 'empathy_first'
+  | 'reflective'
+  | 'practical_guidance'
+  | 'scriptural_teaching'
+  | 'violence_deescalation'
+  | 'factual_mahabharata';
 
 export type ResponseDepth = 'very_short' | 'short' | 'moderate' | 'detailed' | 'comprehensive';
 

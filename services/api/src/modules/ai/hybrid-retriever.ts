@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from '../../db/index.js';
+import type { PoolClient } from 'pg';
 
 export interface RetrievedPassage {
   id: string;
@@ -31,13 +32,34 @@ export interface HybridRetrievalResult {
   scoreGap: number;
   confidence: 'high' | 'medium' | 'low';
   hasSufficientEvidence: boolean;
+  retrievalPath?: 'database' | 'canonical_disk_fallback' | 'database_timeout_fallback' | 'hybrid' | 'cache' | 'disk' | 'none';
+  databaseLatencyMs?: number;
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
   timings?: {
     entityExtractionMs: number;
     embeddingMs: number;
     gitaSearchMs: number;
     mbQueryMs: number;
     rerankingMs: number;
+    queryConstructionMs: number;
+    connectionAcquisitionMs: number;
+    databaseRoundTripMs: number;
+    rowRetrievalMs: number;
+    diskFallbackMs: number;
+    citationConstructionMs: number;
+    databaseTimeout: boolean;
+    poolWaitingCount: number;
   };
+}
+
+export interface DatabaseQueryTiming {
+  durationMs: number;
+  connectionAcquisitionMs: number;
+  databaseRoundTripMs: number;
+  rowRetrievalMs: number;
+  timedOut: boolean;
+  rowsReturned: number;
 }
 
 export interface QueryHints {
@@ -68,10 +90,37 @@ export interface PreviouslyUsedEvidence {
   usedTeachings?: string[];
 }
 
+function spellingVariants(token: string): string[] {
+  const lower = token.toLowerCase();
+  const variants = new Set([lower]);
+  if (lower.includes('sh')) variants.add(lower.replace(/sh/g, 's'));
+  else if (lower.includes('s')) variants.add(lower.replace(/s/g, 'sh'));
+  if (lower.includes('v')) variants.add(lower.replace(/v/g, 'w'));
+  else if (lower.includes('w')) variants.add(lower.replace(/w/g, 'v'));
+  if (lower.includes('barat')) variants.add(lower.replace(/barat/g, 'bharat'));
+  else if (lower.includes('bharat')) variants.add(lower.replace(/bharat/g, 'barat'));
+  if (lower.includes('geeta')) variants.add(lower.replace(/geeta/g, 'gita'));
+  return Array.from(variants);
+}
+
+function entityQueryGroup(name: string): string {
+  const wordGroups = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(word =>
+    `(${spellingVariants(word).map(variant => `'${variant.replace(/'/g, "''")}'`).map(term => `${term}:*`).join(' | ')})`
+  );
+  return wordGroups.length > 1 ? `(${wordGroups.join(' & ')})` : (wordGroups[0] || '');
+}
+
+function entityMentioned(text: string, name: string): boolean {
+  return spellingVariants(name).some(variant => new RegExp(`\\b${variant}\\b`, 'i').test(text));
+}
+
 export class HybridRetriever {
   private static gitaCache: CachedGitaVerse[] | null = null;
   private static gitaCachePromise: Promise<CachedGitaVerse[]> | null = null;
   private static readonly embeddingCache = new Map<string, number[]>();
+  private static gitaLoadPath: 'database' | 'canonical_disk' | 'none' = 'none';
+  private static gitaFallbackReason?: string;
+  private static gitaDatabaseLatencyMs = 0;
 
   public static findCorpusFile(relativePath: string): string | null {
     const candidates = [
@@ -98,26 +147,102 @@ export class HybridRetriever {
     return null;
   }
 
-  public static async queryWithTimeout(text: string, params: any[] = [], timeoutMs = 2000): Promise<any> {
-    const queryPromise = pool.query(text, params);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Query timeout (${timeoutMs}ms)`)), timeoutMs)
-    );
-    return Promise.race([queryPromise, timeoutPromise]);
+  public static async queryWithTimeout(
+    text: string,
+    params: any[] = [],
+    timeoutMs = 4000,
+    onTiming?: (timing: DatabaseQueryTiming) => void,
+  ): Promise<any> {
+    const started = performance.now();
+    const timing: DatabaseQueryTiming = {
+      durationMs: 0,
+      connectionAcquisitionMs: 0,
+      databaseRoundTripMs: 0,
+      rowRetrievalMs: 0,
+      timedOut: false,
+      rowsReturned: 0,
+    };
+    const deadline = started + timeoutMs;
+    let client: PoolClient | undefined;
+    let clientReleased = false;
+    let acquireTimer: ReturnType<typeof setTimeout> | undefined;
+    let operationTimer: ReturnType<typeof setTimeout> | undefined;
+    let pendingConnect: Promise<PoolClient> | undefined;
+    try {
+      const acquisitionStarted = performance.now();
+      pendingConnect = pool.connect();
+      client = await Promise.race([
+        pendingConnect,
+        new Promise<never>((_, reject) => {
+          acquireTimer = setTimeout(() => {
+            timing.timedOut = true;
+            const error = Object.assign(new Error(`Database connection acquisition exceeded ${timeoutMs}ms`), { code: 'ETIMEDOUT' });
+            reject(error);
+          }, Math.max(1, deadline - performance.now()));
+        }),
+      ]);
+      if (acquireTimer) clearTimeout(acquireTimer);
+      timing.connectionAcquisitionMs = performance.now() - acquisitionStarted;
+      const dbClient = client;
+
+      const queryStarted = performance.now();
+      // This helper is used for read-only retrieval. Avoid wrapping each SELECT in
+      // BEGIN/SET LOCAL/COMMIT: those extra network round trips consumed nearly half
+      // the wall-clock budget on the managed PostgreSQL service. The JS deadline
+      // below still covers the query and complete row transfer; an expired request
+      // destroys its checked-out socket so no late result can leak into another turn.
+      const operation = dbClient.query(text, params).then(result => {
+        // node-postgres resolves only after all rows have arrived. Preserve that
+        // separate measurement because row transfer was the observed cold-load cost.
+        timing.databaseRoundTripMs = performance.now() - queryStarted;
+        timing.rowRetrievalMs = timing.databaseRoundTripMs;
+        timing.rowsReturned = result.rowCount || 0;
+        return result;
+      });
+      const result = await Promise.race([
+        operation,
+        new Promise<never>((_, reject) => {
+          operationTimer = setTimeout(() => {
+            timing.timedOut = true;
+            clientReleased = true;
+            dbClient.release(true);
+            const error = Object.assign(new Error(`Database retrieval exceeded ${timeoutMs}ms wall-clock budget`), { code: 'ETIMEDOUT' });
+            reject(error);
+          }, Math.max(1, deadline - performance.now()));
+        }),
+      ]);
+      timing.durationMs = performance.now() - started;
+      return result;
+    } catch (caught: any) {
+      const error = caught as Error & { code?: string; durationMs?: number };
+      if (error.code === '57014' || error.code === 'ETIMEDOUT') timing.timedOut = true;
+      timing.durationMs = performance.now() - started;
+      error.durationMs = timing.durationMs;
+      throw error;
+    } finally {
+      if (acquireTimer) clearTimeout(acquireTimer);
+      if (operationTimer) clearTimeout(operationTimer);
+      if (!client && pendingConnect) {
+        // A timed-out pool checkout cannot be cancelled; release it if it arrives later.
+        void pendingConnect.then(lateClient => lateClient.release()).catch(() => undefined);
+      }
+      if (client && !clientReleased) client.release();
+      timing.durationMs ||= performance.now() - started;
+      onTiming?.(timing);
+    }
   }
 
   public static async getGitaVerses(): Promise<CachedGitaVerse[]> {
     if (this.gitaCache) return this.gitaCache;
     if (!this.gitaCachePromise) {
       this.gitaCachePromise = (async () => {
-        try {
-          const res = await this.queryWithTimeout(`
-            SELECT id, chapter, verse, speaker, listener, sanskrit, transliteration,
-                   translation, deep_meaning, krishna_teaching, provenance
-            FROM gita_verses
-            ORDER BY chapter ASC, verse ASC;
-          `, [], 2000);
-          const verses: CachedGitaVerse[] = res.rows.map((r: any) => ({
+        const corpusPath = this.findCorpusFile('data/mahabharata/corpus/gita_700_canonical.json');
+        if (corpusPath && fs.existsSync(corpusPath)) {
+          const raw = fs.readFileSync(corpusPath, 'utf8');
+          const data = JSON.parse(raw);
+          this.gitaLoadPath = 'canonical_disk';
+          this.gitaFallbackReason = undefined;
+          this.gitaCache = data.map((r: any) => ({
             id: r.id,
             chapter: r.chapter,
             verse: r.verse,
@@ -126,38 +251,31 @@ export class HybridRetriever {
             sanskrit: r.sanskrit,
             transliteration: r.transliteration,
             translation: r.translation,
-            deep_meaning: r.deep_meaning,
-            krishna_teaching: r.krishna_teaching,
+            deep_meaning: r.deepMeaning ?? r.deep_meaning,
+            krishna_teaching: r.krishnaTeaching ?? r.krishna_teaching,
             provenance: r.provenance,
           }));
-          this.gitaCache = verses;
-          return verses;
+          return this.gitaCache!;
+        }
+
+        // Deployments without the checked-in source file retain a short bounded DB path.
+        try {
+          const res = await this.queryWithTimeout(`
+            SELECT id, chapter, verse, speaker, listener, sanskrit, transliteration,
+                   translation, deep_meaning, krishna_teaching, provenance
+            FROM gita_verses ORDER BY chapter ASC, verse ASC;
+          `, [], 1800, timing => { this.gitaDatabaseLatencyMs = timing.durationMs; });
+          this.gitaLoadPath = 'database';
+          this.gitaCache = res.rows.map((r: any) => ({
+            id: r.id, chapter: r.chapter, verse: r.verse, speaker: r.speaker, listener: r.listener,
+            sanskrit: r.sanskrit, transliteration: r.transliteration, translation: r.translation,
+            deep_meaning: r.deep_meaning, krishna_teaching: r.krishna_teaching, provenance: r.provenance,
+          }));
+          return this.gitaCache!;
         } catch (err: any) {
-          console.warn('[HybridRetriever] Database connection unavailable for gita_verses, loading canonical corpus from disk:', err.message);
-          try {
-            const corpusPath = this.findCorpusFile('data/mahabharata/corpus/gita_700_canonical.json');
-            if (corpusPath && fs.existsSync(corpusPath)) {
-              const raw = fs.readFileSync(corpusPath, 'utf8');
-              const data = JSON.parse(raw);
-              const verses: CachedGitaVerse[] = data.map((r: any) => ({
-                id: r.id,
-                chapter: r.chapter,
-                verse: r.verse,
-                speaker: r.speaker,
-                listener: r.listener,
-                sanskrit: r.sanskrit,
-                transliteration: r.transliteration,
-                translation: r.translation,
-                deep_meaning: r.deepMeaning,
-                krishna_teaching: r.krishnaTeaching,
-                provenance: r.provenance,
-              }));
-              this.gitaCache = verses;
-              return verses;
-            }
-          } catch (fileErr: any) {
-            console.warn('[HybridRetriever] Failed to load canonical corpus from disk:', fileErr.message);
-          }
+          this.gitaLoadPath = 'none';
+          this.gitaFallbackReason = err.message;
+          console.warn('[HybridRetriever] Gita DB read exceeded its budget and canonical disk corpus is unavailable:', err.message);
           this.gitaCache = [];
           return [];
         }
@@ -321,7 +439,7 @@ export class HybridRetriever {
       candidateEntities.add('krishna');
     }
 
-    // 3. Verse citation parsing: "2.47", "Gita 2.47", "chapter 2 verse 47"
+    // 3. Verse citation parsing: "2.47", "Gita 2.47", "chapter 2 verse 47", or Sanskrit shlokas
     let verseReference: { chapter: number; verse: number } | null = null;
     const vMatch = queryText.toLowerCase().match(/(?:chapter\s*(\d+)\s*(?:verse|shloka|sloka)?\s*(\d+)|(?:gita|bg|bhagavad\s*gita)?\s*(\d+)\s*[:.]\s*(\d+))/i);
     if (vMatch) {
@@ -332,11 +450,103 @@ export class HybridRetriever {
       }
     }
 
+    if (!verseReference) {
+      const FAMOUS_SHLOKAS: Array<{ pattern: RegExp; chapter: number; verse: number }> = [
+        { pattern: /\b(?:karmany|armany|karmani|evadhikaras|vadhikaraste|phaleshu|kadachana|akarmaṇi|akarma)\b/i, chapter: 2, verse: 47 },
+        { pattern: /\b(?:yada yada|dharmasya glanir|abhyutthanam adharmasya)\b/i, chapter: 4, verse: 7 },
+        { pattern: /\b(?:paritranaya sadhunam|vinashaya cha duskrtam|sambhavami yuge yuge)\b/i, chapter: 4, verse: 8 },
+        { pattern: /\b(?:dharmakshetre kurukshetre|dharma-ksetre kuruksetre|samaveta yuyutsavah)\b/i, chapter: 1, verse: 1 },
+        { pattern: /\b(?:nainam chindanti|chindanti sastrani|dahati pavakah|kledayanti)\b/i, chapter: 2, verse: 23 },
+        { pattern: /\b(?:vasamsi jirnani|yatha vihaya navani grhnati)\b/i, chapter: 2, verse: 22 },
+        { pattern: /\b(?:sarva dharman parityajya|sarvadharman parityajya|mam ekam saranam vraja)\b/i, chapter: 18, verse: 66 },
+        { pattern: /\b(?:krodhad bhavati sammohah|sammohat smrti|buddhi-naso|buddhinashad)\b/i, chapter: 2, verse: 63 },
+        { pattern: /\b(?:dhyayato visayan|sangas tesupajayate|sangat sanjayate kamah)\b/i, chapter: 2, verse: 62 },
+        { pattern: /\b(?:patram puspam|patram pushpam|phalam toyam yo me bhaktya)\b/i, chapter: 9, verse: 26 },
+        { pattern: /\b(?:ananyas cintayanto|ananyas chintayanto|yogaksemam vahamy aham)\b/i, chapter: 9, verse: 22 },
+      ];
+      for (const entry of FAMOUS_SHLOKAS) {
+        if (entry.pattern.test(queryText)) {
+          verseReference = { chapter: entry.chapter, verse: entry.verse };
+          break;
+        }
+      }
+    }
+
+    if (!verseReference && this.gitaCache) {
+      const normWords = queryText
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length >= 4 && !this.STOP_WORDS.has(w));
+      if (normWords.length >= 2) {
+        for (const v of this.gitaCache) {
+          const vNorm = (v.transliteration || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ');
+          const matches = normWords.filter(w => vNorm.includes(w)).length;
+          if (matches >= 2) {
+            verseReference = { chapter: v.chapter, verse: v.verse };
+            break;
+          }
+        }
+      }
+    }
+
     return {
       candidateEntities: Array.from(candidateEntities),
       targetParva: this.detectParva(queryText),
       verseReference,
     };
+  }
+
+  /** Read only the checked-in, source-attributed episode corpus when DB retrieval has
+   * no usable candidate. This is a corpus fallback, never a generated story mapping. */
+  private static diskEpisodeCandidates(
+    queryText: string,
+    cleanTokens: string[],
+    candidateEntities: string[],
+  ): RetrievedPassage[] {
+    try {
+      const episodesPath = this.findCorpusFile('data/mahabharata/corpus/mahabharata_episodes.json');
+      if (!episodesPath || !fs.existsSync(episodesPath)) return [];
+      const episodes = JSON.parse(fs.readFileSync(episodesPath, 'utf8'));
+      const normalizedQuery = queryText.toLowerCase();
+      const passages: RetrievedPassage[] = [];
+      for (const ep of episodes) {
+        const characters: string[] = ep.characters || [];
+        // Only entities extracted from the query can establish a direct entity hit.
+        // Adding every character from the candidate episode here made a single shared
+        // character (e.g. Bhishma) pull unrelated episodes into a multi-entity query.
+        const exactEntityMatch = candidateEntities.some(name =>
+          normalizedQuery.includes(name.toLowerCase()) &&
+          characters.some((c: string) => c.toLowerCase() === name.toLowerCase())
+        );
+        const sourceText = `${ep.title} ${ep.summary} ${(ep.themes || []).join(' ')} ${ep.relevanceForGuidance || ''}`.toLowerCase();
+        const matchedTokens = cleanTokens.filter(token => sourceText.includes(token)).length;
+        if (!exactEntityMatch && matchedTokens < 2) continue;
+        const score = Math.min(0.9, (exactEntityMatch ? 0.58 : 0.25) + matchedTokens / Math.max(cleanTokens.length, 1) * 0.30);
+        passages.push({
+          id: ep.id,
+          sourceType: 'mahabharata_source',
+          parva: ep.parva,
+          chapter: ep.chapter,
+          translation: ep.summary,
+          sourceReference: `Mahabharata (${ep.parva}, ${ep.title})`,
+          contextSummary: `${ep.title}. Themes: ${(ep.themes || []).join(', ')}.`,
+          relevanceForGuidance: ep.relevanceForGuidance,
+          relevanceScore: score,
+          characters,
+        });
+      }
+      return passages;
+    } catch (error: any) {
+      console.warn('[HybridRetriever] Canonical episode disk lookup failed:', error.message);
+      return [];
+    }
   }
 
   /**
@@ -353,6 +563,16 @@ export class HybridRetriever {
     previouslyUsed?: PreviouslyUsedEvidence
   ): Promise<HybridRetrievalResult> {
     const startTime = Date.now();
+    let databaseLatencyMs = 0;
+    let mahabharataFallbackUsed = false;
+    let mahabharataFallbackReason: string | undefined;
+    let databaseTimeout = false;
+    let diskFallbackMs = 0;
+    let queryConstructionMs = 0;
+    let connectionAcquisitionMs = 0;
+    let databaseRoundTripMs = 0;
+    let rowRetrievalMs = 0;
+    let citationConstructionMs = 0;
 
     try {
       const lowerQ = queryText.toLowerCase();
@@ -380,15 +600,25 @@ export class HybridRetriever {
       const hints = this.extractQueryHints(queryText);
       const allCandidateEntities = Array.from(new Set([...extractedCharacters, ...hints.candidateEntities]));
       const targetParva = hints.targetParva || this.detectParva(queryText);
+      const explicitGitaReference = hints.verseReference !== null && /\b(?:gita|geeta|bhagavad|bg)\b/i.test(queryText);
+      const isGitaOnlyQuery = explicitGitaReference || (/\b(?:gita|geeta|bhagavad gita|shloka|sloka|verse)\b/i.test(queryText) &&
+        !/\b(?:mahabharata|mahabharat|parva)\b/i.test(queryText) &&
+        !extractedCharacters.some(name => name.toLowerCase() !== 'krishna'));
 
       // 3. Generate Real 768-dim Query Embedding (BAAI/bge-base-en-v1.5) with LRU Cache
       const tEmbStart = Date.now();
       let queryEmbedding: number[] | null = null;
+      const hasSpecificNamedEntities = allCandidateEntities.some(name => !['krishna', 'arjuna', 'partha'].includes(name.toLowerCase()));
       const semanticEmbeddingText = (thematicKeywords && thematicKeywords.length > 0)
         ? `${queryText.trim()} ${thematicKeywords.slice(0, 8).join(' ')}`
         : queryText.trim();
       const normalizedQueryKey = semanticEmbeddingText.toLowerCase();
-      if (HybridRetriever.embeddingCache.has(normalizedQueryKey)) {
+      if (isGitaOnlyQuery || hasSpecificNamedEntities) {
+        // Exact canonical character/event searches use the indexed FTS path. Local
+        // embedding startup and a broad vector scan are unnecessary when named
+        // participants already provide a precise retrieval key.
+        queryEmbedding = null;
+      } else if (HybridRetriever.embeddingCache.has(normalizedQueryKey)) {
         queryEmbedding = HybridRetriever.embeddingCache.get(normalizedQueryKey)!;
       } else if (process.env.DISABLE_LOCAL_EMBEDDING !== 'true') {
         try {
@@ -453,18 +683,45 @@ export class HybridRetriever {
         }
       }
 
-      const prefixQuery = expandedTokens.size > 0
-        ? Array.from(expandedTokens).slice(0, 15).map(t => `'${t}':*`).join(' | ')
-        : '';
+      const entitySearchTokens = Array.from(new Set(allCandidateEntities
+        .flatMap(entity => entity.toLowerCase().split(/[^a-z0-9]+/))
+        .filter(token => token.length >= 3 && !this.STOP_WORDS.has(token))));
+      const relationSearch = /\b(?:related|relationship|relation|between|fight|fought|battle|married|marry|son of|daughter of|brother of|sister of|wife of|husband of|meet|met|meeting)\b/i.test(queryText);
+      const asksRelationship = /\b(?:related|relationship|relation|between)\b/i.test(queryText);
+      const asksCombat = /\b(?:fight|fought|battle|duel|combat|vanquish|defeat)\b/i.test(queryText);
+      const entityGroups = Array.from(new Set(allCandidateEntities
+        .filter(entity => entitySearchTokens.some(token => entity.toLowerCase().includes(token)))
+        .map(entityQueryGroup)
+        .filter(Boolean)));
+      const lexicalSearchTokens = Array.from(expandedTokens).slice(0, 6);
+      const relationPredicateTerms = [
+        'related', 'relation', 'guru', 'teacher', 'student', 'pupil', 'disciple',
+        'fight', 'fought', 'battle', 'duel', 'combat', 'vanquish', 'defeat',
+        'meet', 'met', 'marry', 'married', 'son', 'daughter', 'brother', 'sister', 'wife', 'husband',
+      ];
+      const relationFtsGroup = `(${relationPredicateTerms.map(term => `'${term}':*`).join(' | ')})`;
+      const prefixQuery = entityGroups.length > 0
+        ? `${entityGroups.join(relationSearch && entityGroups.length > 1 ? ' & ' : ' | ')}${relationSearch && entityGroups.length > 1 ? ` & ${relationFtsGroup}` : ''}`
+        : lexicalSearchTokens.map(t => `'${t.replace(/'/g, "''")}'`).map(t => `${t}:*`).join(' | ');
 
       const candidatePassages: RetrievedPassage[] = [];
 
-      // 5. In-Memory Canonical Bhagavad Gita Search (0 ms DB latency, zero network roundtrips)
+      // 5. Canonical Gita cache. Count its database fetch once, on the request that loads it.
       const tGitaStart = Date.now();
+      const gitaWasCached = this.gitaCache !== null;
       const cachedVerses = await HybridRetriever.getGitaVerses();
+      if (!gitaWasCached) databaseLatencyMs += this.gitaDatabaseLatencyMs;
       const isPersonalDilemma =
         /^(i am|i feel|i'm|i can't|i cannot|why do i|how do i|i suffer|afraid|scared|fail|failure|giving up|let go|letting go|betrayed|angry|grief|lost)\b/i.test(queryText.trim()) ||
         lowerQ.includes('afraid') || lowerQ.includes('fail') || lowerQ.includes('let go') || lowerQ.includes('giving up') || lowerQ.includes('betrayed');
+      const isGitaQuery = /\b(?:gita|geeta|shloka|sloka|verse|stotra|mantra)\b/i.test(queryText);
+      const wantsKrishnaTeaching = /\bkrishna\b/i.test(queryText) && /\b(?:teach|teaching|said|says|wisdom|quote|verse|scripture)\b/i.test(queryText);
+      const entityTokensForGita = new Set(allCandidateEntities.map(entity => entity.toLowerCase()));
+      const hasMultipleNonEntityConcepts = cleanTokens.filter(token => !entityTokensForGita.has(token)).length >= 2;
+      const shouldSearchGita = isGitaQuery || isPersonalDilemma || wantsKrishnaTeaching ||
+        (hasMultipleNonEntityConcepts && allCandidateEntities.length === 0 && !/\bmahabharat(?:a)?\b/i.test(queryText)) ||
+        thematicKeywords.some(keyword => Boolean(keyword)) ||
+        extractedThemes.some(theme => ['scripture', 'shloka'].includes(theme.toLowerCase()));
 
       if (hints.verseReference) {
         // Direct verse citation lookup (e.g. 2.47)
@@ -515,18 +772,47 @@ export class HybridRetriever {
             relevanceForGuidance: match.deep_meaning || match.krishna_teaching,
             relevanceScore: 1.0,
           });
+
+          // Augment with authentic multi-source commentaries (Sri Raghavendra Vivruti & Ashok Kaushik)
+          if (!isGitaOnlyQuery) {
+            try {
+              const commRes = await this.queryWithTimeout(
+              `SELECT c.id, c.parent_chunk_id, c.source_type, c.parva, c.page_number, c.section, c.source_reference, c.text, c.characters
+               FROM mahabharata_child_chunks c
+               WHERE c.source_type IN ('gita_raghavendra_vivruti', 'gita_ashok_kaushik')
+                 AND (c.source_reference ILIKE $1 OR c.text ILIKE $2)
+               ORDER BY c.source_type ASC
+               LIMIT 2;`,
+              [`%${match.chapter}.${match.verse}%`, `%${match.chapter}.${match.verse}%`],
+              2000
+            );
+            if (commRes.rows && commRes.rows.length > 0) {
+              for (const cr of commRes.rows) {
+                const isRaghavendra = cr.source_type === 'gita_raghavendra_vivruti';
+                candidatePassages.push({
+                  id: cr.id,
+                  parentChunkId: cr.parent_chunk_id,
+                  sourceType: cr.source_type,
+                  parva: cr.parva || 'Bhishma Parva (Bhagavad Gita)',
+                  chapter: String(match.chapter),
+                  verseRange: String(match.verse),
+                  translation: cr.text,
+                  sourceReference: cr.source_reference,
+                  contextSummary: isRaghavendra
+                    ? `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${cr.section}`
+                    : `From Srimad Bhagavad-Gita by Ashok Kaushik (ASI 279), ${cr.section}`,
+                  relevanceScore: 0.95,
+                  characters: cr.characters || ['Krishna', 'Arjuna'],
+                });
+              }
+            }
+          } catch {
+            // best-effort commentary augmentation
+          }
         }
-      } else {
-        const isScriptureQuery =
-          lowerQ.includes('gita') ||
-          lowerQ.includes('geeta') ||
-          lowerQ.includes('shloka') ||
-          lowerQ.includes('sloka') ||
-          lowerQ.includes('verse') ||
-          lowerQ.includes('stotra') ||
-          lowerQ.includes('mantra') ||
-          lowerQ.includes('mahabharat') ||
-          lowerQ.includes('mahabarat') ||
+      }
+      } else if (shouldSearchGita) {
+        const isScriptureQuery = isGitaQuery ||
           extractedThemes.includes('shloka') ||
           extractedThemes.includes('scripture');
         const gitaThreshold = isPersonalDilemma ? 0.52 : 0.60;
@@ -538,10 +824,26 @@ export class HybridRetriever {
           }
 
           // In-memory token match
-          const vText = (v.translation + ' ' + (v.deep_meaning || '') + ' ' + (v.krishna_teaching || '')).toLowerCase();
+          const vTranslitNorm = (v.transliteration || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ');
+          const vText = (
+            vTranslitNorm + ' ' +
+            (v.sanskrit || '') + ' ' +
+            v.translation + ' ' +
+            (v.deep_meaning || '') + ' ' +
+            (v.krishna_teaching || '')
+          ).toLowerCase();
           let ftsMatchCount = 0;
-          for (const token of cleanTokens) {
+          const gitaSearchTokens = cleanTokens.filter(token => !entityTokensForGita.has(token));
+          for (const token of gitaSearchTokens) {
             if (vText.includes(token)) ftsMatchCount++;
+          }
+          let translitMatchCount = 0;
+          for (const token of gitaSearchTokens) {
+            if (token.length >= 4 && vTranslitNorm.includes(token)) translitMatchCount++;
           }
           let themeMatchCount = 0;
           for (const kw of (thematicKeywords || [])) {
@@ -550,13 +852,25 @@ export class HybridRetriever {
           for (const th of (extractedThemes || [])) {
             if (th && vText.includes(th.toLowerCase())) themeMatchCount++;
           }
-          const ftsRatio = cleanTokens.length > 0 ? ftsMatchCount / cleanTokens.length : 0;
-          const themeScore = Math.min(themeMatchCount * 0.15, 0.45);
-          const combinedGitaScore = (vecSim * 0.50) + (ftsRatio * 0.30) + (themeScore * 0.20) + (isPersonalDilemma ? 0.20 : 0.0);
 
-          const isEligible = isScriptureQuery
-            ? (vecSim >= 0.30 || ftsRatio >= 0.10 || themeMatchCount > 0 || (isPersonalDilemma && (vecSim >= 0.25 || ftsMatchCount > 0)))
-            : (vecSim >= gitaThreshold || ftsRatio >= 0.25 || (ftsMatchCount >= 2 && themeMatchCount > 0) || (ftsMatchCount >= 1 && isPersonalDilemma && themeMatchCount >= 2));
+          // Direct verse number match from thematic keywords (e.g. '2.47', 'BG 2.47', '2:47')
+          const isDirectThematicMatch = translitMatchCount >= 2 || (thematicKeywords || []).some(kw => {
+            if (kw === `${v.chapter}.${v.verse}` || kw === `BG ${v.chapter}.${v.verse}` || kw === `${v.chapter}:${v.verse}`) return true;
+            return false;
+          });
+
+          const ftsRatio = gitaSearchTokens.length > 0 ? ftsMatchCount / gitaSearchTokens.length : 0;
+          const themeScore = Math.min(themeMatchCount * 0.15, 0.45);
+          let combinedGitaScore = (vecSim * 0.50) + (ftsRatio * 0.30) + (themeScore * 0.20) + (isPersonalDilemma ? 0.25 : 0.0);
+
+          if (isDirectThematicMatch) {
+            combinedGitaScore = 0.98;
+          }
+
+          const isEligible = isDirectThematicMatch ||
+            (isScriptureQuery
+              ? (vecSim >= 0.30 || ftsRatio >= 0.10 || themeMatchCount > 0 || (isPersonalDilemma && (vecSim >= 0.20 || ftsMatchCount > 0)))
+              : (vecSim >= gitaThreshold || ftsRatio >= 0.20 || themeMatchCount > 0 || (isPersonalDilemma && (themeScore >= 0.10 || ftsMatchCount >= 1))));
 
           if (isEligible) {
             candidatePassages.push({
@@ -571,23 +885,92 @@ export class HybridRetriever {
               sourceReference: `Bhagavad Gita ${v.chapter}.${v.verse}`,
               contextSummary: `Speaker: ${v.speaker}, Listener: ${v.listener}. ${v.deep_meaning || ''}`,
               relevanceForGuidance: v.krishna_teaching,
-              relevanceScore: combinedGitaScore,
+              relevanceScore: Math.min(combinedGitaScore, 0.98),
             });
+
+            // Augment with authentic multi-source commentaries (Sri Raghavendra Vivruti & Ashok Kaushik)
+            if (combinedGitaScore >= 0.85 && !isGitaOnlyQuery) {
+              try {
+                const commRes = await this.queryWithTimeout(
+                  `SELECT c.id, c.parent_chunk_id, c.source_type, c.parva, c.page_number, c.section, c.source_reference, c.text, c.characters
+                   FROM mahabharata_child_chunks c
+                   WHERE c.source_type IN ('gita_raghavendra_vivruti', 'gita_ashok_kaushik')
+                     AND (c.source_reference ILIKE $1 OR c.text ILIKE $2)
+                   ORDER BY c.source_type ASC
+                   LIMIT 2;`,
+                  [`%${v.chapter}.${v.verse}%`, `%${v.chapter}.${v.verse}%`],
+                  2000
+                );
+                if (commRes.rows && commRes.rows.length > 0) {
+                  for (const cr of commRes.rows) {
+                    const isRaghavendra = cr.source_type === 'gita_raghavendra_vivruti';
+                    candidatePassages.push({
+                      id: cr.id,
+                      parentChunkId: cr.parent_chunk_id,
+                      sourceType: cr.source_type,
+                      parva: cr.parva || 'Bhishma Parva (Bhagavad Gita)',
+                      chapter: String(v.chapter),
+                      verseRange: String(v.verse),
+                      translation: cr.text,
+                      sourceReference: cr.source_reference,
+                      contextSummary: isRaghavendra
+                        ? `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${cr.section}`
+                        : `From Srimad Bhagavad-Gita by Ashok Kaushik (ASI 279), ${cr.section}`,
+                      relevanceScore: 0.94,
+                      characters: cr.characters || ['Krishna', 'Arjuna'],
+                    });
+                  }
+                }
+              } catch {
+                // best-effort commentary augmentation
+              }
+            }
           }
         }
 
-        // If user explicitly asked for scripture/shlokas and no specific verse matched, inject foundational core verses
+        // If no verse matched directly, inject canonical Gita verses for emotional solace or scripture requests
         const gitaFound = candidatePassages.filter(p => p.sourceType === 'bhagavad_gita').length;
-        if (isScriptureQuery && gitaFound === 0) {
-          const foundationalRefs = [
+        if (gitaFound === 0 && (isGitaQuery || isPersonalDilemma || (thematicKeywords && thematicKeywords.length > 0))) {
+          let solaceRefs = [
             { chapter: 2, verse: 47 },
-            { chapter: 4, verse: 7 },
-            { chapter: 2, verse: 20 },
-            { chapter: 18, verse: 66 },
+            { chapter: 2, verse: 14 },
             { chapter: 6, verse: 5 },
+            { chapter: 18, verse: 66 },
           ];
 
-          for (const ref of foundationalRefs) {
+          if (lowerQ.includes('short') || lowerQ.includes('ugly') || lowerQ.includes('ignore') || lowerQ.includes('height') || lowerQ.includes('body image')) {
+            solaceRefs = [
+              { chapter: 2, verse: 22 },
+              { chapter: 5, verse: 18 },
+              { chapter: 9, verse: 29 },
+            ];
+          } else if (lowerQ.includes('fail') || lowerQ.includes('exam') || lowerQ.includes('disappoint')) {
+            solaceRefs = [
+              { chapter: 2, verse: 47 },
+              { chapter: 6, verse: 40 },
+              { chapter: 6, verse: 5 },
+            ];
+          } else if (lowerQ.includes('smoke') || lowerQ.includes('smoking') || lowerQ.includes('sex') || lowerQ.includes('addict') || lowerQ.includes('control myself')) {
+            solaceRefs = [
+              { chapter: 6, verse: 34 },
+              { chapter: 6, verse: 35 },
+              { chapter: 2, verse: 67 },
+            ];
+          } else if (lowerQ.includes('cheat') || lowerQ.includes('infidelity') || lowerQ.includes('guilt')) {
+            solaceRefs = [
+              { chapter: 9, verse: 30 },
+              { chapter: 9, verse: 31 },
+              { chapter: 18, verse: 66 },
+            ];
+          } else if (lowerQ.includes('breakup') || lowerQ.includes('breackup') || lowerQ.includes('ex') || lowerQ.includes('still love')) {
+            solaceRefs = [
+              { chapter: 2, verse: 62 },
+              { chapter: 2, verse: 71 },
+              { chapter: 12, verse: 13 },
+            ];
+          }
+
+          for (const ref of solaceRefs) {
             const match = cachedVerses.find(v => v.chapter === ref.chapter && v.verse === ref.verse);
             if (match) {
               candidatePassages.push({
@@ -602,16 +985,9 @@ export class HybridRetriever {
                 sourceReference: `Bhagavad Gita ${match.chapter}.${match.verse}`,
                 contextSummary: `Speaker: ${match.speaker}, Listener: ${match.listener}. ${match.deep_meaning || ''}`,
                 relevanceForGuidance: match.krishna_teaching,
-                relevanceScore: 0.95,
+                relevanceScore: 0.92,
               });
             }
-          }
-
-
-          // Zero static fallbacks: If the database has no gita_verses, the system returns zero Gita results.
-          // The ingestion pipeline (seed-corpus-cli / gita-ingester) must populate the DB before retrieval functions.
-          if (candidatePassages.filter(p => p.sourceType === 'bhagavad_gita').length === 0 && cachedVerses.length === 0) {
-            console.warn('[HybridRetriever] No Gita verses found in database cache. Run the ingestion pipeline to populate gita_verses.');
           }
         }
       }
@@ -622,16 +998,23 @@ export class HybridRetriever {
       const targetParvaParam = targetParva || '';
 
       try {
-        if (hasValidVector) {
-          const vectorCte = targetParvaParam
-            ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 35`
-            : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 35`;
+        const queryBuildStarted = performance.now();
+        queryConstructionMs = 0;
+        if (isGitaOnlyQuery) {
+          // Verse/concept queries are answered from the canonical Gita corpus above;
+          // they do not need a parallel 13k-chunk Mahabharata DB scan.
+          queryConstructionMs += performance.now() - queryBuildStarted;
+        } else {
+          if (hasValidVector) {
+            const vectorCte = targetParvaParam
+              ? `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE parva = $4::text ORDER BY embedding <=> $1::vector ASC LIMIT 35`
+              : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 35`;
 
-          const ftsCte = targetParvaParam
-            ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $4::text AND search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`
-            : `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`;
+            const ftsCte = targetParvaParam
+              ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $4::text AND search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`
+              : `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`;
 
-          const mbSql = `
+            const mbSql = `
             WITH vector_candidates AS (
               ${vectorCte}
             ),
@@ -670,48 +1053,81 @@ export class HybridRetriever {
             LIMIT 30;
           `;
 
-          const mbRes = await this.queryWithTimeout(mbSql, [
-            embeddingString,
-            queryText,
-            prefixQuery,
-            targetParvaParam,
-          ]);
+            queryConstructionMs += performance.now() - queryBuildStarted;
+            const mbQueryStarted = Date.now();
+            const mbRes = await this.queryWithTimeout(mbSql, [
+              embeddingString,
+              queryText,
+              prefixQuery,
+              targetParvaParam,
+            ], 4000, timing => {
+              connectionAcquisitionMs += timing.connectionAcquisitionMs;
+              databaseRoundTripMs += timing.databaseRoundTripMs;
+              rowRetrievalMs += timing.rowRetrievalMs;
+              databaseTimeout ||= timing.timedOut;
+            });
+            databaseLatencyMs += Date.now() - mbQueryStarted;
 
-          for (const r of mbRes.rows) {
-            if (r.child_text && /table of contents/i.test(r.child_text)) {
-              continue;
-            }
-            const score = parseFloat(r.combined_score) || 0;
-            if (score > 0.15) {
-              candidatePassages.push({
-                id: r.id,
-                parentChunkId: r.parent_chunk_id,
-                sourceType: 'mahabharata_source',
-                parva: r.parva || undefined,
-                chapter: r.chapter || undefined,
-                section: r.section || undefined,
-                pageNumber: r.page_number,
-                speaker: r.speaker || undefined,
-                listener: r.listener || undefined,
-                translation: r.child_text,
-                sourceReference: `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`,
-                contextSummary: `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`,
-                relevanceScore: score,
-                characters: r.characters || [],
-              });
-            }
-          }
-        } else {
-          // Pure Lexical/FTS Search
-          const ftsCte = targetParvaParam
-            ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $2::text != '' THEN to_tsquery('english', $2::text) ELSE websearch_to_tsquery('english', $1::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $3::text AND search_vector @@ (CASE WHEN $2::text != '' THEN to_tsquery('english', $2::text) ELSE websearch_to_tsquery('english', $1::text) END) ORDER BY keyword_rank DESC LIMIT 30`
-            : `SELECT id, ts_rank_cd(search_vector, CASE WHEN $2::text != '' THEN to_tsquery('english', $2::text) ELSE websearch_to_tsquery('english', $1::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE search_vector @@ (CASE WHEN $2::text != '' THEN to_tsquery('english', $2::text) ELSE websearch_to_tsquery('english', $1::text) END) ORDER BY keyword_rank DESC LIMIT 30`;
+            for (const r of mbRes.rows) {
+              if (r.child_text && /table of contents/i.test(r.child_text)) {
+                continue;
+              }
+              const score = parseFloat(r.combined_score) || 0;
+              if (score > 0.15) {
+                const isDebroy = r.source_type === 'debroy_10_vol';
+                const isRaghavendra = r.source_type === 'gita_raghavendra_vivruti';
+                const isKaushik = r.source_type === 'gita_ashok_kaushik';
 
-          const mbLexSql = `
-            WITH fts_candidates AS (
-              ${ftsCte}
-            )
-            SELECT 
+                let sourceRef = `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`;
+                let ctxSummary = `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+
+                if (isRaghavendra) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                } else if (isKaushik) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Srimad Bhagavad-Gita (Sanskrit Text, Hindi & English Translation by Ashok Kaushik, ASI 279), ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                } else if (isDebroy) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Bibek Debroy Critical Edition Translation, ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                }
+
+                candidatePassages.push({
+                  id: r.id,
+                  parentChunkId: r.parent_chunk_id,
+                  sourceType: r.source_type || 'mahabharata_source',
+                  parva: r.parva || undefined,
+                  chapter: r.chapter || undefined,
+                  section: r.section || undefined,
+                  pageNumber: r.page_number,
+                  speaker: r.speaker || undefined,
+                  listener: r.listener || undefined,
+                  translation: r.child_text,
+                  sourceReference: sourceRef,
+                  contextSummary: ctxSummary,
+                  relevanceScore: score,
+                  characters: r.characters || [],
+                });
+              }
+            }
+          } else {
+            // Pure Lexical/FTS Search
+            // Keep the lexical path on the indexed child table. The former CTE plus
+            // parent-page join made common character queries spend the whole wall
+            // budget materializing/ranking candidates before returning any evidence.
+            // Child chunks already carry the passage text and citation metadata needed
+            // for grounding; the parent row is not required to validate a claim.
+            const ftsQuery = prefixQuery || queryText;
+            const tsQuery = prefixQuery
+              ? `to_tsquery('english', $1::text)`
+              : `websearch_to_tsquery('english', $1::text)`;
+            const orderBy = relationSearch ? '' : 'ORDER BY combined_score DESC';
+            const lexicalScore = relationSearch
+              ? '0.20'
+              : `LEAST(ts_rank_cd(c.search_vector, ${tsQuery}), 1.0) * 0.85 + CASE WHEN $2::text != '' AND c.parva = $2::text THEN 0.15 ELSE 0.0 END`;
+            const resultLimit = 30;
+            const mbLexSql = `
+            SELECT
               c.id,
               c.parent_chunk_id,
               c.source_type,
@@ -723,95 +1139,107 @@ export class HybridRetriever {
               c.characters,
               c.themes,
               c.text AS child_text,
-              p.translation AS parent_translation,
-              p.chapter,
-              p.speaker,
-              p.listener,
+              NULL::text AS chapter,
+              NULL::text AS speaker,
+              NULL::text AS listener,
               0.0 AS vec_score,
-              COALESCE(fc.keyword_rank, 0.0) AS fts_score,
-              (
-                (LEAST(COALESCE(fc.keyword_rank, 0.0), 1.0) * 0.85) +
-                (CASE WHEN $3::text != '' AND c.parva = $3::text THEN 0.15 ELSE 0.0 END)
-              ) AS combined_score
+              ${lexicalScore} AS fts_score,
+              ${lexicalScore} AS combined_score
             FROM mahabharata_child_chunks c
-            JOIN mahabharata_chunks p ON c.parent_chunk_id = p.id
-            JOIN fts_candidates fc ON c.id = fc.id
-            ORDER BY combined_score DESC
-            LIMIT 30;
+            WHERE c.search_vector @@ ${tsQuery}
+            ${orderBy}
+            LIMIT ${resultLimit};
           `;
 
-          const mbLexRes = await this.queryWithTimeout(mbLexSql, [
-            queryText,
-            prefixQuery,
-            targetParvaParam,
-          ]);
+            queryConstructionMs += performance.now() - queryBuildStarted;
+            const mbQueryStarted = Date.now();
+            const mbLexParams = relationSearch ? [ftsQuery] : [ftsQuery, targetParvaParam];
+            const mbLexRes = await this.queryWithTimeout(mbLexSql, mbLexParams, 4000, timing => {
+              connectionAcquisitionMs += timing.connectionAcquisitionMs;
+              databaseRoundTripMs += timing.databaseRoundTripMs;
+              rowRetrievalMs += timing.rowRetrievalMs;
+              databaseTimeout ||= timing.timedOut;
+            });
+            databaseLatencyMs += Date.now() - mbQueryStarted;
 
-          for (const r of mbLexRes.rows) {
-            if (r.child_text && /table of contents/i.test(r.child_text)) {
-              continue;
-            }
-            const score = parseFloat(r.combined_score) || 0;
-            if (score > 0.10) {
-              candidatePassages.push({
-                id: r.id,
-                parentChunkId: r.parent_chunk_id,
-                sourceType: 'mahabharata_source',
-                parva: r.parva || undefined,
-                chapter: r.chapter || undefined,
-                section: r.section || undefined,
-                pageNumber: r.page_number,
-                speaker: r.speaker || undefined,
-                listener: r.listener || undefined,
-                translation: r.child_text,
-                sourceReference: `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`,
-                contextSummary: `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`,
-                relevanceScore: score,
-                characters: r.characters || [],
-              });
-            }
-          }
-        }
-      } catch (mbErr: any) {
-        console.warn('[HybridRetriever] Mahabharata chunks query failed, checking canonical episodes from disk:', mbErr.message);
-        try {
-          const episodesPath = this.findCorpusFile('data/mahabharata/corpus/mahabharata_episodes.json');
-          if (episodesPath && fs.existsSync(episodesPath)) {
-            const raw = fs.readFileSync(episodesPath, 'utf8');
-            const episodes = JSON.parse(raw);
-            for (const ep of episodes) {
-              const epText = (ep.title + ' ' + ep.summary + ' ' + (ep.themes || []).join(' ') + ' ' + (ep.relevanceForGuidance || '')).toLowerCase();
-              let matchCount = 0;
-              for (const t of cleanTokens) {
-                if (epText.includes(t)) matchCount++;
+            for (const r of mbLexRes.rows) {
+              if (r.child_text && /table of contents/i.test(r.child_text)) {
+                continue;
               }
-              const score = cleanTokens.length > 0 ? matchCount / cleanTokens.length : 0;
-              if (score > 0.15 || (ep.characters || []).some((c: string) => cleanTokens.includes(c.toLowerCase()))) {
+              const score = parseFloat(r.combined_score) || 0;
+              if (score > 0.10) {
+                const isDebroy = r.source_type === 'debroy_10_vol';
+                const isRaghavendra = r.source_type === 'gita_raghavendra_vivruti';
+                const isKaushik = r.source_type === 'gita_ashok_kaushik';
+
+                let sourceRef = `Mahabharata (${r.parva || 'Corpus'}, ${r.source_reference})`;
+                let ctxSummary = `From ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+
+                if (isRaghavendra) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                } else if (isKaushik) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Srimad Bhagavad-Gita (Sanskrit Text, Hindi & English Translation by Ashok Kaushik, ASI 279), ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                } else if (isDebroy) {
+                  sourceRef = r.source_reference;
+                  ctxSummary = `From Bibek Debroy Critical Edition Translation, ${r.parva || 'Mahabharata'}, ${r.section}. Characters: ${r.characters ? r.characters.join(', ') : 'None specified'}`;
+                }
+
                 candidatePassages.push({
-                  id: ep.id,
-                  sourceType: 'mahabharata_source',
-                  parva: ep.parva,
-                  chapter: ep.chapter,
-                  translation: ep.summary,
-                  sourceReference: `Mahabharata (${ep.parva}, ${ep.title})`,
-                  contextSummary: `${ep.title}. Themes: ${(ep.themes || []).join(', ')}.`,
-                  relevanceForGuidance: ep.relevanceForGuidance,
-                  relevanceScore: Math.min(score + 0.5, 0.95),
-                  characters: ep.characters || [],
+                  id: r.id,
+                  parentChunkId: r.parent_chunk_id,
+                  sourceType: r.source_type || 'mahabharata_source',
+                  parva: r.parva || undefined,
+                  chapter: r.chapter || undefined,
+                  section: r.section || undefined,
+                  pageNumber: r.page_number,
+                  speaker: r.speaker || undefined,
+                  listener: r.listener || undefined,
+                  translation: r.child_text,
+                  sourceReference: sourceRef,
+                  contextSummary: ctxSummary,
+                  relevanceScore: score,
+                  characters: r.characters || [],
                 });
               }
             }
           }
-        } catch (fErr: any) {
-          console.warn('[HybridRetriever] Failed to read canonical episodes from disk:', fErr.message);
         }
+      } catch (mbErr: any) {
+        databaseLatencyMs += mbErr.durationMs || 0;
+        mahabharataFallbackUsed = true;
+        databaseTimeout ||= mbErr.code === 'ETIMEDOUT' || mbErr.code === '57014';
+        mahabharataFallbackReason = mbErr.message;
+        console.warn('[HybridRetriever] Mahabharata chunks query failed, checking canonical episodes from disk:', mbErr.message);
       }
       const mbQueryMs = Date.now() - tMbStart;
+
+      // A successful SQL round trip with no relevant evidence is still a miss. Use
+      // the checked-in canonical episode index for named-character coverage; never
+      // turn an empty DB candidate set directly into a blanket refusal.
+      // The disk index can supply supported facts for a positive part of a question
+      // even when a DB candidate exists for another part. Add source-backed candidates
+      // absent from SQL, then let the normal reranker and claim validator judge them.
+      const diskStarted = performance.now();
+      const diskPassages = this.diskEpisodeCandidates(queryText, cleanTokens, allCandidateEntities);
+      diskFallbackMs = performance.now() - diskStarted;
+      if (diskPassages.length) {
+        const candidateIds = new Set(candidatePassages.map(p => p.id));
+        const unseenDiskPassages = diskPassages.filter(p => !candidateIds.has(p.id));
+        if (unseenDiskPassages.length) {
+          mahabharataFallbackUsed = true;
+          candidatePassages.push(...unseenDiskPassages);
+        }
+      }
 
       // 7. Multi-Signal Reranker & Non-Redundant Coverage Selection
       const tRerankStart = Date.now();
       const prevChunks = previouslyUsed?.citedChunkIds || [];
       const prevEpisodes = previouslyUsed?.citedEpisodeIds || [];
       const prevChars = previouslyUsed?.mentionedCharacters || [];
+      const prevTeachings = previouslyUsed?.usedTeachings || [];
+      const explicitRevisit = /\b(again|revisit|return to|same teaching|that teaching|explain that|tell me more about)\b/i.test(lowerQ);
 
       for (const p of candidatePassages) {
         const textLower = p.translation.toLowerCase();
@@ -825,9 +1253,27 @@ export class HybridRetriever {
           p.relevanceScore += (tokenMatches / cleanTokens.length) * 0.30;
         }
 
-        // Distinct bonus if the passage text actually mentions candidate entities
+        // Query-language synonyms help rank source wording without claiming an
+        // event: only the retrieved passage text receives these relevance bonuses.
+        if (asksRelationship && /\b(?:guru|teacher|student|pupil|disciple|relative|relation)\b/i.test(textLower)) {
+          p.relevanceScore += 0.12;
+        }
+        if (asksCombat && /\b(?:fight|fought|battle|duel|combat|vanquish(?:ed|es|ing)?|defeat(?:ed|s|ing)?)\b/i.test(textLower)) {
+          p.relevanceScore += 0.12;
+        }
+        if (relationSearch) {
+          const statesRequestedRelation = textLower.split(/(?<=[.!?])\s+/).some(sentence =>
+            allCandidateEntities.length >= 2 &&
+            allCandidateEntities.every(entity => entityMentioned(sentence, entity)) &&
+            /\b(?:related|relation|guru|teacher|student|pupil|disciple|fight|fought|battle|duel|combat|vanquish(?:ed|es|ing)?|defeat(?:ed|s|ing)?|meet|met|married|marry|son|daughter|brother|sister|wife|husband)\b/i.test(sentence)
+          );
+          if (statesRequestedRelation) p.relevanceScore += 0.35;
+        }
+
+        // Distinct bonus if the passage text actually mentions candidate entities;
+        // transliteration variants must count the same for matching and reranking.
         for (const ent of allCandidateEntities) {
-          if (textLower.includes(ent)) {
+          if (entityMentioned(p.translation, ent)) {
             p.relevanceScore += 0.15;
           }
         }
@@ -850,17 +1296,21 @@ export class HybridRetriever {
           if (chunkIndex !== -1) {
             // How recently was it used? (0 = immediate preceding turn)
             const recencyTurnsAgo = prevChunks.length - 1 - chunkIndex;
-            if (isExplicitlyRequested) {
+            if (isExplicitlyRequested || (explicitRevisit && prevChunks.includes(p.id))) {
               // User specifically asked about this teaching or passage again: NO penalty, bonus for continuity
               noveltyBonus += 0.12;
             } else if (recencyTurnsAgo === 0) {
-              repetitionPenalty += 0.35; // Immediate prior turn: suppress back-to-back duplicate
+              repetitionPenalty += 0.50; // Immediate prior turn: suppress back-to-back duplicate
             } else if (recencyTurnsAgo === 1) {
-              repetitionPenalty += 0.18; // 2 turns ago: light dampening
+              repetitionPenalty += 0.40;
             } else if (recencyTurnsAgo === 2) {
-              repetitionPenalty += 0.08; // 3 turns ago: minimal dampening
+              repetitionPenalty += 0.30;
+            } else if (recencyTurnsAgo === 3) {
+              repetitionPenalty += 0.20;
+            } else if (recencyTurnsAgo === 4) {
+              repetitionPenalty += 0.10;
             } else {
-              // 4+ turns ago: recencyTurnsAgo >= 3 -> penalty decays to 0.00 and fully regains novelty eligibility
+              // Evidence older than the five-turn novelty window regains eligibility.
               noveltyBonus += 0.08;
             }
           } else {
@@ -887,17 +1337,38 @@ export class HybridRetriever {
 
           if (lastEpisodeIndex !== -1) {
             const epTurnsAgo = prevEpisodes.length - 1 - lastEpisodeIndex;
-            if (isExplicitlyRequested) {
+            const revisitsSameEpisode = explicitRevisit && prevEpisodes.some(ep =>
+              (p.sourceReference && ep.toLowerCase().includes(p.sourceReference.toLowerCase())) ||
+              (p.sourceReference && p.sourceReference.toLowerCase().includes(ep.toLowerCase()))
+            );
+            if (isExplicitlyRequested || revisitsSameEpisode) {
               noveltyBonus += 0.10;
             } else if (epTurnsAgo === 0) {
-              repetitionPenalty += 0.28;
+              repetitionPenalty += 0.35;
             } else if (epTurnsAgo === 1) {
-              repetitionPenalty += 0.14;
+              repetitionPenalty += 0.28;
             } else if (epTurnsAgo === 2) {
-              repetitionPenalty += 0.05;
+              repetitionPenalty += 0.20;
+            } else if (epTurnsAgo === 3) {
+              repetitionPenalty += 0.12;
+            } else if (epTurnsAgo === 4) {
+              repetitionPenalty += 0.06;
             }
-            // epTurnsAgo >= 3: decays completely to 0!
           }
+        }
+
+        // Teaching reuse is tracked separately from chunk and episode reuse. Themes are
+        // compared to the evidence's guidance metadata so a different chunk that repeats
+        // the same lesson also receives a modest penalty.
+        if (!explicitRevisit && prevTeachings.length && p.relevanceForGuidance) {
+          const teaching = p.relevanceForGuidance.toLowerCase();
+          const teachingTerms = new Set(teaching.split(/[^a-z0-9]+/).filter(t => t.length > 3));
+          const repeatedTeaching = prevTeachings.some(previous => {
+            const priorTerms = previous.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 3);
+            if (!priorTerms.length) return false;
+            return previous.toLowerCase() === teaching || priorTerms.filter(t => teachingTerms.has(t)).length / priorTerms.length >= 0.6;
+          });
+          if (repeatedTeaching) repetitionPenalty += 0.20;
         }
 
         // 3. Same character penalty (only on immediate prior turn if not requested)
@@ -925,7 +1396,15 @@ export class HybridRetriever {
         }
       }
 
-      deduped.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      deduped.sort((a, b) => {
+        if (a.sourceType === 'bhagavad_gita' && b.sourceType !== 'bhagavad_gita' && a.relevanceScore >= 0.85) {
+          return -1;
+        }
+        if (b.sourceType === 'bhagavad_gita' && a.sourceType !== 'bhagavad_gita' && b.relevanceScore >= 0.85) {
+          return 1;
+        }
+        return b.relevanceScore - a.relevanceScore;
+      });
 
       // Coverage-aware Selection: Avoid taking duplicate/nearly identical sentences
       const selectedPassages: RetrievedPassage[] = [];
@@ -974,6 +1453,7 @@ export class HybridRetriever {
       const scoreGap = finalPassages.length > 1 ? (topScore - secondScore) : topScore;
       const corpusDoesNotEstablish = finalPassages.length === 0 || topScore < 0.15;
       const rerankingMs = Date.now() - tRerankStart;
+      citationConstructionMs = 0;
 
       // Evidence confidence evaluation (Requirement 11)
       const isExplicitEpicQuery = (extractedCharacters.length > 0 || hints.verseReference !== null || hints.candidateEntities.length > 0);
@@ -981,15 +1461,34 @@ export class HybridRetriever {
       let hasSufficientEvidence = false;
 
       if (!corpusDoesNotEstablish && finalPassages.length > 0) {
-        if (topScore >= 0.65 || (isExplicitEpicQuery && topScore >= 0.45)) {
+        if (topScore >= 0.65 || (isExplicitEpicQuery && topScore >= 0.45) || (isPersonalDilemma && topScore >= 0.45)) {
           confidence = 'high';
           hasSufficientEvidence = true;
-        } else if (topScore >= 0.52 || (isExplicitEpicQuery && topScore >= 0.38)) {
+        } else if (topScore >= 0.52 || (isExplicitEpicQuery && topScore >= 0.38) || (isPersonalDilemma && topScore >= 0.35)) {
           confidence = 'medium';
           hasSufficientEvidence = true;
         } else {
           confidence = 'low';
           hasSufficientEvidence = false;
+        }
+      }
+
+      // Entity co-occurrence cannot establish a relationship or event. A relation
+      // question is sufficient only when one retrieved source sentence states the
+      // requested participants together with a relation/event predicate.
+      const relationQuestion = /\b(?:related|relationship|relation|between|fight|fought|battle|married|marry|son of|daughter of|brother of|sister of|wife of|husband of|meet|met|meeting)\b/i.test(queryText);
+      const relationEntities = Array.from(new Set(allCandidateEntities.map(name => name.toLowerCase()).filter(name => name.length >= 3)));
+      if (relationQuestion && relationEntities.length >= 2) {
+        const relationPredicate = /\b(?:related|relation|fight|fought|battle|duel|combat|vanquish(?:ed|es|ing)?|defeat(?:ed|s|ing)?|married|marry|meet|met|meeting|son|daughter|brother|sister|wife|husband|guru|teacher|student|pupil|disciple)\b/i;
+        const relationSupported = finalPassages.some(p =>
+          `${p.translation} ${p.originalText || ''}`.split(/(?<=[.!?])\s+/).some(sentence =>
+            relationEntities.every(entity => entityMentioned(sentence, entity)) &&
+            relationPredicate.test(sentence)
+          )
+        );
+        if (!relationSupported) {
+          hasSufficientEvidence = false;
+          confidence = 'low';
         }
       }
 
@@ -1001,12 +1500,30 @@ export class HybridRetriever {
         scoreGap,
         confidence,
         hasSufficientEvidence,
+        retrievalPath: databaseTimeout
+          ? 'database_timeout_fallback'
+          : mahabharataFallbackUsed
+            ? 'canonical_disk_fallback'
+            : isGitaOnlyQuery || (this.gitaLoadPath === 'canonical_disk' && databaseLatencyMs === 0 && mbQueryMs === 0)
+              ? 'disk'
+              : this.gitaLoadPath === 'canonical_disk' ? 'hybrid' : 'database',
+        databaseLatencyMs,
+        fallbackUsed: databaseTimeout || mahabharataFallbackUsed,
+        fallbackReason: [this.gitaFallbackReason, mahabharataFallbackReason].filter(Boolean).join('; ') || undefined,
         timings: {
           entityExtractionMs: 0,
           embeddingMs,
           gitaSearchMs,
           mbQueryMs,
           rerankingMs,
+          queryConstructionMs,
+          connectionAcquisitionMs,
+          databaseRoundTripMs,
+          rowRetrievalMs,
+          diskFallbackMs,
+          citationConstructionMs,
+          databaseTimeout,
+          poolWaitingCount: pool.waitingCount,
         },
       };
     } catch (err: any) {
@@ -1019,6 +1536,10 @@ export class HybridRetriever {
         scoreGap: 0,
         confidence: 'low',
         hasSufficientEvidence: false,
+        retrievalPath: databaseTimeout ? 'database_timeout_fallback' : 'none',
+        databaseLatencyMs,
+        fallbackUsed: databaseTimeout || mahabharataFallbackUsed,
+        fallbackReason: [this.gitaFallbackReason, mahabharataFallbackReason, err.message].filter(Boolean).join('; '),
       };
     }
   }

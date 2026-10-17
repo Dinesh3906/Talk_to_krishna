@@ -2,6 +2,7 @@ import { eq, and, desc, asc, ilike } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { conversationStates, conversationSegments, messages } from '../../db/schema.js';
 import { ConversationTurn } from './conversation-state-tracker.js';
+import { ConversationRiskLevel } from './emotional-interpretation.js';
 
 export interface PersistentConversationState {
   id: string;
@@ -38,10 +39,34 @@ export interface PersistentConversationState {
   lastRetrievedEvidence: string[];
   crisisState: boolean;
   crisisTurnCount: number;
+  riskLevel: ConversationRiskLevel;
+  riskStateUpdatedAt?: Date | string | null;
   personaEstablished: boolean;
 }
 
+export interface RecordConversationTurnParams {
+  conversationId: string;
+  userId: string;
+  userMessage: string;
+  assistantMessage: string;
+  activeTopic: string;
+  activeEntities: string[];
+  isTopicShift: boolean;
+  establishedFact?: string;
+  philosophicalTheme?: string;
+  emotionalState?: string;
+  userIntent?: string;
+  citedChunkIds?: string[];
+  citedEpisodeIds?: string[];
+  mentionedCharacters?: string[];
+  usedTeachings?: string[];
+  retrievedEvidenceReferences?: string[];
+  isCrisis?: boolean;
+  riskLevel?: ConversationRiskLevel;
+}
+
 export class ConversationMemoryService {
+  private static pendingUpdates = new Map<string, Promise<void>>();
   private static memorySessionCache = new Map<string, {
     state: PersistentConversationState;
     turns: ConversationTurn[];
@@ -82,6 +107,8 @@ export class ConversationMemoryService {
           lastRetrievedEvidence: [],
           crisisState: false,
           crisisTurnCount: 0,
+          riskLevel: 'NONE',
+          riskStateUpdatedAt: new Date(),
           personaEstablished: false,
         },
         turns: [],
@@ -96,9 +123,12 @@ export class ConversationMemoryService {
    */
   public static async getState(
     conversationId: string,
-    userId: string
+    userId: string,
+    waitForPendingUpdate = true,
   ): Promise<PersistentConversationState> {
     try {
+      const pendingUpdate = this.pendingUpdates.get(conversationId);
+      if (waitForPendingUpdate && pendingUpdate) await pendingUpdate;
       const existing = await db.query.conversationStates.findFirst({
         where: and(
           eq(conversationStates.conversationId, conversationId),
@@ -142,6 +172,14 @@ export class ConversationMemoryService {
           lastRetrievedEvidence: session.state.lastRetrievedEvidence || [],
           crisisState: session.state.crisisState || false,
           crisisTurnCount: session.state.crisisTurnCount || 0,
+          riskLevel: ((session.state.riskStateUpdatedAt && existing.riskStateUpdatedAt &&
+            new Date(session.state.riskStateUpdatedAt).getTime() > new Date(existing.riskStateUpdatedAt).getTime())
+            ? session.state.riskLevel
+            : existing.riskLevel) as ConversationRiskLevel || session.state.riskLevel || 'NONE',
+          riskStateUpdatedAt: session.state.riskStateUpdatedAt && existing.riskStateUpdatedAt &&
+            new Date(session.state.riskStateUpdatedAt).getTime() > new Date(existing.riskStateUpdatedAt).getTime()
+            ? session.state.riskStateUpdatedAt
+            : existing.riskStateUpdatedAt,
           personaEstablished: (existing.turnCount && existing.turnCount > 0) || session.state.personaEstablished || false,
         };
         session.state = state;
@@ -204,6 +242,8 @@ export class ConversationMemoryService {
         lastRetrievedEvidence: [],
         crisisState: false,
         crisisTurnCount: 0,
+        riskLevel: 'NONE',
+        riskStateUpdatedAt: new Date(),
         personaEstablished: false,
       };
       session.state = state;
@@ -243,25 +283,40 @@ export class ConversationMemoryService {
   /**
    * Updates state, working summary, and topic segments asynchronously after every turn.
    */
-  public static async recordTurnAndUpdateMemory(params: {
-    conversationId: string;
-    userId: string;
-    userMessage: string;
-    assistantMessage: string;
-    activeTopic: string;
-    activeEntities: string[];
-    isTopicShift: boolean;
-    establishedFact?: string;
-    philosophicalTheme?: string;
-    emotionalState?: string;
-    userIntent?: string;
-    citedChunkIds?: string[];
-    citedEpisodeIds?: string[];
-    mentionedCharacters?: string[];
-    usedTeachings?: string[];
-    retrievedEvidenceReferences?: string[];
-    isCrisis?: boolean;
-  }): Promise<void> {
+  public static setSafetyState(
+    conversationId: string,
+    userId: string,
+    riskLevel: ConversationRiskLevel,
+    isCrisis: boolean,
+  ): void {
+    const session = this.getSession(conversationId, userId);
+    session.state.riskLevel = riskLevel;
+    session.state.crisisState = isCrisis;
+    session.state.crisisTurnCount = isCrisis ? (session.state.crisisTurnCount || 0) + 1 : 0;
+  }
+
+  public static recordTurnAndUpdateMemory(params: RecordConversationTurnParams): Promise<void> {
+    const { conversationId, userId, riskLevel = 'NONE', isCrisis = false } = params;
+    // Update the local risk state synchronously so the next turn cannot race the
+    // asynchronous database write and lose a newly detected risk/clarification.
+    this.setSafetyState(conversationId, userId, riskLevel, isCrisis);
+    const previous = this.pendingUpdates.get(conversationId) || Promise.resolve();
+    const next = previous.catch(() => undefined).then(() => this.persistTurnAndUpdateMemory(params));
+    this.pendingUpdates.set(conversationId, next);
+    void next.finally(() => {
+      if (this.pendingUpdates.get(conversationId) === next) this.pendingUpdates.delete(conversationId);
+    });
+    return next;
+  }
+
+  public static async flushPendingUpdates(conversationId?: string): Promise<void> {
+    const pending = conversationId
+      ? [this.pendingUpdates.get(conversationId)].filter((value): value is Promise<void> => Boolean(value))
+      : Array.from(this.pendingUpdates.values());
+    await Promise.all(pending);
+  }
+
+  private static async persistTurnAndUpdateMemory(params: RecordConversationTurnParams): Promise<void> {
     const {
       conversationId,
       userId,
@@ -280,10 +335,11 @@ export class ConversationMemoryService {
       usedTeachings,
       retrievedEvidenceReferences,
       isCrisis,
+      riskLevel,
     } = params;
 
     try {
-      const currentState = await this.getState(conversationId, userId);
+      const currentState = await this.getState(conversationId, userId, false);
       const newTurnCount = currentState.turnCount + 1;
 
       // Incremental Facts & Themes
@@ -331,6 +387,8 @@ export class ConversationMemoryService {
       session.state.recentSummary = updatedRecentSummary;
       session.state.lastUserMessage = userMessage;
       session.state.lastAssistantMessage = assistantMessage;
+      session.state.riskLevel = riskLevel || 'NONE';
+      session.state.riskStateUpdatedAt = new Date();
 
       // Update extended state tracking
       if (activeTopic) {
@@ -345,16 +403,16 @@ export class ConversationMemoryService {
         session.state.userIntent = userIntent;
       }
       if (citedChunkIds && citedChunkIds.length > 0) {
-        session.state.previouslyCitedChunkIds = Array.from(new Set([...session.state.previouslyCitedChunkIds, ...citedChunkIds])).slice(-25);
+        session.state.previouslyCitedChunkIds = [...session.state.previouslyCitedChunkIds, ...citedChunkIds].slice(-25);
       }
       if (citedEpisodeIds && citedEpisodeIds.length > 0) {
-        session.state.previouslyCitedEpisodeIds = Array.from(new Set([...session.state.previouslyCitedEpisodeIds, ...citedEpisodeIds])).slice(-25);
+        session.state.previouslyCitedEpisodeIds = [...session.state.previouslyCitedEpisodeIds, ...citedEpisodeIds].slice(-25);
       }
       if (mentionedCharacters && mentionedCharacters.length > 0) {
         session.state.previouslyMentionedCharacters = Array.from(new Set([...session.state.previouslyMentionedCharacters, ...mentionedCharacters])).slice(-25);
       }
       if (usedTeachings && usedTeachings.length > 0) {
-        session.state.previouslyUsedTeachings = Array.from(new Set([...session.state.previouslyUsedTeachings, ...usedTeachings])).slice(-15);
+        session.state.previouslyUsedTeachings = [...session.state.previouslyUsedTeachings, ...usedTeachings].slice(-15);
       }
       if (retrievedEvidenceReferences && retrievedEvidenceReferences.length > 0) {
         session.state.lastRetrievedEvidence = retrievedEvidenceReferences.slice(0, 5);
@@ -385,6 +443,8 @@ export class ConversationMemoryService {
           turnCount: newTurnCount,
           lastUserMessage: userMessage,
           lastAssistantMessage: assistantMessage,
+          riskLevel: riskLevel || 'NONE',
+          riskStateUpdatedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(and(

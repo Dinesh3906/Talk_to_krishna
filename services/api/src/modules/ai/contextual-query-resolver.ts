@@ -14,6 +14,7 @@ export interface ContextualQueryState {
   userIntent?: string;
   recentUserTopics?: string[];
   previouslyUsedThemes?: string[];
+  thematicKeywords?: string[];
   history?: ConversationTurn[];
 }
 
@@ -110,6 +111,22 @@ export class ContextualQueryResolver {
       queryTerms.push('revealed', 'Kunti', 'Krishna');
     } else if (/\bmistake|flaw|error\b/i.test(lower)) {
       queryTerms.push('conflict', 'duty', 'attachment');
+    } else if (/\b(smoke|smoking|quit|craving|cravings|addict|addiction|relapse|urge|urges|compuls)\b/i.test(lower)) {
+      queryTerms.push('restraint', 'senses', 'mind', 'control', 'abhyasa', 'vairagya');
+    } else if (/\b(fail|failed|failure|exam|test|grades|disappoint|academic)\b/i.test(lower)) {
+      queryTerms.push('duty', 'action', 'attachment', 'fruits', 'effort', 'svadharma', 'perseverance');
+    } else if (/\b(short|height|tall|ignore|ignored|appearance|ugly|inferior|body)\b/i.test(lower)) {
+      queryTerms.push('inner worth', 'dignity', 'atman', 'soul', 'character', 'virtue');
+    } else if (/\b(breakup|broke up|ex|girlfriend|boyfriend|heartbreak|separated)\b/i.test(lower)) {
+      queryTerms.push('attachment', 'longing', 'heartbreak', 'impermanence', 'grief', 'solace');
+    } else if (/\b(cheat|cheated|infidelity|guilt|betrayal|remorse)\b/i.test(lower)) {
+      queryTerms.push('satya', 'truth', 'atonement', 'prayaschitta', 'dharma', 'moral duty');
+    } else if (/\b(lottery|won|rich|wealth|fortune|money)\b/i.test(lower)) {
+      queryTerms.push('wealth', 'artha', 'dharma', 'charity', 'dana', 'transience', 'purpose');
+    } else if (/\b(anger|angry|revenge|rage|furious|hatred)\b/i.test(lower)) {
+      queryTerms.push('anger', 'krodha', 'forbearance', 'kshama', 'wrath', 'buddhi');
+    } else if (/\b(sad|hopeless|depressed|grief|empty|lonely)\b/i.test(lower)) {
+      queryTerms.push('grief', 'despondency', 'impermanence', 'atman', 'peace', 'steadiness');
     }
 
     // 6. Multi-Turn Context Integration (PART 3)
@@ -132,6 +149,14 @@ export class ContextualQueryResolver {
       if (/\b(breakup|broke up|ex|girlfriend|boyfriend|partner|marriage|divorce|separated)\b/i.test(combinedPriorUser)) {
         if (/\b(miss|missing|still love|aches|empty|remember|can't forget)\b/i.test(lower)) {
           queryTerms.push('attachment', 'longing', 'heartbreak', 'impermanence', 'grief');
+        }
+      }
+    }
+
+    if (contextState?.thematicKeywords && contextState.thematicKeywords.length > 0) {
+      for (const kw of contextState.thematicKeywords) {
+        if (!queryTerms.some(qt => qt.toLowerCase() === kw.toLowerCase())) {
+          queryTerms.push(kw);
         }
       }
     }
