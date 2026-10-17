@@ -32,7 +32,7 @@ export async function checkBackendHealth(testUrl?: string): Promise<{
   if (!testUrl && !activeBaseUrl) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 350);
+      const timer = setTimeout(() => controller.abort(), 1500);
       const localRes = await fetch('http://127.0.0.1:4000/api/v1/health', {
         method: 'GET',
         signal: controller.signal,

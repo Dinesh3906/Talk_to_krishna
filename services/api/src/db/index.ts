@@ -20,9 +20,9 @@ if (!isLocalDb && connectionString.includes('sslmode=') && !connectionString.inc
 export const pool = new Pool({
   connectionString,
   ssl: isLocalDb ? false : { rejectUnauthorized: false },
-  min: 3, // Keep pre-warmed connections ready to eliminate 1.8s TLS/auth cold starts
+  min: 0, // Serverless pooler drops idle sockets; dynamic acquire eliminates stale socket drops
   max: 20, // Connection budget for horizontal scaling
-  idleTimeoutMillis: 300000, // 5 minutes (prevent premature socket teardown)
+  idleTimeoutMillis: 20000, // 20s idle timeout
   connectionTimeoutMillis: 10000,
   statement_timeout: 45000,
   keepAlive: true,

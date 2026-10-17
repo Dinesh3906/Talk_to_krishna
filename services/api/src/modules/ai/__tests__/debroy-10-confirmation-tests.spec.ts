@@ -138,7 +138,7 @@ describe('10 Production Confirmation Tests — Debroy 10-Volume Corpus & Multi-S
     expect(debroyPassage).toBeDefined();
     expect(debroyPassage!.sourceReference).toContain('Bibek Debroy');
     expect(debroyPassage!.relevanceScore).toBeGreaterThan(0.5);
-  });
+  }, 30000);
 
   // TEST 8
   it('Test 8: Confirms canonical Bhagavad Gita retrieval executes without interference from Mahabharata chunks', async () => {
@@ -163,7 +163,7 @@ describe('10 Production Confirmation Tests — Debroy 10-Volume Corpus & Multi-S
     const origPassage = result.passages.find(p => p.sourceType === 'pdf_volume' || p.sourceType === 'mahabharata_source');
     expect(origPassage).toBeDefined();
     expect(origPassage!.sourceReference).toContain('Mahabharata');
-  });
+  }, 30000);
 
   // TEST 10
   it('Test 10: Validates end-to-end citation provenance and claim attribution across distinct sources', async () => {

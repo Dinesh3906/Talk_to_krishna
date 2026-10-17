@@ -27,6 +27,8 @@ services:
         value: groq
       - key: GROQ_MODEL_NAME
         value: openai/gpt-oss-20b
+      - key: DISABLE_LOCAL_EMBEDDING
+        value: "true"
       - key: EMAIL_PROVIDER
         value: resend
       - key: RESEND_API_KEY

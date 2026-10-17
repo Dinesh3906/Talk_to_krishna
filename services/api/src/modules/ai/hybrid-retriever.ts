@@ -668,7 +668,7 @@ export class HybridRetriever {
         queryEmbedding = null;
       } else if (HybridRetriever.embeddingCache.has(normalizedQueryKey)) {
         queryEmbedding = HybridRetriever.embeddingCache.get(normalizedQueryKey)!;
-      } else if (process.env.DISABLE_LOCAL_EMBEDDING !== 'true') {
+      } else if (process.env.DISABLE_LOCAL_EMBEDDING !== 'true' && process.env.RENDER !== 'true') {
         try {
           const { defaultEmbeddingProvider } = await import('./providers/bge-embedding.provider.js');
           const embPromise = defaultEmbeddingProvider.embedQuery(semanticEmbeddingText);
