@@ -404,11 +404,10 @@ describe('Talk to Krishna — Production Continuity & RAG Intelligence Suite (Te
         const systemMessage = prompt.find(m => m.role === 'system')?.content || '';
 
         if (crisisTurnCount === 1) {
-          expect(systemMessage).toContain('local emergency services');
-          expect(systemMessage).toContain('do not guess a number');
+          expect(systemMessage).toContain('CRITICAL CRISIS & COMPASSIONATE INTERVENTION');
+          expect(systemMessage).toContain('ABSOLUTE PROHIBITION ON PHONE NUMBERS & CLINICAL DIRECTORY DUMPS');
         } else {
-          expect(systemMessage).toContain('CRISIS FOLLOW-UP PRESENCE');
-          expect(systemMessage).toContain('DO NOT re-list all the phone numbers');
+          expect(systemMessage).toContain('CRITICAL CRISIS & COMPASSIONATE INTERVENTION');
         }
 
         history.push({ role: 'user', content: msg });

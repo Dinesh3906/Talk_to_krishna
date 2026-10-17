@@ -131,7 +131,7 @@ export class ResponsePlanner {
       responseDepth = 'moderate';
       targetTokens = 220;
       lessonRequired = true;
-      ragRequired = Boolean(ctx.isMahabharataRelevant);
+      ragRequired = responseMode === 'empathy_first' ? false : Boolean(ctx.isMahabharataRelevant);
     } else if (ctx.intentCategory === 'career_purpose' || ctx.intentCategory === 'decision_making') {
       responseMode = 'practical_guidance';
       responseDepth = isFirstTurn ? 'moderate' : 'short';

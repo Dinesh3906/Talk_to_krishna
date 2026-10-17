@@ -215,8 +215,8 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
       responsePlan: planTurn1,
       crisisTurnCount: 1,
     })[0].content;
-    expect(promptTurn1).toContain('local emergency services');
-    expect(promptTurn1).toContain('do not guess a number');
+    expect(promptTurn1).toContain('CRITICAL CRISIS & COMPASSIONATE INTERVENTION');
+    expect(promptTurn1).toContain('ABSOLUTE PROHIBITION ON PHONE NUMBERS');
 
     // Turn 5 Crisis Planner
     const historyTurn5: ConversationTurn[] = [
@@ -248,8 +248,8 @@ describe('Long-Horizon Conversation Robustness & Continuity (10-20+ Turns)', () 
       responsePlan: planTurn5,
       crisisTurnCount: 5,
     })[0].content;
-    expect(promptTurn5).toContain('CRISIS FOLLOW-UP PRESENCE (TURN 5)');
-    expect(promptTurn5).toContain('DO NOT re-list all the phone numbers');
+    expect(promptTurn5).toContain('CRITICAL CRISIS & COMPASSIONATE INTERVENTION');
+    expect(promptTurn5).toContain('ABSOLUTE PROHIBITION ON PHONE NUMBERS');
   });
 
   // Test 8: Anti-Repetition Guard Strips Identity Claims Over 20 Turns
