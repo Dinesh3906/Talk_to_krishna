@@ -248,8 +248,8 @@ export class ConversationMemoryService {
       };
       session.state = state;
       return state;
-    } catch (err: any) {
-      console.warn('[ConversationMemoryService] Database unavailable, using in-memory state:', err.message);
+    } catch {
+      console.warn('[ConversationMemoryService] Database unavailable, using in-memory state.');
       return this.getSession(conversationId, userId).state;
     }
   }
@@ -273,8 +273,8 @@ export class ConversationMemoryService {
         role: (m.sender === 'krishna' ? 'assistant' : 'user') as 'assistant' | 'user',
         content: m.content,
       }));
-    } catch (err: any) {
-      console.warn('[ConversationMemoryService] Database unavailable, using in-memory turns:', err.message);
+    } catch {
+      console.warn('[ConversationMemoryService] Database unavailable, using in-memory turns.');
       const session = this.getSession(conversationId);
       return session.turns.slice(-limit);
     }
@@ -495,8 +495,8 @@ export class ConversationMemoryService {
           })
           .where(eq(conversationSegments.id, latestSegment.id));
       }
-    } catch (err: any) {
-      console.warn('[ConversationMemoryService] Error recording memory turn:', err.message);
+    } catch {
+      console.warn('[ConversationMemoryService] Error recording memory turn.');
     }
   }
 }

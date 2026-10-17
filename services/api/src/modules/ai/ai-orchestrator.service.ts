@@ -4,7 +4,7 @@ import { db } from '../../db/index.js';
 import { conversations, messages, messageCitations, userProfiles, userMemories, mahabharataChunks } from '../../db/schema.js';
 import { AIProviderFactory } from './ai-provider.factory.js';
 import { IntentClassifier } from './intent-classifier.js';
-import { HybridRetriever, RetrievedPassage } from './hybrid-retriever.js';
+import { HybridRetriever, RetrievedPassage, RetrievalCandidateTrace } from './hybrid-retriever.js';
 import { PromptSafetyGuard } from './prompt-safety-guard.js';
 import { KrishnaPersonaService } from './krishna-persona.service.js';
 import { QuoteVerifier } from './quote-verifier.js';
@@ -14,6 +14,7 @@ import { ConversationStateTracker } from './conversation-state-tracker.js';
 import { InterpretationEngineService, InterpretationResult } from './interpretation-engine.service.js';
 import { GroundingValidator, GroundingValidationResult } from './grounding-validator.js';
 import { Message, StreamChunk, Citation, ResponseMode } from '@talk-to-krisna/shared';
+import { resolveEffectiveModelName } from './model-telemetry.js';
 import { ConversationMemoryService } from './conversation-memory.service.js';
 import { ReferenceResolver } from './reference-resolver.js';
 import { ContextualQueryResolver } from './contextual-query-resolver.js';
@@ -33,6 +34,16 @@ export interface OrchestrationOptions {
 
 export interface OrchestrationAuditRecord {
   query: string;
+  retrieval_query: string;
+  contextual_query: string;
+  channel_candidates: Record<string, RetrievalCandidateTrace[]>;
+  retrieval_confidence: 'high' | 'medium' | 'low';
+  evidence_sufficient: boolean;
+  corpus_does_not_establish?: boolean;
+  top_score: number;
+  score_gap: number;
+  provider: string;
+  model: string;
   retrieval_method: string;
   retrieved_chunks: string[];
   retrieved_scores: number[];
@@ -41,6 +52,7 @@ export interface OrchestrationAuditRecord {
   canonical_evidence: Array<{
     id: string;
     sourceType: string;
+    sourceEdition?: string;
     sourceReference: string;
     text: string;
     characters: string[];
@@ -217,6 +229,15 @@ export class AIOrchestratorService {
         totalLatencyMs: Date.now() - startTime,
         auditRecord: {
           query: userMessage,
+          retrieval_query: userMessage,
+          contextual_query: userMessage,
+          channel_candidates: {},
+          retrieval_confidence: 'low',
+          evidence_sufficient: false,
+          top_score: 0,
+          score_gap: 0,
+          provider: 'safety-guardrail',
+          model: 'safety-guardrail',
           retrieval_method: 'safety_bypass',
           retrieved_chunks: [],
           retrieved_scores: [],
@@ -347,6 +368,10 @@ export class AIOrchestratorService {
     let retrievalConfidence: 'high' | 'medium' | 'low' = 'low';
     let hasSufficientEvidence = false;
     let retrievalPath: OrchestrationAuditRecord['retrieval_path'] = 'none';
+    let retrievalQuery = userMessage;
+    let retrievalChannelCandidates: Record<string, RetrievalCandidateTrace[]> = {};
+    let retrievalTopScore = 0;
+    let retrievalScoreGap = 0;
     let databaseLatencyMs = 0;
     let fallbackUsed = false;
     let fallbackReason: string | undefined;
@@ -364,7 +389,7 @@ export class AIOrchestratorService {
         .map(turn => turn.content.match(/\b(?:Bhagavad\s*)?Gita\s*(\d{1,2})[.:](\d{1,2})\b/i))
         .find(match => match)?.slice(1);
       const needsResolvedVerse = /\b(?:that|the|same|exact)\s+(?:gita\s+)?(?:verse|shloka|wording|text)\b|\bquote (?:that|the|same)\b/i.test(userMessage);
-      const retrievalQuery = explicitVerseReference
+      retrievalQuery = explicitVerseReference
         ? `${userMessage} Bhagavad Gita ${explicitVerseReference.chapter}.${explicitVerseReference.verse}`
         : needsResolvedVerse && recentVerseReference
           ? `${userMessage} Bhagavad Gita ${recentVerseReference[0]}.${recentVerseReference[1]}`
@@ -388,13 +413,19 @@ export class AIOrchestratorService {
       retrievalLatencyMs = retrievalResult.retrievalLatencyMs;
       retrievalConfidence = retrievalResult.confidence;
       hasSufficientEvidence = retrievalResult.hasSufficientEvidence;
+      retrievalTopScore = retrievalResult.topScore;
+      retrievalScoreGap = retrievalResult.scoreGap;
+      retrievalChannelCandidates = retrievalResult.channelCandidates || {};
       retrievalPath = retrievalResult.retrievalPath || 'none';
       databaseLatencyMs = retrievalResult.databaseLatencyMs || 0;
       fallbackUsed = retrievalResult.fallbackUsed || false;
       fallbackReason = retrievalResult.fallbackReason;
       retrievalTimings = retrievalResult.timings;
 
-      if (!hasSufficientEvidence && allCharacters.length === 0) {
+      // For strict factual scripture queries without characters or evidence, mark does not establish.
+      // For emotional, philosophical, moral, or guidance queries, retain retrieved passages
+      // so Krishna's counsel is grounded in authentic Gita/Mahabharata teachings rather than generic advice.
+      if (!hasSufficientEvidence && allCharacters.length === 0 && classification.intentCategory === 'factual_scripture') {
         retrievedPassages = [];
         corpusDoesNotEstablish = true;
       }
@@ -566,7 +597,7 @@ export class AIOrchestratorService {
         requestId,
         userId,
         conversationId,
-        model: process.env.AI_MODEL_NAME || (aiProvider.providerName === 'groq' ? 'llama-3.1-8b-instant' : 'gemini-1.5-pro'),
+        model: resolveEffectiveModelName(aiProvider.providerName),
         provider: aiProvider.providerName,
         totalLatencyMs: totalLatency,
         retrievalLatencyMs,
@@ -579,7 +610,7 @@ export class AIOrchestratorService {
         createdAt: new Date().toISOString(),
       });
 
-      throw new Error(`AI Provider Error (${errorCode}): ${err.message}`);
+      throw new Error(`AI Provider Error (${errorCode}).`);
     }
 
     const generationLatencyMs = Date.now() - generationStartTime;
@@ -650,7 +681,9 @@ export class AIOrchestratorService {
     // If grounding check fails, regenerate with explicit corrective instruction
     if (!groundingResult.isValid && generationAttempts < 2) {
       generationAttempts++;
-      console.warn(`[AIOrchestratorService] Grounding check failed on attempt 1: ${groundingResult.unsupportedClaims.join(', ')}. Triggering corrective regeneration.`);
+      console.warn('[AIOrchestratorService] Grounding check failed; triggering corrective regeneration.', {
+        unsupportedClaimCount: groundingResult.unsupportedClaims.length,
+      });
 
       const correctiveMessage = {
         role: 'user' as const,
@@ -684,7 +717,7 @@ export class AIOrchestratorService {
           emit({ type: 'replace', content: generatedContent });
         }
       } catch (retryErr: any) {
-        console.warn('[AIOrchestratorService] Corrective regeneration failed:', retryErr.message);
+        console.warn('[AIOrchestratorService] Corrective regeneration failed.');
         groundingResult = GroundingValidator.validate(generatedContent, retrievedPassages, corpusDoesNotEstablish, userMessage, establishedEntities);
       }
     }
@@ -782,7 +815,7 @@ export class AIOrchestratorService {
         .returning();
       savedMessage = inserted;
     } catch (dbErr: any) {
-      console.warn('[AIOrchestratorService] Database insert message notice:', dbErr.message);
+      console.warn('[AIOrchestratorService] Assistant message persistence failed.');
       savedMessage = {
         id: uuidv4(),
         conversationId,
@@ -795,19 +828,22 @@ export class AIOrchestratorService {
     for (const citation of quoteResult.citations) {
       try {
         let validParentChunkId: string | null = null;
-        if (citation.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(citation.id)) {
+        const candidateParentChunkId = citation.parentChunkId || citation.id;
+        if (candidateParentChunkId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(candidateParentChunkId)) {
           const chunkExists = await db.query.mahabharataChunks.findFirst({
-            where: eq(mahabharataChunks.id, citation.id),
+            where: eq(mahabharataChunks.id, candidateParentChunkId),
             columns: { id: true },
           });
           if (chunkExists) {
-            validParentChunkId = citation.id;
+            validParentChunkId = candidateParentChunkId;
           }
         }
 
         await db.insert(messageCitations).values({
           messageId: savedMessage.id,
           chunkId: validParentChunkId,
+          evidenceId: citation.evidenceId || citation.id || null,
+          evidenceSourceType: citation.evidenceSourceType || null,
           source: citation.source,
           parva: citation.parva,
           chapter: citation.chapter,
@@ -822,7 +858,7 @@ export class AIOrchestratorService {
           quoteType: citation.quoteType,
         });
       } catch (citErr: any) {
-        console.warn('[AIOrchestratorService] Citation save notice:', citErr.message);
+        console.warn('[AIOrchestratorService] Citation persistence failed.');
       }
     }
 
@@ -868,7 +904,7 @@ export class AIOrchestratorService {
       retrievedEvidenceReferences: retrievedPassages.map(p => p.sourceReference),
       isCrisis,
       riskLevel: safetyCheck.riskLevel,
-    }).catch(err => console.warn('[AIOrchestratorService] Asynchronous memory update notice:', err.message));
+    }).catch(() => console.warn('[AIOrchestratorService] Asynchronous memory update failed.'));
 
     // Step 11: Auto-Title generation for the conversation if first turn
     if (history.length <= 1) {
@@ -892,6 +928,16 @@ export class AIOrchestratorService {
 
     const auditRecord: OrchestrationAuditRecord = {
       query: userMessage,
+      retrieval_query: retrievalQuery,
+      contextual_query: queryPlan.contextualQuery,
+      channel_candidates: retrievalChannelCandidates,
+      retrieval_confidence: retrievalConfidence,
+      evidence_sufficient: hasSufficientEvidence,
+      corpus_does_not_establish: corpusDoesNotEstablish,
+      top_score: retrievalTopScore,
+      score_gap: retrievalScoreGap,
+      provider: aiProvider.providerName,
+      model: resolveEffectiveModelName(aiProvider.providerName),
       retrieval_method: retrievalPath,
       retrieved_chunks: retrievedChunkIds,
       retrieved_scores: retrievalScores,
@@ -900,6 +946,7 @@ export class AIOrchestratorService {
       canonical_evidence: retrievedPassages.map(p => ({
         id: p.id,
         sourceType: p.sourceType,
+        sourceEdition: p.sourceEdition,
         sourceReference: p.sourceReference,
         text: p.translation,
         characters: p.characters || [],
@@ -943,7 +990,7 @@ export class AIOrchestratorService {
       requestId,
       userId,
       conversationId,
-      model: process.env.AI_MODEL_NAME || (aiProvider.providerName === 'groq' ? 'llama-3.1-8b-instant' : 'gemini-1.5-pro'),
+      model: resolveEffectiveModelName(aiProvider.providerName),
       provider: aiProvider.providerName,
       totalLatencyMs,
       retrievalLatencyMs,

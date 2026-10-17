@@ -1,11 +1,11 @@
 import crypto from 'crypto';
-import { eq, and, desc, isNull } from 'drizzle-orm';
+import { eq, and, desc, isNull, lt, gt, gte, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { otpVerifications } from '../../db/schema.js';
 import { OtpPurpose } from '@talk-to-krisna/shared';
 import { OtpProviderFactory } from './providers/otp-provider.factory.js';
+import { getOtpPepperSecret } from './auth-config.js';
 
-const OTP_SECRET = process.env.OTP_PEPPER_SECRET || process.env.JWT_SECRET || 'dev_otp_pepper_secret_change_in_production_32char';
 const OTP_EXPIRY_SECONDS = parseInt(process.env.OTP_EXPIRY_SECONDS || '600', 10); // 10 minutes default
 const OTP_RESEND_COOLDOWN_SECONDS = parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS || '60', 10); // 60s default
 const OTP_MAX_ATTEMPTS = parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10);
@@ -15,7 +15,7 @@ export class OtpService {
    * Hashes a plaintext OTP using HMAC-SHA256 with a pepper to prevent rainbow table attacks
    */
   public static hashOtp(code: string): string {
-    return crypto.createHmac('sha256', OTP_SECRET).update(code.trim()).digest('hex');
+    return crypto.createHmac('sha256', getOtpPepperSecret()).update(code.trim()).digest('hex');
   }
 
   /**
@@ -130,8 +130,8 @@ export class OtpService {
     const { plaintextCode } = await this.createOtpRecord(destination, purpose, userId, enforceCooldown);
 
     // Non-blocking asynchronous delivery so client response is instant
-    void this.deliverOtp(destination, purpose, plaintextCode, preferredName).catch((err: any) => {
-      console.error(`[OtpService] Async OTP delivery failed for ${destination}:`, err.message);
+    void this.deliverOtp(destination, purpose, plaintextCode, preferredName).catch(() => {
+      console.error('[OtpService] Async OTP delivery failed.', { operation: 'send_otp', purpose });
     });
   }
 
@@ -160,11 +160,12 @@ export class OtpService {
     }
 
     // 2. Check Expiration
-    if (activeOtp.expiresAt.getTime() < Date.now()) {
+    const verificationTime = new Date();
+    if (activeOtp.expiresAt.getTime() <= verificationTime.getTime()) {
       await db
         .update(otpVerifications)
         .set({ consumedAt: new Date() })
-        .where(eq(otpVerifications.id, activeOtp.id));
+        .where(and(eq(otpVerifications.id, activeOtp.id), isNull(otpVerifications.consumedAt)));
       throw new Error('Verification code has expired. Please request a new one.');
     }
 
@@ -173,19 +174,42 @@ export class OtpService {
       await db
         .update(otpVerifications)
         .set({ consumedAt: new Date() })
-        .where(eq(otpVerifications.id, activeOtp.id));
+        .where(and(eq(otpVerifications.id, activeOtp.id), isNull(otpVerifications.consumedAt)));
       throw new Error('Maximum verification attempts exceeded. Code has been locked.');
     }
 
-    // 4. Increment attempts
-    const updatedAttempts = activeOtp.attempts + 1;
-    await db
+    // 4. Atomically claim one attempt. A stale concurrent read cannot bypass the
+    // maximum-attempt limit, and an expired or already consumed code is rejected.
+    const [attemptRecord] = await db
       .update(otpVerifications)
-      .set({ attempts: updatedAttempts })
-      .where(eq(otpVerifications.id, activeOtp.id));
+      .set({ attempts: sql`${otpVerifications.attempts} + 1` })
+      .where(and(
+        eq(otpVerifications.id, activeOtp.id),
+        isNull(otpVerifications.consumedAt),
+        lt(otpVerifications.attempts, otpVerifications.maxAttempts),
+        gt(otpVerifications.expiresAt, verificationTime),
+      ))
+      .returning({
+        attempts: otpVerifications.attempts,
+        maxAttempts: otpVerifications.maxAttempts,
+        codeHash: otpVerifications.codeHash,
+        userId: otpVerifications.userId,
+      });
+
+    if (!attemptRecord) {
+      await db
+        .update(otpVerifications)
+        .set({ consumedAt: new Date() })
+        .where(and(
+          eq(otpVerifications.id, activeOtp.id),
+          isNull(otpVerifications.consumedAt),
+          gte(otpVerifications.attempts, otpVerifications.maxAttempts),
+        ));
+      throw new Error('No active verification code found or code has already been used.');
+    }
 
     // 5. Compare hashes in constant time
-    const expectedHashBuffer = Buffer.from(activeOtp.codeHash, 'hex');
+    const expectedHashBuffer = Buffer.from(attemptRecord.codeHash, 'hex');
     const actualHashBuffer = Buffer.from(this.hashOtp(submittedCode), 'hex');
 
     const isValid =
@@ -193,28 +217,41 @@ export class OtpService {
       crypto.timingSafeEqual(expectedHashBuffer, actualHashBuffer);
 
     if (!isValid) {
-      const remaining = activeOtp.maxAttempts - updatedAttempts;
+      const remaining = attemptRecord.maxAttempts - attemptRecord.attempts;
       if (remaining <= 0) {
         await db
           .update(otpVerifications)
           .set({ consumedAt: new Date() })
-          .where(eq(otpVerifications.id, activeOtp.id));
+          .where(and(
+            eq(otpVerifications.id, activeOtp.id),
+            isNull(otpVerifications.consumedAt),
+            eq(otpVerifications.attempts, attemptRecord.attempts),
+          ));
         throw new Error('Incorrect verification code. Maximum attempts exceeded. Please request a new code.');
       }
       throw new Error(`Incorrect verification code. ${remaining} attempt(s) remaining.`);
     }
 
     // 6. Valid: Consume OTP atomically
-    await db
+    const [consumedOtp] = await db
       .update(otpVerifications)
       .set({
         verifiedAt: new Date(),
         consumedAt: new Date(),
       })
-      .where(eq(otpVerifications.id, activeOtp.id));
+      .where(and(
+        eq(otpVerifications.id, activeOtp.id),
+        isNull(otpVerifications.consumedAt),
+        eq(otpVerifications.attempts, attemptRecord.attempts),
+      ))
+      .returning({ userId: otpVerifications.userId });
+
+    if (!consumedOtp) {
+      throw new Error('No active verification code found or code has already been used.');
+    }
 
     return {
-      userId: activeOtp.userId || undefined,
+      userId: consumedOtp.userId || undefined,
     };
   }
 }

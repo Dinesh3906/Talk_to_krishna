@@ -167,6 +167,8 @@ export const messageCitations = pgTable('message_citations', {
   id: uuid('id').defaultRandom().primaryKey(),
   messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
   chunkId: uuid('chunk_id').references(() => mahabharataChunks.id, { onDelete: 'set null' }),
+  evidenceId: text('evidence_id'),
+  evidenceSourceType: varchar('evidence_source_type', { length: 100 }),
   source: varchar('source', { length: 100 }).notNull(),
   parva: varchar('parva', { length: 100 }),
   chapter: varchar('chapter', { length: 50 }),

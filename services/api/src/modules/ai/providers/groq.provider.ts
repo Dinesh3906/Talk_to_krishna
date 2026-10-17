@@ -153,8 +153,8 @@ export class GroqProvider implements AIProvider {
       }
 
       return { content: fullText };
-    } catch (fetchErr: any) {
-      console.warn('[GroqProvider] Direct fetch stream failed, trying OpenAI SDK fallback:', fetchErr.message);
+    } catch {
+      console.warn('[GroqProvider] Direct fetch stream failed; trying OpenAI SDK fallback.');
 
       // Fallback: OpenAI client stream
       const client = new OpenAI({

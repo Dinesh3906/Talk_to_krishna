@@ -324,8 +324,12 @@ export class IntentClassifier {
     const hasAnger = /\b(furious|enraged|rage|revenge|wrath|resentment|lose my temper|anger|angry|corrupt|injustice)\b/i.test(text) && !isNegatedAnger;
     const hasJealousy = /\b(jealous|jealousy|envious|envy|bitter at (others|peers|friends)|covet)\b/i.test(text) && !isNegatedJealousy;
     const hasFear = /\b(anxiety|anxious|panic|terrified|fearful|dread|racing mind|tight chest|fear)\b/i.test(text) && !isNegatedFear;
+    const hasDisabilityOrBodyLimitation =
+      /\b(disab(led|ility)|handicap|amput(ee|ated)|lost (my )?(arm|hand|leg|limb|eye)|(don't|dont|do not) have (1|an?|one) (arm|hand|leg|limb|eye)|one (arm|hand|leg|eye)|1 (arm|hand|leg|eye)|missing (an?|one|my) (arm|hand|leg|limb)|blind|paraly(zed|sis)|wheelchair|physical deformity|deformed)\b/i.test(text);
+
     const hasGrief =
-      (/\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart|ignore|ignored|ignores|nobody likes me|rejection|rejected|ugly|short|body image|unseen|invisible)\b/i.test(text)) && !isNegatedGrief;
+      (hasDisabilityOrBodyLimitation ||
+      /\b(devastated|hopeless|despair|numb|heartache|aching heart|feel(ing)? empty|empty inside|empty and (alone|completely)|grief|deep sorrow|no energy left|completely alone|alone in this world|lonely|loneliness|sad|sadness|unhappy|depressed|depression|miserable|crying|broken|heartbroken|hurting|hurts? inside|suffering|lost in life|feeling lost|not (feeling )?(good|well|okay|fine|alright)|feeling (down|low|awful|terrible|bad|horrible)|i('m| am) not okay|not doing well|heaviness in my heart|heavy heart|ignore|ignored|ignores|nobody likes me|rejection|rejected|ugly|short|body image|unseen|invisible)\b/i.test(text)) && !isNegatedGrief;
 
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';
@@ -344,6 +348,10 @@ export class IntentClassifier {
         emotionalState = 'fear';
         themes = ['fear', 'courage', 'equanimity', 'refuge'];
         thematicKeywords = ['Arjuna', 'restless', 'mind', 'fear', 'steadfast', 'equanimity', 'refuge', '2.14', '6.5', '18.66'];
+      } else if (hasDisabilityOrBodyLimitation) {
+        emotionalState = 'loneliness';
+        themes = ['atman', 'deha', 'dignity', 'inner worth', 'ashtavakra', 'equal vision', 'impermanence'];
+        thematicKeywords = ['Ashtavakra', 'Deha', 'Atman', 'body', 'soul', 'garment', 'inner worth', 'Janaka', '2.22', '2.13', '13.1', '5.18'];
       } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people|ignore|ignored|ignores|nobody likes me|unseen|invisible|short|ugly|height|body image)\b/i.test(text)) {
         emotionalState = 'loneliness';
         themes = ['atman', 'dignity', 'impermanence', 'inner worth', 'equal vision'];
@@ -358,23 +366,34 @@ export class IntentClassifier {
         extractedCharacters: characters,
         thematicKeywords,
         extractedThemes: themes,
-        reasoningNote: 'Emotional distress requiring deep comfort with Mahabharata/Gita solace as Lord Krishna.',
+        reasoningNote: hasDisabilityOrBodyLimitation
+          ? 'Physical limitation or disability inquiry. Solace grounded in Atman vs Deha and the story of Ashtavakra.'
+          : 'Emotional distress requiring deep comfort with Mahabharata/Gita solace as Lord Krishna.',
       };
     }
 
     // 8. Compulsive Habits, Addiction, & Impulses
+    const isSexCompulsion = /\b(sexual (urges?|desires?|addiction|thoughts?)|addicted to sex|compulsive sex|obsessed with sex|porn addiction|pornography|lust|kama|thinking about sex all the time|can't stop thinking about sex)\b/i.test(text);
     const isCompulsion =
-      /\b(addicted|addiction|adicted|can't stop smoking|cant stop smoking|stop smoking|quit smoking|smoking|cigarettes|nicotine|want sex i am|thinking about sex all the time|can't control myself|obsessed with sex|porn addiction|compulsion|compulsive)\b/i.test(text);
+      isSexCompulsion ||
+      /\b(addicted|addiction|adicted|can't stop smoking|cant stop smoking|stop smoking|quit smoking|smoking|cigarettes|nicotine|want sex i am|can't control myself|compulsion|compulsive)\b/i.test(text);
 
     if (isCompulsion) {
+      const thematicKeywords = isSexCompulsion
+        ? ['Arjuna', 'Kama', 'desire', 'senses', 'restless mind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', 'Indriyas', '3.37', '3.41', '3.43', '2.62', '2.63', '6.35']
+        : ['Arjuna', 'senses', 'restless mind', 'wind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', '6.34', '6.35', '2.67', '6.5'];
+      const themes = isSexCompulsion
+        ? ['self-mastery', 'kama', 'restraint', 'peace', 'abhyasa', 'vairagya']
+        : ['self-mastery', 'restraint', 'peace', 'abhyasa', 'vairagya'];
+
       return {
         intentCategory: 'emotional_distress',
         emotionalState: 'confusion',
         mahabharataRelevant: true,
         relevanceScore: 0.95,
         extractedCharacters: ['Arjuna'],
-        thematicKeywords: ['Arjuna', 'senses', 'restless mind', 'wind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', '6.34', '6.35', '2.67', '6.5'],
-        extractedThemes: ['self-mastery', 'restraint', 'peace', 'abhyasa', 'vairagya'],
+        thematicKeywords,
+        extractedThemes: themes,
         reasoningNote: 'Compulsive behavior or habit struggle. Guided with compassionate Gita self-mastery (Abhyasa & Vairagya).',
       };
     }

@@ -47,7 +47,14 @@ export class ResponsePlanner {
     let targetTokens = 250;
     let storyRequired = false;
     let lessonRequired = true;
-    let ragRequired = Boolean(ctx.isMahabharataRelevant) && (ctx.scriptureExplicitlyRequested === true || ctx.intentCategory === 'factual_scripture' || ctx.intentCategory === 'moral_dilemma' || ctx.intentCategory === 'philosophical_inquiry');
+    let ragRequired = Boolean(ctx.isMahabharataRelevant) && (
+      ctx.scriptureExplicitlyRequested === true ||
+      ctx.intentCategory === 'factual_scripture' ||
+      ctx.intentCategory === 'moral_dilemma' ||
+      ctx.intentCategory === 'philosophical_inquiry' ||
+      ctx.intentCategory === 'emotional_distress' ||
+      ctx.intentCategory === 'career_purpose'
+    );
     let continuityAcknowledgement: string | undefined;
 
     const isCrisis =
@@ -123,8 +130,8 @@ export class ResponsePlanner {
         : 'emotional_guidance';
       responseDepth = 'moderate';
       targetTokens = 220;
-      lessonRequired = responseMode !== 'empathy_first';
-      ragRequired = responseMode !== 'empathy_first' && Boolean(ctx.isMahabharataRelevant);
+      lessonRequired = true;
+      ragRequired = Boolean(ctx.isMahabharataRelevant);
     } else if (ctx.intentCategory === 'career_purpose' || ctx.intentCategory === 'decision_making') {
       responseMode = 'practical_guidance';
       responseDepth = isFirstTurn ? 'moderate' : 'short';
@@ -134,10 +141,12 @@ export class ResponsePlanner {
       responseMode = 'explanation';
       responseDepth = 'detailed';
       targetTokens = 300;
+      ragRequired = true;
     } else if (/\b(explain everything|tell me all|in detail|deep dive)\b/i.test(lower)) {
       responseMode = 'philosophical';
       responseDepth = 'comprehensive';
       targetTokens = 380;
+      ragRequired = Boolean(ctx.isMahabharataRelevant);
     }
 
     // 2. Identify Established Facts to Avoid Repeating
@@ -215,6 +224,19 @@ export class ResponsePlanner {
       newInformationRequired.push('Address the specific tension or question raised in this turn while assuming shared background.');
     } else if (referenceResolution.isTopicReturn) {
       newInformationRequired.push(`Address the specific question about ${referenceResolution.restoredTopic} building on previous discussion.`);
+    }
+
+    // Premise Verification & Attribution Check (Defect 1)
+    const isAttributionOrPresupposition =
+      /\bwhy did (?:krishna|bhishma|arjuna|draupadi|karna|duryodhana|drona|yudhishthira)\b/i.test(lower) ||
+      /\bwhy does (?:the mahabharata|the gita|scripture)\b/i.test(lower) ||
+      /\bwhich (?:verse|chapter|shloka)\b/i.test(lower) ||
+      /\bwhat exact words did\b/i.test(lower);
+
+    if (isAttributionOrPresupposition) {
+      newInformationRequired.push(
+        'PREMISE VERIFICATION MANDATORY: The seeker asks about an alleged action, instruction, promise, or verse. Before explaining "why" or rationalizing the claim: 1. Verify whether the text actually establishes that this occurred. 2. If the premise is unsupported or contradicted (e.g. Krishna never secretly told all warriors that Pandavas would win; Krishna never commanded blind obedience to parents/elders over dharma; Bhishma never promised Draupadi to kill Duryodhana; Arjuna never permanently abandoned the war after hearing the Gita; Draupadi never ordered the killing of every prince; no verse guarantees worldly success or says all suffering is past-life punishment): YOU MUST POLITELY AND CLEARLY CORRECT THE PREMISE FIRST. 3. Distinguish authentic context from modern assumptions; do not rationalize an ungrounded premise.'
+      );
     }
 
     return {

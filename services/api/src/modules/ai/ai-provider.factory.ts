@@ -21,9 +21,11 @@ class ResilientFallbackProvider implements AIProvider {
       return await this.primary.generateCompletion(options);
     } catch (err: any) {
       if (this.fallback && this.isRecoverable(err)) {
-        console.warn(
-          `[AIProvider] Primary provider ${this.primary.providerName} failed: ${err.message}. Falling back to ${this.fallback.providerName}...`
-        );
+        console.warn('[AIProvider] Primary provider failed; using fallback.', {
+          provider: this.primary.providerName,
+          fallbackProvider: this.fallback.providerName,
+          operation: 'generate_completion',
+        });
         return await this.fallback.generateCompletion(options);
       }
       throw err;
@@ -38,9 +40,11 @@ class ResilientFallbackProvider implements AIProvider {
       return await this.primary.streamCompletion(options, onChunk);
     } catch (err: any) {
       if (this.fallback && this.isRecoverable(err)) {
-        console.warn(
-          `[AIProvider] Primary provider ${this.primary.providerName} stream failed: ${err.message}. Falling back to ${this.fallback.providerName}...`
-        );
+        console.warn('[AIProvider] Primary provider stream failed; using fallback.', {
+          provider: this.primary.providerName,
+          fallbackProvider: this.fallback.providerName,
+          operation: 'stream_completion',
+        });
         return await this.fallback.streamCompletion(options, onChunk);
       }
       throw err;

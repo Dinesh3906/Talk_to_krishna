@@ -28,9 +28,9 @@ export class TelemetryService {
         hasError: data.hasError,
         errorCode: data.errorCode,
       });
-    } catch (err: any) {
+    } catch {
       // Non-blocking telemetry log
-      console.warn('[TelemetryService] Failed to record telemetry record:', err.message);
+      console.warn('[TelemetryService] Failed to record telemetry record.');
     }
   }
 }

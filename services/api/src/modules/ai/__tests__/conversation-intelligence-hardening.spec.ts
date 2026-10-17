@@ -210,6 +210,67 @@ describe('conversation intelligence hardening', () => {
     expect(databaseQuery).not.toHaveBeenCalled();
   });
 
+  it('prefers directly matching canonical Gita evidence over unrelated epic passages and avoids false high confidence', async () => {
+    vi.stubEnv('DISABLE_LOCAL_EMBEDDING', 'true');
+    await HybridRetriever.getGitaVerses();
+    expect(HybridRetriever.extractQueryHints('What happens when someone repeatedly thinks about objects of desire?').candidateEntities).not.toContain('objects');
+    vi.spyOn(HybridRetriever, 'queryWithTimeout').mockResolvedValue({
+      rows: [
+        {
+          id: 'synthetic-unrelated-1', parent_chunk_id: 'parent-1', source_type: 'debroy_10_vol',
+          parva: 'Moksha Dharma', page_number: 3119, source_reference: 'Vol. 9 page 3119',
+          child_text: 'The king listened while the sages discussed a distant question of ritual order.',
+          combined_score: 0.90, characters: [],
+        },
+        {
+          id: 'synthetic-unrelated-2', parent_chunk_id: 'parent-2', source_type: 'debroy_10_vol',
+          parva: 'Moksha Dharma', page_number: 3114, source_reference: 'Vol. 9 page 3114',
+          child_text: 'A discourse followed about gifts, sacrifice, and the duties of a ruler.',
+          combined_score: 0.83, characters: [],
+        },
+        {
+          id: 'synthetic-unrelated-3', parent_chunk_id: 'parent-3', source_type: 'debroy_10_vol',
+          parva: 'Ashvamedhika', page_number: 3539, source_reference: 'Vol. 1 page 3539',
+          child_text: 'The horse returned to the city after a long journey through the provinces.',
+          combined_score: 0.77, characters: [],
+        },
+      ],
+      rowCount: 3,
+    } as any);
+
+    const result = await HybridRetriever.retrieve('What happens when someone repeatedly thinks about objects of desire?', [], [], 3);
+
+    expect(result.passages[0]?.sourceReference).toBe('Bhagavad Gita 2.62');
+    expect(result.passages.every((passage) => passage.sourceType === 'bhagavad_gita' || passage.sourceType.startsWith('gita_'))).toBe(true);
+    expect(result.confidence).toBe('medium');
+    expect(result.hasSufficientEvidence).toBe(true);
+    expect(result.passages[0]?.translation).toMatch(/attachment.*desire.*anger/i);
+  });
+
+  it('retrieves commentary as a separately attributed source for an exact Gita reference', async () => {
+    vi.stubEnv('DISABLE_LOCAL_EMBEDDING', 'true');
+    const databaseQuery = vi.spyOn(HybridRetriever, 'queryWithTimeout').mockResolvedValue({
+      rows: [{
+        id: 'synthetic-commentary-2-47',
+        parent_chunk_id: 'synthetic-commentary-parent',
+        source_type: 'gita_raghavendra_vivruti',
+        parva: 'Bhishma Parva (Bhagavad Gita)',
+        section: 'Verse 2.47',
+        source_reference: 'Gita Vivruti 2.47',
+        text: 'Commentary fixture: action is considered separately from attachment to its fruits.',
+        characters: ['Krishna', 'Arjuna'],
+      }],
+      rowCount: 1,
+    } as any);
+
+    const result = await HybridRetriever.retrieve("What does Madhva's commentary say about Bhagavad Gita 2.47?", [], [], 3);
+
+    expect(databaseQuery).toHaveBeenCalledOnce();
+    expect(result.passages.some(passage => passage.sourceType === 'gita_raghavendra_vivruti')).toBe(true);
+    expect(result.passages.find(passage => passage.sourceType === 'gita_raghavendra_vivruti')?.sourceReference).toBe('Gita Vivruti 2.47');
+    expect(result.passages.find(passage => passage.sourceType === 'bhagavad_gita')?.sourceReference).toBe('Bhagavad Gita 2.47');
+  });
+
   it('does not treat one shared character as enough evidence for a two-character relation', async () => {
     vi.stubEnv('DISABLE_LOCAL_EMBEDDING', 'false');
     vi.spyOn(HybridRetriever, 'queryWithTimeout').mockResolvedValue({ rows: [], rowCount: 0 });
@@ -471,6 +532,56 @@ describe('conversation intelligence hardening', () => {
     const verified = QuoteVerifier.verify(reply, [mockPassage] as any, false, [characterOnlyClaim]);
     // The citation should NOT be attached merely because Amba was named
     expect(verified.citations.length).toBe(0);
+  });
+
+  it('does not cite a canonical verse solely because its reference appears beside an unrelated claim', () => {
+    const passage = {
+      id: 'gita-record-2-47',
+      sourceType: 'bhagavad_gita',
+      sourceReference: 'Bhagavad Gita 2.47',
+      verseRange: '2.47',
+      translation: 'You have a right to action alone, never to its fruits.',
+      relevanceScore: 0.99,
+    };
+    const reply = 'Bhagavad Gita 2.47 says the soul is unborn and cannot be destroyed.';
+
+    const verified = QuoteVerifier.verify(reply, [passage] as any, false, []);
+
+    expect(verified.citations).toHaveLength(0);
+  });
+
+  it('retains exact Gita evidence identity and parent-chunk provenance on supported citations', () => {
+    const passage = {
+      id: 'gita-record-2-47',
+      parentChunkId: '00000000-0000-4000-8000-000000000047',
+      sourceType: 'gita_raghavendra_vivruti',
+      sourceReference: 'Bhagavad Gita 2.47, Sri Raghavendra Teertha Vivruti',
+      verseRange: '2.47',
+      translation: 'You have a right to action alone, never to its fruits.',
+      relevanceScore: 0.99,
+    };
+    const supportedClaim = {
+      item: 'Gita teaching',
+      type: 'teaching' as const,
+      supported: true,
+      evidenceIds: [passage.id],
+    };
+
+    const verified = QuoteVerifier.verify(
+      'The Gita commentary at Bhagavad Gita 2.47 focuses on action without attachment to its fruits.',
+      [passage] as any,
+      false,
+      [supportedClaim],
+    );
+
+    expect(verified.citations).toHaveLength(1);
+    expect(verified.citations[0]).toMatchObject({
+      id: passage.id,
+      evidenceId: passage.id,
+      evidenceSourceType: passage.sourceType,
+      parentChunkId: passage.parentChunkId,
+      source: 'Bhagavad Gita (Sri Raghavendra Teertha Vivruti)',
+    });
   });
 
   it('flags vague attributions to "these verses teach" when unsupported by retrieved evidence', () => {

@@ -20,6 +20,7 @@
     "lint": "npm --workspaces run lint",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
+    "db:migrate": "npm --workspace=services/api run db:migrate",
     "ingest:corpus": "npm --workspace=services/api run ingest:corpus",
     "ingest:pdf": "npm --workspace=services/api run ingest:pdf",
     "ingest:child": "npm --workspace=services/api run ingest:child"

@@ -48,7 +48,13 @@ export class MarkdownSanitizer {
     cleaned = cleaned.replace(/`([^`]+)`/g, '$1');
     cleaned = cleaned.replace(/`/g, '');
 
-    // 8. Clean Markdown tables (| col | col |, |---|---|)
+    // 8. Convert HTML line breaks (<br>, <br/>, <br />, </br>) to standard newlines
+    cleaned = cleaned.replace(/<\s*\/?\s*br\s*\/?>/gi, '\n');
+
+    // 9. Strip any remaining HTML tags (<p>, <div>, <span>, <b>, <i>, <table>, etc.)
+    cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+    // 10. Clean Markdown tables (| col | col |, |---|---|)
     cleaned = cleaned.replace(/^[ \t]*\|.*?\|[ \t]*$/gm, (match) => {
       // If it's a separator line like |---|---|, remove it completely
       if (/^[ \t]*\|[-:\s|]+\|[ \t]*$/.test(match)) {
@@ -56,11 +62,11 @@ export class MarkdownSanitizer {
       }
       const cells = match
         .split('|')
-        .map(c => c.trim())
+        .map(c => c.replace(/<\s*\/?\s*br\s*\/?>/gi, ', ').replace(/<[^>]+>/g, '').replace(/^[ \t]*[•\-\*][ \t]*/gm, '').trim())
         .filter(c => c.length > 0);
 
       // If it's a generic table header row, skip it
-      if (cells.some(c => /^(theme|key takeaway|approach|what it gives you|resource|what it offers|passage|core idea|aspect|topic)$/i.test(c))) {
+      if (cells.some(c => /^(theme|key takeaway|approach|what it gives you|resource|what it offers|passage|core idea|aspect|topic|area|equipment|tool|adaptive equipment|benefit|support)$/i.test(c))) {
         return '';
       }
 
@@ -70,10 +76,10 @@ export class MarkdownSanitizer {
       return cells.join(', ');
     });
 
-    // 9. Remove explicit section headers like "Shloka:", "Meaning:", "Deep Meaning:", "Application:", "Key Takeaways:"
+    // 11. Remove explicit section headers like "Shloka:", "Meaning:", "Deep Meaning:", "Application:", "Key Takeaways:"
     cleaned = cleaned.replace(/^[ \t]*(?:Shloka|Meaning|Deep Meaning|Application|Key Takeaways|Summary|Explanation):[ \t]*/gmi, '');
 
-    // 10. Normalize multiple blank lines to at most 2 (single paragraph break)
+    // 12. Normalize multiple blank lines to at most 2 (single paragraph break)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
     return preserveBoundaryWhitespace ? cleaned : cleaned.trim();
@@ -104,9 +110,9 @@ export class StreamTokenFilter {
     // Strip standalone backticks
     this.buffer = this.buffer.replace(/`/g, '');
 
-    // If buffer ends with characters that might be part of an incomplete markdown sequence (e.g. "*", "#", "-", "`")
-    // keep at most 3 trailing characters in the buffer and emit the rest sanitized.
-    const trailingSuspiciousMatch = this.buffer.match(/[*#\-_`|>]{1,3}$/);
+    // If buffer ends with characters that might be part of an incomplete markdown or HTML sequence
+    // (e.g. "*", "#", "-", "`", "<", "<br") keep those trailing characters in buffer and emit the rest.
+    const trailingSuspiciousMatch = this.buffer.match(/([*#\-_`|>]{1,3}|<[^>]{0,10})$/);
     if (trailingSuspiciousMatch) {
       const splitIndex = trailingSuspiciousMatch.index ?? this.buffer.length;
       const toEmit = this.buffer.slice(0, splitIndex);

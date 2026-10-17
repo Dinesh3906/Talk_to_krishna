@@ -61,9 +61,9 @@ export class BgeEmbeddingProvider implements EmbeddingProvider {
       }));
 
       return res;
-    } catch (err: any) {
-      console.error('[BgeEmbeddingProvider Error]: Failed to generate embeddings:', err.message);
-      throw new Error(`[BgeEmbeddingProvider] Embedding generation failed: ${err.message}`);
+    } catch {
+      console.error('[BgeEmbeddingProvider Error]: Failed to generate embeddings.');
+      throw new Error('[BgeEmbeddingProvider] Embedding generation failed.');
     }
   }
 }

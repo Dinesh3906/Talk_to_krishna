@@ -9,16 +9,28 @@ import userRouter from './modules/user/user.controller.js';
 import chatRouter from './modules/chat/chat.controller.js';
 import sourcesRouter from './modules/sources/sources.controller.js';
 import { pool } from './db/index.js';
-import { runMigrations } from './db/migrate.js';
+import { assertAuthSecretsConfigured } from './modules/auth/auth-config.js';
+import { startApiAfterSchemaCheck } from './server-startup.js';
+import { isCorsOriginAllowed, parseAllowedOrigins, safeErrorLogMetadata, safeErrorResponse, sanitizeRequestId } from './http-security.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const allowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
 
 // Security & Middlewares
 app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (isCorsOriginAllowed(origin, allowedOrigins, process.env.NODE_ENV)) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '1mb' }));
 
 // Global rate limiter (300 requests per 15 min window)
@@ -52,7 +64,7 @@ const authLimiter = rateLimit({
 
 // Request ID tracking middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const reqId = (req.headers['x-request-id'] as string) || uuidv4();
+  const reqId = sanitizeRequestId(req.headers['x-request-id'], uuidv4());
   req.headers['x-request-id'] = reqId;
   res.setHeader('X-Request-Id', reqId);
   next();
@@ -85,7 +97,7 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
     return res.status(503).json({
       status: 'unhealthy',
       database: 'disconnected',
-      error: err.message,
+      error: 'Database connection is unavailable.',
     });
   }
 });
@@ -98,27 +110,25 @@ app.use('/api/v1/sources', sourcesRouter);
 
 // Safe global error handler (never leaks stack traces to end users)
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-  console.error(`[Unhandled Error] Request ${req.headers['x-request-id']}:`, err);
-  return res.status(err.status || 500).json({
-    error: {
-      code: err.code || 'INTERNAL_SERVER_ERROR',
-      message: err.message || 'An unexpected internal error occurred.',
-      requestId: req.headers['x-request-id'],
-    },
-  });
+  const requestId = req.headers['x-request-id'];
+  console.error('[Unhandled Error]', safeErrorLogMetadata(err, requestId));
+  const safeError = safeErrorResponse(err, requestId);
+  const status = Number.isInteger(err?.status) && err.status >= 400 && err.status <= 599 ? err.status : 500;
+  return res.status(status).json({ error: safeError });
 });
 
 const portNum = Number(PORT);
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(portNum, '0.0.0.0', async () => {
-    console.log(`[Talk to Krishna API] Server listening on 0.0.0.0:${portNum}`);
-    try {
-      await runMigrations();
-      console.log('[Talk to Krishna API] Database migrations applied successfully.');
-    } catch (migErr: any) {
-      console.warn('[Talk to Krishna API] Database migration warning (will retry on next connection):', migErr.message);
-    }
+  void (async () => {
+    assertAuthSecretsConfigured();
+    await startApiAfterSchemaCheck(pool, () => app.listen(portNum, '0.0.0.0', () => {
+      console.log(`[Talk to Krishna API] Server listening on 0.0.0.0:${portNum}`);
+    }));
+  })().catch(async (startupError: any) => {
+    console.error('[Talk to Krishna API] Startup validation failed.', safeErrorLogMetadata(startupError, undefined));
+    await pool.end().catch(() => undefined);
+    process.exitCode = 1;
   });
 }
 

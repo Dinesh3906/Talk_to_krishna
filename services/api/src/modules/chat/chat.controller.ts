@@ -23,7 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
     return res.status(200).json({ data: list });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'CONVERSATIONS_FETCH_FAILED', message: err.message },
+      error: { code: 'CONVERSATIONS_FETCH_FAILED', message: 'Could not load conversations. Please try again.' },
     });
   }
 });
@@ -46,7 +46,7 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(201).json({ data: created });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'CONVERSATION_CREATION_FAILED', message: err.message },
+      error: { code: 'CONVERSATION_CREATION_FAILED', message: 'Could not create a conversation. Please try again.' },
     });
   }
 });
@@ -89,6 +89,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       const list = citationsByMessageId.get(c.messageId) || [];
       list.push({
         id: c.id,
+        evidenceId: c.evidenceId || undefined,
+        evidenceSourceType: c.evidenceSourceType || undefined,
+        parentChunkId: c.chunkId || undefined,
         source: c.source,
         parva: c.parva,
         chapter: c.chapter,
@@ -125,7 +128,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'CONVERSATION_DETAIL_FAILED', message: err.message },
+      error: { code: 'CONVERSATION_DETAIL_FAILED', message: 'Could not load this conversation. Please try again.' },
     });
   }
 });
@@ -144,7 +147,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Conversation deleted.' });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'CONVERSATION_DELETION_FAILED', message: err.message },
+      error: { code: 'CONVERSATION_DELETION_FAILED', message: 'Could not delete this conversation. Please try again.' },
     });
   }
 });
@@ -177,7 +180,7 @@ router.delete('/:id/messages/:messageId', async (req: Request, res: Response) =>
     return res.status(200).json({ success: true, message: 'Message deleted.' });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'MESSAGE_DELETION_FAILED', message: err.message },
+      error: { code: 'MESSAGE_DELETION_FAILED', message: 'Could not delete this message. Please try again.' },
     });
   }
 });
@@ -234,19 +237,31 @@ router.post('/:id/messages', async (req: Request, res: Response) => {
   };
 
   try {
-    await AIOrchestratorService.execute({
+    const result = await AIOrchestratorService.execute({
       userId,
       conversationId,
       userMessage: content,
       preferredName: preferredName || req.user?.preferredName,
       onStreamChunk: sendEvent,
     });
+    if (process.env.NODE_ENV === 'test' && process.env.TALK_TO_KRISHNA_EVALUATION_TRACE === 'true') {
+      sendEvent({
+        type: 'evaluation',
+        evaluation: {
+          auditRecord: result.auditRecord as unknown as Record<string, unknown>,
+          provider: result.auditRecord.provider,
+          model: result.auditRecord.model,
+          requestId: result.requestId,
+          totalLatencyMs: result.totalLatencyMs,
+        },
+      });
+    }
     res.end();
   } catch (err: any) {
     // Fail cleanly with 503 / error event if AI provider unavailable
     sendEvent({
       type: 'error',
-      error: err.message || 'The AI service is currently unavailable. Please try again.',
+      error: 'The response could not be completed at this moment. Please try again.',
       errorCode: 'SERVICE_UNAVAILABLE',
     });
     res.end();

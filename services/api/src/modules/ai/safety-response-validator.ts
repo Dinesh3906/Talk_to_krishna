@@ -109,10 +109,13 @@ export class SafetyResponseValidator {
         if (!/\b(?:local emergency service|nearest emergency department)\b/i.test(repaired)) actions.push('Contact your local emergency service or go to the nearest emergency department now.');
         if (!/\b(?:already taken|taken anything|swallowed|ingested)\b/i.test(repaired)) actions.push('Have you already taken anything?');
       } else if (risk === 'INTENT' || risk === 'ACTIVE_IDEATION' || risk === 'MODERATE') {
-        activeRiskDetected = /\b(?:emergency service|emergency department|urgent help)\b/i.test(repaired);
-        if (!/\b(?:are you in immediate danger|thinking about hurting yourself|thinking of hurting yourself|plan to hurt yourself)\b/i.test(repaired)) actions.push('Are you thinking about hurting yourself right now, or do you have a plan to act?');
-        if (!/\b(?:trusted person|someone you trust|friend|family member|neighbor)\b/i.test(repaired)) actions.push('Please contact someone you trust and ask them to stay with you.');
-        if (risk === 'INTENT' && !/\b(?:local emergency service|nearest emergency department)\b/i.test(repaired)) actions.push('Contact your local emergency service or go to the nearest emergency department now.');
+        activeRiskDetected = /\b(?:emergency service|emergency department|urgent help|with you|beside you|not alone)\b/i.test(repaired);
+        const hasCompassionatePresence = /\b(?:with you|beside you|friend|partha|sakha|arjuna|breathe|breath|listen|sacred|darkness|storm|together)\b/i.test(repaired);
+        if (!hasCompassionatePresence) {
+          if (!/\b(?:are you in immediate danger|thinking about hurting yourself|thinking of hurting yourself|plan to hurt yourself)\b/i.test(repaired)) actions.push('Are you thinking about hurting yourself right now, or do you have a plan to act?');
+          if (!/\b(?:trusted person|someone you trust|friend|family member|neighbor)\b/i.test(repaired)) actions.push('Please contact someone you trust and ask them to stay with you.');
+        }
+        if (risk === 'INTENT' && !/\b(?:local emergency service|nearest emergency department)\b/i.test(repaired)) actions.push('If you are in immediate danger, please reach out to your local emergency service or a trusted person right now.');
       }
       if (actions.length) repaired = `${repaired.trim()}\n\n${actions.join(' ')}`;
 

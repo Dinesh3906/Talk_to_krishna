@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { OtpDeliveryPayload, OtpDeliveryProvider } from './otp-delivery.interface.js';
+import { assertValidOtpDeliveryPayload, OtpDeliveryPayload, OtpDeliveryProvider } from './otp-delivery.interface.js';
 import { OtpPurposeEnum } from '@talk-to-krisna/shared';
 
 export class ResendOtpProvider implements OtpDeliveryProvider {
@@ -16,6 +16,7 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
   }
 
   public async sendOtp(payload: OtpDeliveryPayload): Promise<void> {
+    assertValidOtpDeliveryPayload(payload);
     if (!this.resend) {
       const apiKey = process.env.RESEND_API_KEY;
       if (apiKey && apiKey !== 're_123') {
@@ -26,9 +27,6 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
     }
 
     const { destination: email, code, purpose, preferredName } = payload;
-
-    // Log OTP code for observability and immediate developer/tester access
-    console.log(`[ResendOtpProvider] OTP code generated for ${this.maskEmail(email)}: [ ${code} ] [Purpose: ${purpose}]`);
 
     const subject = this.getSubject(purpose);
     const html = this.buildEmailHtml(code, purpose, preferredName);
@@ -53,7 +51,13 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
       return Promise.race([sendPromise, timeoutPromise]);
     };
 
-    let res = await sendWithTimeout(fromAddress);
+    let res: any;
+    try {
+      res = await sendWithTimeout(fromAddress);
+    } catch {
+      console.warn('[ResendOtpProvider] Email delivery failed.', { provider: this.name, operation: 'send_otp', outcome: 'error' });
+      return;
+    }
 
     // If primary failed domain verification, mark cooldown and try fallback once
     if (
@@ -64,21 +68,29 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
         res.error.message?.toLowerCase().includes('domain'))
     ) {
       ResendOtpProvider.primaryDomainFailedAt = Date.now();
-      console.warn(
-        `[ResendOtpProvider] Primary from '${primaryFrom}' failed (${res.error.message}). Caching domain failure and attempting fallback '${fallbackFrom}'...`
-      );
-      res = await sendWithTimeout(fallbackFrom);
+      console.warn('[ResendOtpProvider] Primary sender was rejected; trying the configured fallback sender.', {
+        provider: this.name,
+        operation: 'send_otp',
+        outcome: 'sender_rejected',
+      });
+      try {
+        res = await sendWithTimeout(fallbackFrom);
+      } catch {
+        console.warn('[ResendOtpProvider] Email delivery failed.', { provider: this.name, operation: 'send_otp', outcome: 'error' });
+        return;
+      }
     }
 
     if (res.error) {
-      console.warn(
-        `[ResendOtpProvider] Email delivery notice for ${this.maskEmail(email)}: ${res.error.message}. (OTP code remains valid in database)`
-      );
-      // Do not hard-crash the caller; OTP is securely persisted in DB and logged
+      console.warn('[ResendOtpProvider] Email delivery was rejected.', {
+        provider: this.name,
+        operation: 'send_otp',
+        outcome: 'rejected',
+      });
       return;
     }
 
-    console.log(`[ResendOtpProvider] Successfully delivered OTP email to ${this.maskEmail(email)} [Purpose: ${purpose}]`);
+    console.log('[ResendOtpProvider] Email delivered.', { provider: this.name, operation: 'send_otp', outcome: 'success' });
   }
 
   private getSubject(purpose: string): string {
@@ -95,7 +107,8 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
   }
 
   private buildEmailHtml(code: string, purpose: string, name?: string): string {
-    const greeting = name ? `Hare Krishna, ${name}` : 'Hare Krishna';
+    const greeting = name ? `Hare Krishna, ${this.escapeHtml(name)}` : 'Hare Krishna';
+    const escapedCode = this.escapeHtml(code);
     const actionText = purpose === OtpPurposeEnum.enum.PASSWORD_RESET
       ? 'Use this verification code to reset your password.'
       : 'Use this verification code to verify your Talk to Krishna account.';
@@ -111,7 +124,7 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
         <p style="font-size: 15px; line-height: 1.5; color: #475569; margin: 0 0 20px 0;">${actionText}</p>
 
         <div style="background: #fff7ed; border: 2px dashed #f97316; border-radius: 10px; padding: 20px; font-size: 32px; font-weight: 800; text-align: center; letter-spacing: 8px; color: #ea580c; margin: 24px 0;">
-          ${code}
+          ${escapedCode}
         </div>
 
         <p style="font-size: 14px; color: #64748b; line-height: 1.4; margin: 0 0 16px 0;">
@@ -127,12 +140,13 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
     `;
   }
 
-  private maskEmail(email: string): string {
-    const parts = email.split('@');
-    if (parts.length !== 2) return '***';
-    const name = parts[0];
-    const domain = parts[1];
-    const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : `${name[0]}***`;
-    return `${maskedName}@${domain}`;
+  private escapeHtml(value: string): string {
+    return value.replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[character]!);
   }
 }

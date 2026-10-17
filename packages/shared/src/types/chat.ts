@@ -107,6 +107,9 @@ export type QuoteType = 'direct_quote' | 'paraphrase' | 'inspired_guidance';
 
 export interface Citation {
   id?: string;
+  evidenceId?: string;
+  evidenceSourceType?: string;
+  parentChunkId?: string;
   source: string; // 'Mahabharata' | 'Bhagavad Gita'
   parva?: string;
   chapter?: string;
@@ -152,6 +155,7 @@ export type StreamChunkType =
   | 'citation'
   | 'reflection'
   | 'telemetry'
+  | 'evaluation'
   | 'debug'
   | 'done'
   | 'replace'
@@ -175,6 +179,13 @@ export interface StreamChunk {
     requestId: string;
     totalLatencyMs: number;
     retrievedChunkCount: number;
+  };
+  evaluation?: {
+    auditRecord: Record<string, unknown>;
+    provider: string;
+    model: string;
+    requestId: string;
+    totalLatencyMs: number;
   };
   debug?: {
     intent?: string;

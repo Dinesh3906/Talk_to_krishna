@@ -18,6 +18,20 @@ import { eq } from 'drizzle-orm';
 
 const router = Router();
 
+function safeOtpFailureMessage(error: any): string {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  const knownMessages = new Set([
+    'No active verification code found or code has already been used.',
+    'Verification code has expired. Please request a new one.',
+    'Maximum verification attempts exceeded. Code has been locked.',
+    'Incorrect verification code. Maximum attempts exceeded. Please request a new code.',
+  ]);
+  if (knownMessages.has(message) || /^Incorrect verification code\. \d+ attempt\(s\) remaining\.$/.test(message)) {
+    return message;
+  }
+  return 'Unable to verify the code. Please request a new one and try again.';
+}
+
 // 1. Production Signup (Creates unverified user and dispatches OTP)
 router.post('/signup', async (req: Request, res: Response) => {
   const parseResult = SignupSchema.safeParse(req.body);
@@ -35,10 +49,13 @@ router.post('/signup', async (req: Request, res: Response) => {
     const result = await AuthService.signup(parseResult.data);
     return res.status(201).json({ data: result });
   } catch (err: any) {
+    const message = err?.message === 'An account with this email address already exists.'
+      ? err.message
+      : 'Could not create the account. Please try again.';
     return res.status(400).json({
       error: {
         code: 'SIGNUP_FAILED',
-        message: err.message,
+        message,
       },
     });
   }
@@ -64,7 +81,7 @@ router.post('/verify-otp', async (req: Request, res: Response) => {
     return res.status(400).json({
       error: {
         code: 'OTP_VERIFICATION_FAILED',
-        message: err.message,
+        message: safeOtpFailureMessage(err),
       },
     });
   }
@@ -86,11 +103,16 @@ router.post('/login', async (req: Request, res: Response) => {
     const session = await AuthService.login(parseResult.data);
     return res.status(200).json({ data: session });
   } catch (err: any) {
-    const isUnverified = err.message.includes('ACCOUNT_NOT_VERIFIED');
+    const isUnverified = typeof err?.message === 'string' && err.message.startsWith('ACCOUNT_NOT_VERIFIED:');
+    const isInvalidCredentials = err?.message === 'Invalid email or password.';
     return res.status(isUnverified ? 403 : 401).json({
       error: {
         code: isUnverified ? 'ACCOUNT_NOT_VERIFIED' : 'AUTHENTICATION_FAILED',
-        message: err.message.replace('ACCOUNT_NOT_VERIFIED: ', ''),
+        message: isUnverified
+          ? 'Your account is not verified. A verification code has been sent to your email.'
+          : isInvalidCredentials
+            ? 'Invalid email or password.'
+            : 'Unable to sign in. Please try again.',
       },
     });
   }
@@ -112,10 +134,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const result = await AuthService.forgotPassword(parseResult.data);
     return res.status(200).json({ data: result });
   } catch (err: any) {
-    return res.status(400).json({
+    const cooldownMessage = typeof err?.message === 'string' && /^Please wait \d+ seconds before requesting another code\.$/.test(err.message)
+      ? err.message
+      : undefined;
+    return res.status(cooldownMessage ? 400 : 500).json({
       error: {
         code: 'FORGOT_PASSWORD_FAILED',
-        message: err.message,
+        message: cooldownMessage || 'Could not process the password reset request. Please try again.',
       },
     });
   }
@@ -141,7 +166,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     return res.status(400).json({
       error: {
         code: 'PASSWORD_RESET_FAILED',
-        message: err.message,
+        message: safeOtpFailureMessage(err),
       },
     });
   }
@@ -163,10 +188,13 @@ router.post('/resend-otp', async (req: Request, res: Response) => {
     const result = await AuthService.resendOtp(parseResult.data);
     return res.status(200).json({ data: result });
   } catch (err: any) {
+    const cooldownMessage = typeof err?.message === 'string' && /^Please wait \d+ seconds before requesting another code\.$/.test(err.message)
+      ? err.message
+      : undefined;
     return res.status(400).json({
       error: {
         code: 'RESEND_OTP_FAILED',
-        message: err.message,
+        message: cooldownMessage || 'Could not send a verification code. Please try again.',
       },
     });
   }
@@ -192,7 +220,7 @@ router.post('/google', async (req: Request, res: Response) => {
     return res.status(401).json({
       error: {
         code: 'GOOGLE_AUTH_FAILED',
-        message: err.message,
+        message: 'Google authentication failed. Please try again.',
       },
     });
   }
@@ -210,7 +238,7 @@ router.post('/anonymous', async (req: Request, res: Response) => {
     return res.status(500).json({
       error: {
         code: 'ANONYMOUS_AUTH_FAILED',
-        message: err.message,
+        message: 'Could not create an anonymous session. Please try again.',
       },
     });
   }
@@ -232,10 +260,10 @@ router.post('/register', async (req: Request, res: Response) => {
     const session = await AuthService.register(parseResult.data);
     return res.status(201).json({ data: session });
   } catch (err: any) {
-    return res.status(400).json({
+    return res.status(500).json({
       error: {
         code: 'REGISTRATION_FAILED',
-        message: err.message,
+        message: 'Could not register the account. Please try again.',
       },
     });
   }
@@ -268,7 +296,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return res.status(500).json({
       error: {
         code: 'PROFILE_FETCH_FAILED',
-        message: err.message,
+        message: 'Could not load the user profile. Please try again.',
       },
     });
   }

@@ -47,7 +47,7 @@ router.patch('/preferences', async (req: Request, res: Response) => {
     return res.status(500).json({
       error: {
         code: 'PREFERENCES_UPDATE_FAILED',
-        message: err.message,
+        message: 'Could not update preferences. Please try again.',
       },
     });
   }
@@ -68,7 +68,7 @@ router.delete('/memory/:id', async (req: Request, res: Response) => {
     return res.status(500).json({
       error: {
         code: 'MEMORY_DELETION_FAILED',
-        message: err.message,
+        message: 'Could not remove the stored memory. Please try again.',
       },
     });
   }
@@ -85,7 +85,7 @@ router.delete('/account', async (req: Request, res: Response) => {
     return res.status(500).json({
       error: {
         code: 'ACCOUNT_DELETION_FAILED',
-        message: err.message,
+        message: 'Could not delete the account. Please try again.',
       },
     });
   }

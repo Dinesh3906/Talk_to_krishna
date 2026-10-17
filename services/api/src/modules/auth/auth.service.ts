@@ -19,8 +19,8 @@ import {
   UserPreferences,
 } from '@talk-to-krisna/shared';
 import { OtpService } from './otp.service.js';
+import { getJwtSecret } from './auth-config.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_insecure_jwt_secret_must_change_in_production_32char';
 const JWT_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const BCRYPT_SALT_ROUNDS = 10; // OWASP compliant, 4x faster than 12 on CPU
 
@@ -42,7 +42,7 @@ export class AuthService {
       isAnonymous,
       tokenVersion,
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN_SECONDS });
+    return jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN_SECONDS });
   }
 
   /**
@@ -121,7 +121,7 @@ export class AuthService {
 
     // 4. Non-blocking asynchronous delivery so UI transition is instant (< 400ms)
     void OtpService.deliverOtp(normalizedEmail, 'SIGNUP_VERIFICATION', plaintextCode, preferredName || undefined).catch(
-      (err: any) => console.error('[AuthService] Background OTP delivery failed:', err.message)
+      () => console.error('[AuthService] Background OTP delivery failed.', { operation: 'send_otp', purpose: 'SIGNUP_VERIFICATION' })
     );
 
     return {
@@ -350,7 +350,7 @@ export class AuthService {
         'SIGNUP_VERIFICATION',
         userRecord.id,
         userRecord.preferredName || undefined
-      ).catch((err: any) => console.warn('[AuthService] Re-issuing OTP for unverified user:', err.message));
+      ).catch(() => console.warn('[AuthService] Re-issuing OTP for unverified user failed.', { operation: 'send_otp', purpose: 'SIGNUP_VERIFICATION' }));
 
       throw new Error('ACCOUNT_NOT_VERIFIED: Your account is not verified. A verification code has been sent to your email.');
     }
@@ -360,7 +360,7 @@ export class AuthService {
       .update(users)
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, userRecord.id))
-      .catch((err: any) => console.error('[AuthService] Non-critical lastLoginAt update error:', err));
+      .catch(() => console.error('[AuthService] Non-critical lastLoginAt update failed.'));
 
     const profileRecord = match.profile;
 
@@ -506,8 +506,8 @@ export class AuthService {
         audience: audiences.length > 0 ? audiences : undefined,
       });
       payload = ticket.getPayload();
-    } catch (err: any) {
-      throw new Error(`Google token verification failed: ${err.message}`);
+    } catch {
+      throw new Error('Google authentication failed. Please try again.');
     }
 
     if (!payload || !payload.sub) {
@@ -694,7 +694,7 @@ export class AuthService {
    */
   public static async verifyToken(token: string): Promise<User> {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+      const decoded = jwt.verify(token, getJwtSecret()) as AuthTokenPayload;
       const userRecord = await db.query.users.findFirst({
         where: eq(users.id, decoded.sub),
       });
@@ -722,8 +722,8 @@ export class AuthService {
         createdAt: userRecord.createdAt.toISOString(),
         lastLoginAt: userRecord.lastLoginAt?.toISOString(),
       };
-    } catch (err: any) {
-      throw new Error(`Authentication token invalid or expired: ${err.message}`);
+    } catch {
+      throw new Error('Authentication token invalid or expired.');
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Citation, QuoteType } from '@talk-to-krisna/shared';
 import { RetrievedPassage } from './hybrid-retriever.js';
 import type { GroundingClaimCheck } from './grounding-validator.js';
+import { CanonicalGitaHelper } from './canonical-gita-helper.js';
 
 export interface QuoteVerificationResult {
   verifiedContent: string;
@@ -36,6 +37,24 @@ export class QuoteVerifier {
       };
     }
 
+    // 1b. Check bare verse references in generatedText against canonical verses and claims (Defect 2)
+    const verseRefs = CanonicalGitaHelper.extractVerseReferences(verifiedContent);
+    const rejectedVerseRefs = new Set<string>();
+    for (const vr of verseRefs) {
+      const claimCheck = CanonicalGitaHelper.validateVerseClaim(vr.chapter, vr.verse, vr.sentence);
+      if (!claimCheck.supported) {
+        hasUngroundedScriptureClaim = true;
+        rejectedVerseRefs.add(`Bhagavad Gita ${vr.chapter}.${vr.verse}`.toLowerCase());
+      }
+    }
+
+    // Check if any verse claim in groundingClaims was marked unsupported
+    for (const claim of groundingClaims) {
+      if (claim.type === 'verse' && !claim.supported) {
+        hasUngroundedScriptureClaim = true;
+      }
+    }
+
     // Cite only evidence IDs attached to a supported substantive response claim.
     // Mere appearance of a character name, location, or incidental event in the text does not justify
     // attaching an arbitrary passage as scriptural evidence for the user's situation.
@@ -57,12 +76,13 @@ export class QuoteVerifier {
         passage.sourceType === 'gita' ||
         passage.sourceType === 'gita_raghavendra_vivruti' ||
         passage.sourceType === 'gita_ashok_kaushik';
-      const isExplicitGitaMatch = isGitaFamily &&
-        (refMentioned || textContainsSnippet || Boolean(verseMentioned && (verifiedContent.includes(`${passage.chapter}.${passage.verseRange}`) || verifiedContent.toLowerCase().includes('bhagavad gita') || verifiedContent.toLowerCase().includes('gita'))));
       const isDirectlyReferenced = textContainsSnippet || refMentioned || Boolean(verseMentioned) ||
         (isGitaFamily && (verifiedContent.toLowerCase().includes('gita') || (passage.chapter && verifiedContent.toLowerCase().includes(`chapter ${passage.chapter}`))));
 
-      if ((claimSupportsPassage || isExplicitGitaMatch) && isDirectlyReferenced) {
+      const isRejected = rejectedVerseRefs.has(ref) ||
+        (passage.chapter && passage.verseRange && rejectedVerseRefs.has(`bhagavad gita ${passage.chapter}.${passage.verseRange}`));
+
+      if (claimSupportsPassage && isDirectlyReferenced && !isRejected) {
         let quoteType: QuoteType = 'inspired_guidance';
 
         if (textContainsSnippet) {
@@ -77,13 +97,16 @@ export class QuoteVerifier {
         } else if (passage.sourceType === 'gita_ashok_kaushik') {
           citationSource = 'Bhagavad Gita (Ashok Kaushik Edition)';
         } else if (passage.sourceType === 'gita' || passage.sourceType === 'bhagavad_gita') {
-          citationSource = 'Bhagavad Gita';
+          citationSource = passage.sourceEdition || 'Bhagavad Gita';
         } else if (passage.sourceType === 'debroy_10_vol') {
           citationSource = 'Mahabharata (Bibek Debroy Edition)';
         }
 
         citations.push({
           id: passage.id,
+          evidenceId: passage.id,
+          evidenceSourceType: passage.sourceType,
+          parentChunkId: passage.parentChunkId,
           source: citationSource,
           parva: passage.parva,
           chapter: passage.chapter,

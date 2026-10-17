@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "migrations": [
+    { "file": "0001_initial_schema.sql", "sha256": "6eab4ed776854bd8828a5ea15bdfca134292d6164601cd3f5e74609ab8353140" },
+    { "file": "0002_parent_child_chunks.sql", "sha256": "b005f27f814bf92c0629868da9beaaf46d2b5dfd932cc58b9464ab9b2d08e675" },
+    { "file": "0003_add_google_auth.sql", "sha256": "6eaab1f295abaa8e696fafcd0f8059c225c1bb0d08dac29046a6e61734098b39" },
+    { "file": "0004_auth_otp_and_security.sql", "sha256": "9446943d20042a91cb5f39aec18d1607b795572842c5fc27652767e751c2a3db" },
+    { "file": "0005_precomputed_search_vector.sql", "sha256": "7fa6ef816a51a166e8c0aa5b7562ff67dc11536b7f68f88060e33a53c3e76825" },
+    { "file": "0006_gita_verses_schema.sql", "sha256": "22e497011381035b76902de1f1b317079a7a6d0c888a6dbb890973826f96b857" },
+    { "file": "0007_conversation_memory_and_segments.sql", "sha256": "66cc2c999e562090b9ff315d1f277d5552e59344103b715d37afccebf5e4cce4" },
+    { "file": "0008_persistent_safety_state.sql", "sha256": "f594a50f1aa0cd5c8f5d7adf68d5ab0f6332a999afb5fd502123acb20c0746dd" },
+    { "file": "0009_expand_varchar_lengths.sql", "sha256": "43988ad09db8feb2951868675b9bc9e51507c858949822d701cb63cadab3688a" },
+    { "file": "0010_citation_evidence_provenance.sql", "sha256": "232bcf1ddf0d5dd241d139b58b187e52a5e773da69525172738897973ef402e5" }
+  ]
+}

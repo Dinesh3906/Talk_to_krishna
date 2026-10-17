@@ -111,10 +111,14 @@ export class ContextualQueryResolver {
       queryTerms.push('revealed', 'Kunti', 'Krishna');
     } else if (/\bmistake|flaw|error\b/i.test(lower)) {
       queryTerms.push('conflict', 'duty', 'attachment');
+    } else if (/\b(sexual|sex|lust|kama|porn|masturbat)\b/i.test(lower)) {
+      queryTerms.push('Kama', 'desire', 'senses', 'indriyas', 'restraint', 'abhyasa', 'vairagya', 'Gita');
     } else if (/\b(smoke|smoking|quit|craving|cravings|addict|addiction|relapse|urge|urges|compuls)\b/i.test(lower)) {
       queryTerms.push('restraint', 'senses', 'mind', 'control', 'abhyasa', 'vairagya');
     } else if (/\b(fail|failed|failure|exam|test|grades|disappoint|academic)\b/i.test(lower)) {
       queryTerms.push('duty', 'action', 'attachment', 'fruits', 'effort', 'svadharma', 'perseverance');
+    } else if (/\b(arm|hand|leg|limb|eye|blind|paraly|wheelchair|disab|amput|deform)\b/i.test(lower)) {
+      queryTerms.push('Ashtavakra', 'Deha', 'Atman', 'body', 'soul', 'inner worth', 'Janaka', 'garment');
     } else if (/\b(short|height|tall|ignore|ignored|appearance|ugly|inferior|body)\b/i.test(lower)) {
       queryTerms.push('inner worth', 'dignity', 'atman', 'soul', 'character', 'virtue');
     } else if (/\b(breakup|broke up|ex|girlfriend|boyfriend|heartbreak|separated)\b/i.test(lower)) {

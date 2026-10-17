@@ -16,12 +16,25 @@ export interface RetrievedPassage {
   speaker?: string;
   listener?: string;
   translation: string;
+  sourceEdition?: string;
   originalText?: string;
   sourceReference: string;
   contextSummary?: string;
   relevanceForGuidance?: string;
   relevanceScore: number;
+  retrievalScores?: Record<string, number>;
   characters?: string[];
+}
+
+export interface RetrievalCandidateTrace {
+  id: string;
+  parentChunkId?: string;
+  sourceType: string;
+  sourceEdition?: string;
+  sourceReference: string;
+  rank: number;
+  candidateScore: number;
+  scoreComponents: Record<string, number>;
 }
 
 export interface HybridRetrievalResult {
@@ -36,6 +49,7 @@ export interface HybridRetrievalResult {
   databaseLatencyMs?: number;
   fallbackUsed?: boolean;
   fallbackReason?: string;
+  channelCandidates?: Record<string, RetrievalCandidateTrace[]>;
   timings?: {
     entityExtractionMs: number;
     embeddingMs: number;
@@ -77,6 +91,7 @@ export interface CachedGitaVerse {
   sanskrit: string;
   transliteration: string;
   translation: string;
+  sourceEdition?: string;
   deep_meaning?: string;
   krishna_teaching?: string;
   provenance: string;
@@ -112,6 +127,32 @@ function entityQueryGroup(name: string): string {
 
 function entityMentioned(text: string, name: string): boolean {
   return spellingVariants(name).some(variant => new RegExp(`\\b${variant}\\b`, 'i').test(text));
+}
+
+function normalizeEnglishToken(token: string): string {
+  let normalized = token.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (normalized.length > 5 && normalized.endsWith('ies')) normalized = `${normalized.slice(0, -3)}y`;
+  else if (normalized.length > 5 && normalized.endsWith('ing')) {
+    normalized = normalized.slice(0, -3);
+    if (/(.)\1$/.test(normalized)) normalized = normalized.slice(0, -1);
+  } else if (normalized.length > 4 && normalized.endsWith('ed')) normalized = normalized.slice(0, -2);
+  else if (normalized.length > 4 && normalized.endsWith('s') && !normalized.endsWith('ss')) normalized = normalized.slice(0, -1);
+  return normalized;
+}
+
+function queryTokenMatchCount(text: string, queryTokens: string[]): number {
+  const terms = Array.from(new Set(queryTokens.map(normalizeEnglishToken).filter(token => token.length >= 3)));
+  const sourceTerms = new Set(text.split(/[^\p{L}\p{N}]+/u).map(normalizeEnglishToken).filter(Boolean));
+  return terms.filter(term => sourceTerms.has(term)).length;
+}
+
+function queryTokenCoverage(text: string, queryTokens: string[]): number {
+  const terms = Array.from(new Set(queryTokens.map(normalizeEnglishToken).filter(token => token.length >= 3)));
+  return terms.length ? queryTokenMatchCount(text, queryTokens) / terms.length : 0;
+}
+
+function isGitaCorpusPassage(passage: RetrievedPassage): boolean {
+  return passage.sourceType === 'bhagavad_gita' || passage.sourceType.startsWith('gita_');
 }
 
 export class HybridRetriever {
@@ -150,7 +191,7 @@ export class HybridRetriever {
   public static async queryWithTimeout(
     text: string,
     params: any[] = [],
-    timeoutMs = 4000,
+    timeoutMs = 8000,
     onTiming?: (timing: DatabaseQueryTiming) => void,
   ): Promise<any> {
     const started = performance.now();
@@ -251,6 +292,7 @@ export class HybridRetriever {
             sanskrit: r.sanskrit,
             transliteration: r.transliteration,
             translation: r.translation,
+            sourceEdition: r.sourceEdition,
             deep_meaning: r.deepMeaning ?? r.deep_meaning,
             krishna_teaching: r.krishnaTeaching ?? r.krishna_teaching,
             provenance: r.provenance,
@@ -262,6 +304,7 @@ export class HybridRetriever {
         try {
           const res = await this.queryWithTimeout(`
             SELECT id, chapter, verse, speaker, listener, sanskrit, transliteration,
+                   source_edition,
                    translation, deep_meaning, krishna_teaching, provenance
             FROM gita_verses ORDER BY chapter ASC, verse ASC;
           `, [], 1800, timing => { this.gitaDatabaseLatencyMs = timing.durationMs; });
@@ -269,13 +312,14 @@ export class HybridRetriever {
           this.gitaCache = res.rows.map((r: any) => ({
             id: r.id, chapter: r.chapter, verse: r.verse, speaker: r.speaker, listener: r.listener,
             sanskrit: r.sanskrit, transliteration: r.transliteration, translation: r.translation,
+            sourceEdition: r.source_edition,
             deep_meaning: r.deep_meaning, krishna_teaching: r.krishna_teaching, provenance: r.provenance,
           }));
           return this.gitaCache!;
-        } catch (err: any) {
+        } catch {
           this.gitaLoadPath = 'none';
-          this.gitaFallbackReason = err.message;
-          console.warn('[HybridRetriever] Gita DB read exceeded its budget and canonical disk corpus is unavailable:', err.message);
+          this.gitaFallbackReason = 'gita_database_read_failed';
+          console.warn('[HybridRetriever] Gita database read failed and canonical disk corpus is unavailable.');
           this.gitaCache = [];
           return [];
         }
@@ -406,9 +450,13 @@ export class HybridRetriever {
     const candidateEntities = new Set<string>();
 
     // 1. Phrasal subject extraction: "who was X", "tell me about X", "story of X", "what did X do"
-    const phraseMatches = queryText.matchAll(/\b(?:about|who (?:was|is)|tell me about|story of|why did|what did|between|with)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/gi);
+    const phraseMatches = queryText.matchAll(/\b(?:who (?:was|is)|tell me about|story of|why did|what did|between)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)/gi);
     for (const match of phraseMatches) {
       if (match[1]) {
+        // Phrasal extraction is for proper-name subjects; treating any noun after
+        // "about" as an entity (for example "objects of desire") creates a false
+        // epic scope and suppresses the canonical Gita search path.
+        if (!/^[A-Z][a-z]+$/.test(match[1].split(/\s+/)[0])) continue;
         const words = match[1].split(/\s+/).map(w => w.replace(/[^a-zA-Z]/g, '').toLowerCase());
         for (const w of words) {
           if (w.length >= 3 && !this.STOP_WORDS.has(w)) {
@@ -543,8 +591,8 @@ export class HybridRetriever {
         });
       }
       return passages;
-    } catch (error: any) {
-      console.warn('[HybridRetriever] Canonical episode disk lookup failed:', error.message);
+    } catch {
+      console.warn('[HybridRetriever] Canonical episode disk lookup failed.');
       return [];
     }
   }
@@ -613,10 +661,10 @@ export class HybridRetriever {
         ? `${queryText.trim()} ${thematicKeywords.slice(0, 8).join(' ')}`
         : queryText.trim();
       const normalizedQueryKey = semanticEmbeddingText.toLowerCase();
-      if (isGitaOnlyQuery || hasSpecificNamedEntities) {
-        // Exact canonical character/event searches use the indexed FTS path. Local
-        // embedding startup and a broad vector scan are unnecessary when named
-        // participants already provide a precise retrieval key.
+      const queryAsksRelationship = /\b(?:related|relationship|relation|between)\b/i.test(queryText);
+      const isTwoEntityRelationSearch = queryAsksRelationship && allCandidateEntities.length >= 2;
+      if (isGitaOnlyQuery || isTwoEntityRelationSearch) {
+        // Scripture-only verse queries and exact two-entity relationship queries use targeted FTS.
         queryEmbedding = null;
       } else if (HybridRetriever.embeddingCache.has(normalizedQueryKey)) {
         queryEmbedding = HybridRetriever.embeddingCache.get(normalizedQueryKey)!;
@@ -636,8 +684,8 @@ export class HybridRetriever {
             }
             HybridRetriever.embeddingCache.set(normalizedQueryKey, vec);
           }
-        } catch (embErr: any) {
-          console.warn('[HybridRetriever] Semantic embedding unavailable, using pure lexical/FTS retrieval:', embErr.message);
+        } catch {
+          console.warn('[HybridRetriever] Semantic embedding unavailable; using lexical and full-text retrieval.');
           queryEmbedding = null;
         }
       }
@@ -705,6 +753,32 @@ export class HybridRetriever {
         : lexicalSearchTokens.map(t => `'${t.replace(/'/g, "''")}'`).map(t => `${t}:*`).join(' | ');
 
       const candidatePassages: RetrievedPassage[] = [];
+      const tracePassages = (channel: string, scoreKey?: string): RetrievalCandidateTrace[] => candidatePassages
+        .filter(passage => !scoreKey || (passage.retrievalScores?.[scoreKey] || 0) > 0)
+        .filter(passage => {
+          if (channel === 'canonical_gita_exact') return (passage.retrievalScores?.exactReference || 0) > 0;
+          if (channel === 'canonical_gita_fallback') return (passage.retrievalScores?.fallback || 0) > 0;
+          if (channel === 'canonical_gita_vector') return passage.sourceType === 'bhagavad_gita' && (passage.retrievalScores?.vector || 0) > 0;
+          if (channel === 'canonical_gita_lexical') return passage.sourceType === 'bhagavad_gita' && (passage.retrievalScores?.lexical || 0) > 0;
+          if (channel === 'canonical_gita_theme') return passage.sourceType === 'bhagavad_gita' && (passage.retrievalScores?.theme || 0) > 0;
+          if (channel === 'gita_commentary') return passage.sourceType.startsWith('gita_') && (passage.retrievalScores?.commentaryReference || 0) > 0;
+          if (channel === 'mahabharata_vector') return passage.sourceType !== 'bhagavad_gita' && (passage.retrievalScores?.vector || 0) > 0;
+          if (channel === 'mahabharata_fulltext') return passage.sourceType !== 'bhagavad_gita' && (passage.retrievalScores?.lexical || 0) > 0;
+          if (channel === 'canonical_disk_episode') return (passage.retrievalScores?.diskEpisode || 0) > 0;
+          return false;
+        })
+        .sort((a, b) => (b.retrievalScores?.[scoreKey || 'fused'] ?? b.relevanceScore) - (a.retrievalScores?.[scoreKey || 'fused'] ?? a.relevanceScore))
+        .slice(0, 50)
+        .map((passage, index) => ({
+          id: passage.id,
+          parentChunkId: passage.parentChunkId,
+          sourceType: passage.sourceType,
+          sourceEdition: passage.sourceEdition,
+          sourceReference: passage.sourceReference,
+          rank: index + 1,
+          candidateScore: passage.relevanceScore,
+          scoreComponents: passage.retrievalScores || {},
+        }));
 
       // 5. Canonical Gita cache. Count its database fetch once, on the request that loads it.
       const tGitaStart = Date.now();
@@ -732,7 +806,7 @@ export class HybridRetriever {
           try {
             const singleRes = await this.queryWithTimeout(
               `SELECT id, chapter, verse, speaker, listener, sanskrit, transliteration,
-                      translation, deep_meaning, krishna_teaching, provenance
+                      source_edition, translation, deep_meaning, krishna_teaching, provenance
                FROM gita_verses WHERE chapter = $1 AND verse = $2 LIMIT 1;`,
               [hints.verseReference.chapter, hints.verseReference.verse],
               15000
@@ -747,14 +821,15 @@ export class HybridRetriever {
                 listener: r.listener,
                 sanskrit: r.sanskrit,
                 transliteration: r.transliteration,
+                sourceEdition: r.source_edition,
                 translation: r.translation,
                 deep_meaning: r.deep_meaning,
                 krishna_teaching: r.krishna_teaching,
                 provenance: r.provenance,
               };
             }
-          } catch (singleErr: any) {
-            console.warn('[HybridRetriever] Direct verse lookup query failed:', singleErr.message);
+          } catch {
+            console.warn('[HybridRetriever] Direct verse lookup query failed.');
           }
         }
         if (match) {
@@ -766,15 +841,18 @@ export class HybridRetriever {
             speaker: match.speaker,
             listener: match.listener,
             translation: match.translation,
+            sourceEdition: match.sourceEdition,
             originalText: match.sanskrit || match.transliteration,
             sourceReference: `Bhagavad Gita ${match.chapter}.${match.verse}`,
             contextSummary: `Speaker: ${match.speaker}, Listener: ${match.listener}. Provenance: ${match.provenance}`,
             relevanceForGuidance: match.deep_meaning || match.krishna_teaching,
             relevanceScore: 1.0,
+            retrievalScores: { exactReference: 1.0, fused: 1.0 },
           });
 
           // Augment with authentic multi-source commentaries (Sri Raghavendra Vivruti & Ashok Kaushik)
-          if (!isGitaOnlyQuery) {
+          const requestsCommentary = /\b(?:commentary|commentaries|bhashya|bhasya|vivruti|commentator|madhva|madhwa|shankara|ramanuja|kaushik|raghavendra)\b/i.test(queryText);
+          if (!isGitaOnlyQuery || requestsCommentary) {
             try {
               const commRes = await this.queryWithTimeout(
               `SELECT c.id, c.parent_chunk_id, c.source_type, c.parva, c.page_number, c.section, c.source_reference, c.text, c.characters
@@ -802,6 +880,7 @@ export class HybridRetriever {
                     ? `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${cr.section}`
                     : `From Srimad Bhagavad-Gita by Ashok Kaushik (ASI 279), ${cr.section}`,
                   relevanceScore: 0.95,
+                  retrievalScores: { commentaryReference: 0.95, fused: 0.95 },
                   characters: cr.characters || ['Krishna', 'Arjuna'],
                 });
               }
@@ -881,11 +960,13 @@ export class HybridRetriever {
               speaker: v.speaker,
               listener: v.listener,
               translation: v.translation,
+              sourceEdition: v.sourceEdition,
               originalText: v.sanskrit || v.transliteration,
               sourceReference: `Bhagavad Gita ${v.chapter}.${v.verse}`,
               contextSummary: `Speaker: ${v.speaker}, Listener: ${v.listener}. ${v.deep_meaning || ''}`,
               relevanceForGuidance: v.krishna_teaching,
               relevanceScore: Math.min(combinedGitaScore, 0.98),
+              retrievalScores: { vector: vecSim, lexical: ftsRatio, theme: themeScore, fused: combinedGitaScore },
             });
 
             // Augment with authentic multi-source commentaries (Sri Raghavendra Vivruti & Ashok Kaushik)
@@ -917,6 +998,7 @@ export class HybridRetriever {
                         ? `From Sri Raghavendra Teertha Gita Vivruti & Madhwacharya Gita Bhashya, ${cr.section}`
                         : `From Srimad Bhagavad-Gita by Ashok Kaushik (ASI 279), ${cr.section}`,
                       relevanceScore: 0.94,
+                      retrievalScores: { commentaryReference: 0.94, fused: 0.94 },
                       characters: cr.characters || ['Krishna', 'Arjuna'],
                     });
                   }
@@ -981,11 +1063,13 @@ export class HybridRetriever {
                 speaker: match.speaker,
                 listener: match.listener,
                 translation: match.translation,
+                sourceEdition: match.sourceEdition,
                 originalText: match.sanskrit || match.transliteration,
                 sourceReference: `Bhagavad Gita ${match.chapter}.${match.verse}`,
                 contextSummary: `Speaker: ${match.speaker}, Listener: ${match.listener}. ${match.deep_meaning || ''}`,
                 relevanceForGuidance: match.krishna_teaching,
                 relevanceScore: 0.92,
+                retrievalScores: { fallback: 0.92, fused: 0.92 },
               });
             }
           }
@@ -1011,8 +1095,28 @@ export class HybridRetriever {
               : `SELECT id, 1 - (embedding <=> $1::vector) AS vector_similarity FROM mahabharata_child_chunks WHERE $4::text IS NOT NULL ORDER BY embedding <=> $1::vector ASC LIMIT 35`;
 
             const ftsCte = targetParvaParam
-              ? `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE parva = $4::text AND search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`
-              : `SELECT id, ts_rank_cd(search_vector, CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) AS keyword_rank FROM mahabharata_child_chunks WHERE search_vector @@ (CASE WHEN $3::text != '' THEN to_tsquery('english', $3::text) ELSE websearch_to_tsquery('english', $2::text) END) ORDER BY keyword_rank DESC LIMIT 25`;
+              ? `SELECT id, GREATEST(
+                   CASE WHEN $3::text != '' THEN ts_rank_cd(search_vector, to_tsquery('english', $3::text)) ELSE 0.0 END,
+                   ts_rank_cd(search_vector, websearch_to_tsquery('english', $2::text)),
+                   ts_rank_cd(search_vector, plainto_tsquery('english', $2::text))
+                 ) AS keyword_rank 
+                 FROM mahabharata_child_chunks 
+                 WHERE parva = $4::text AND (
+                   (CASE WHEN $3::text != '' THEN search_vector @@ to_tsquery('english', $3::text) ELSE false END)
+                   OR search_vector @@ websearch_to_tsquery('english', $2::text)
+                   OR search_vector @@ plainto_tsquery('english', $2::text)
+                 ) ORDER BY keyword_rank DESC LIMIT 25`
+              : `SELECT id, GREATEST(
+                   CASE WHEN $3::text != '' THEN ts_rank_cd(search_vector, to_tsquery('english', $3::text)) ELSE 0.0 END,
+                   ts_rank_cd(search_vector, websearch_to_tsquery('english', $2::text)),
+                   ts_rank_cd(search_vector, plainto_tsquery('english', $2::text))
+                 ) AS keyword_rank 
+                 FROM mahabharata_child_chunks 
+                 WHERE (
+                   (CASE WHEN $3::text != '' THEN search_vector @@ to_tsquery('english', $3::text) ELSE false END)
+                   OR search_vector @@ websearch_to_tsquery('english', $2::text)
+                   OR search_vector @@ plainto_tsquery('english', $2::text)
+                 ) ORDER BY keyword_rank DESC LIMIT 25`;
 
             const mbSql = `
             WITH vector_candidates AS (
@@ -1060,7 +1164,7 @@ export class HybridRetriever {
               queryText,
               prefixQuery,
               targetParvaParam,
-            ], 4000, timing => {
+            ], 8000, timing => {
               connectionAcquisitionMs += timing.connectionAcquisitionMs;
               databaseRoundTripMs += timing.databaseRoundTripMs;
               rowRetrievalMs += timing.rowRetrievalMs;
@@ -1106,6 +1210,11 @@ export class HybridRetriever {
                   sourceReference: sourceRef,
                   contextSummary: ctxSummary,
                   relevanceScore: score,
+                  retrievalScores: {
+                    vector: parseFloat(r.vec_score) || 0,
+                    lexical: parseFloat(r.fts_score) || 0,
+                    fused: score,
+                  },
                   characters: r.characters || [],
                 });
               }
@@ -1117,14 +1226,16 @@ export class HybridRetriever {
             // budget materializing/ranking candidates before returning any evidence.
             // Child chunks already carry the passage text and citation metadata needed
             // for grounding; the parent row is not required to validate a claim.
-            const ftsQuery = prefixQuery || queryText;
-            const tsQuery = prefixQuery
-              ? `to_tsquery('english', $1::text)`
-              : `websearch_to_tsquery('english', $1::text)`;
+            const ftsQuery = prefixQuery || '';
             const orderBy = relationSearch ? '' : 'ORDER BY combined_score DESC';
+            const tsRankExpr = `GREATEST(
+              CASE WHEN $1::text != '' THEN ts_rank_cd(c.search_vector, to_tsquery('english', $1::text)) ELSE 0.0 END,
+              ts_rank_cd(c.search_vector, websearch_to_tsquery('english', $2::text)),
+              ts_rank_cd(c.search_vector, plainto_tsquery('english', $2::text))
+            )`;
             const lexicalScore = relationSearch
               ? '0.20'
-              : `LEAST(ts_rank_cd(c.search_vector, ${tsQuery}), 1.0) * 0.85 + CASE WHEN $2::text != '' AND c.parva = $2::text THEN 0.15 ELSE 0.0 END`;
+              : `LEAST(${tsRankExpr}, 1.0) * 0.85 + CASE WHEN $3::text != '' AND c.parva = $3::text THEN 0.15 ELSE 0.0 END`;
             const resultLimit = 30;
             const mbLexSql = `
             SELECT
@@ -1146,15 +1257,19 @@ export class HybridRetriever {
               ${lexicalScore} AS fts_score,
               ${lexicalScore} AS combined_score
             FROM mahabharata_child_chunks c
-            WHERE c.search_vector @@ ${tsQuery}
+            WHERE (
+              (CASE WHEN $1::text != '' THEN c.search_vector @@ to_tsquery('english', $1::text) ELSE false END)
+              OR c.search_vector @@ websearch_to_tsquery('english', $2::text)
+              OR c.search_vector @@ plainto_tsquery('english', $2::text)
+            )
             ${orderBy}
             LIMIT ${resultLimit};
           `;
 
             queryConstructionMs += performance.now() - queryBuildStarted;
             const mbQueryStarted = Date.now();
-            const mbLexParams = relationSearch ? [ftsQuery] : [ftsQuery, targetParvaParam];
-            const mbLexRes = await this.queryWithTimeout(mbLexSql, mbLexParams, 4000, timing => {
+            const mbLexParams = [ftsQuery, queryText, targetParvaParam];
+            const mbLexRes = await this.queryWithTimeout(mbLexSql, mbLexParams, 8000, timing => {
               connectionAcquisitionMs += timing.connectionAcquisitionMs;
               databaseRoundTripMs += timing.databaseRoundTripMs;
               rowRetrievalMs += timing.rowRetrievalMs;
@@ -1200,6 +1315,7 @@ export class HybridRetriever {
                   sourceReference: sourceRef,
                   contextSummary: ctxSummary,
                   relevanceScore: score,
+                  retrievalScores: { lexical: parseFloat(r.fts_score) || score, fused: score },
                   characters: r.characters || [],
                 });
               }
@@ -1210,8 +1326,10 @@ export class HybridRetriever {
         databaseLatencyMs += mbErr.durationMs || 0;
         mahabharataFallbackUsed = true;
         databaseTimeout ||= mbErr.code === 'ETIMEDOUT' || mbErr.code === '57014';
-        mahabharataFallbackReason = mbErr.message;
-        console.warn('[HybridRetriever] Mahabharata chunks query failed, checking canonical episodes from disk:', mbErr.message);
+        mahabharataFallbackReason = databaseTimeout ? 'mahabharata_database_timeout' : 'mahabharata_database_query_failed';
+        console.warn('[HybridRetriever] Mahabharata chunks query failed; checking canonical episodes from disk.', {
+          timeout: databaseTimeout,
+        });
       }
       const mbQueryMs = Date.now() - tMbStart;
 
@@ -1229,9 +1347,24 @@ export class HybridRetriever {
         const unseenDiskPassages = diskPassages.filter(p => !candidateIds.has(p.id));
         if (unseenDiskPassages.length) {
           mahabharataFallbackUsed = true;
-          candidatePassages.push(...unseenDiskPassages);
+          candidatePassages.push(...unseenDiskPassages.map(passage => ({
+            ...passage,
+            retrievalScores: { ...(passage.retrievalScores || {}), diskEpisode: passage.relevanceScore, fused: passage.relevanceScore },
+          })));
         }
       }
+
+      const channelCandidates: Record<string, RetrievalCandidateTrace[]> = {
+        canonical_gita_exact: tracePassages('canonical_gita_exact', 'exactReference'),
+        canonical_gita_fallback: tracePassages('canonical_gita_fallback', 'fallback'),
+        canonical_gita_vector: tracePassages('canonical_gita_vector', 'vector'),
+        canonical_gita_lexical: tracePassages('canonical_gita_lexical', 'lexical'),
+        canonical_gita_theme: tracePassages('canonical_gita_theme', 'theme'),
+        gita_commentary: tracePassages('gita_commentary', 'commentaryReference'),
+        mahabharata_vector: tracePassages('mahabharata_vector', 'vector'),
+        mahabharata_fulltext: tracePassages('mahabharata_fulltext', 'lexical'),
+        canonical_disk_episode: tracePassages('canonical_disk_episode', 'diskEpisode'),
+      };
 
       // 7. Multi-Signal Reranker & Non-Redundant Coverage Selection
       const tRerankStart = Date.now();
@@ -1243,15 +1376,8 @@ export class HybridRetriever {
 
       for (const p of candidatePassages) {
         const textLower = p.translation.toLowerCase();
-        let tokenMatches = 0;
-        for (const t of cleanTokens) {
-          if (textLower.includes(t)) {
-            tokenMatches++;
-          }
-        }
-        if (cleanTokens.length > 0) {
-          p.relevanceScore += (tokenMatches / cleanTokens.length) * 0.30;
-        }
+        const lexicalCoverage = queryTokenCoverage(p.translation, cleanTokens);
+        p.relevanceScore += lexicalCoverage * 0.30;
 
         // Query-language synonyms help rank source wording without claiming an
         // event: only the retrieved passage text receives these relevance bonuses.
@@ -1396,7 +1522,22 @@ export class HybridRetriever {
         }
       }
 
-      deduped.sort((a, b) => {
+      // Unscoped philosophical questions search both collections. When a canonical
+      // Gita verse has direct lexical support, keep the answer set within Gita source
+      // material so a high-scoring but unrelated epic narrative cannot displace it.
+      const hasExplicitNarrativeScope = Boolean(targetParva) ||
+        /\b(?:mahabharata|mahabharat|parva|episode|story|narrative)\b/i.test(queryText) ||
+        allCandidateEntities.some(entity => !['krishna', 'arjuna', 'partha'].includes(entity.toLowerCase()));
+      const directlyMatchedGita = deduped.some(passage =>
+        passage.sourceType === 'bhagavad_gita' &&
+        queryTokenCoverage(passage.translation, cleanTokens) >= 0.5 &&
+        queryTokenMatchCount(passage.translation, cleanTokens) >= 2
+      );
+      const sourceScopedPassages = shouldSearchGita && !hasExplicitNarrativeScope && directlyMatchedGita
+        ? deduped.filter(isGitaCorpusPassage)
+        : deduped;
+
+      sourceScopedPassages.sort((a, b) => {
         if (a.sourceType === 'bhagavad_gita' && b.sourceType !== 'bhagavad_gita' && a.relevanceScore >= 0.85) {
           return -1;
         }
@@ -1410,7 +1551,7 @@ export class HybridRetriever {
       const selectedPassages: RetrievedPassage[] = [];
       const pageCounts = new Map<number, number>();
 
-      for (const candidate of deduped) {
+      for (const candidate of sourceScopedPassages) {
         if (selectedPassages.length >= Math.max(limit, 3)) {
           break;
         }
@@ -1446,12 +1587,28 @@ export class HybridRetriever {
 
       const finalPassages = selectedPassages.length > 0
         ? selectedPassages
-        : deduped.slice(0, Math.max(limit, 3));
+        : sourceScopedPassages.slice(0, Math.max(limit, 3));
 
       const topScore = finalPassages[0]?.relevanceScore || 0;
       const secondScore = finalPassages[1]?.relevanceScore || 0;
       const scoreGap = finalPassages.length > 1 ? (topScore - secondScore) : topScore;
-      const corpusDoesNotEstablish = finalPassages.length === 0 || topScore < 0.15;
+      const topPassage = finalPassages[0];
+      const topQueryCoverage = topPassage ? queryTokenCoverage(topPassage.translation, cleanTokens) : 0;
+      const topQueryMatchCount = topPassage ? queryTokenMatchCount(topPassage.translation, cleanTokens) : 0;
+      const explicitVerseEvidence = Boolean(hints.verseReference && finalPassages.some(passage =>
+        passage.sourceType === 'bhagavad_gita' &&
+        Number(passage.chapter) === hints.verseReference!.chapter &&
+        Number(passage.verseRange) === hints.verseReference!.verse
+      ));
+      const supportingSourceCount = new Set(finalPassages
+        .filter(passage => queryTokenCoverage(passage.translation, cleanTokens) >= 0.35 && queryTokenMatchCount(passage.translation, cleanTokens) >= 2)
+        .map(passage => passage.sourceType)).size;
+      const hasDirectQuerySupport = explicitVerseEvidence ||
+        (topQueryCoverage >= 0.35 && topQueryMatchCount >= 2) ||
+        (topPassage && (topPassage.retrievalScores?.vector || 0) >= 0.65) ||
+        (topPassage && allCandidateEntities.length > 0 && allCandidateEntities.some(e => entityMentioned(topPassage.translation, e)) && (topQueryMatchCount >= 2 || (topPassage.retrievalScores?.vector || 0) >= 0.55));
+      const relationQuestion = /\b(?:related|relationship|relation|between|fight|fought|battle|married|marry|son of|daughter of|brother of|sister of|wife of|husband of|meet|met|meeting)\b/i.test(queryText);
+      const corpusDoesNotEstablish = finalPassages.length === 0 || topScore < 0.15 || (!hasDirectQuerySupport && !relationQuestion);
       const rerankingMs = Date.now() - tRerankStart;
       citationConstructionMs = 0;
 
@@ -1461,10 +1618,10 @@ export class HybridRetriever {
       let hasSufficientEvidence = false;
 
       if (!corpusDoesNotEstablish && finalPassages.length > 0) {
-        if (topScore >= 0.65 || (isExplicitEpicQuery && topScore >= 0.45) || (isPersonalDilemma && topScore >= 0.45)) {
+        if (explicitVerseEvidence || (topScore >= 0.65 && topQueryCoverage >= 0.35 && supportingSourceCount >= 2)) {
           confidence = 'high';
           hasSufficientEvidence = true;
-        } else if (topScore >= 0.52 || (isExplicitEpicQuery && topScore >= 0.38) || (isPersonalDilemma && topScore >= 0.35)) {
+        } else if (topQueryCoverage >= 0.35 && topQueryMatchCount >= 2 && topScore >= 0.25) {
           confidence = 'medium';
           hasSufficientEvidence = true;
         } else {
@@ -1476,7 +1633,6 @@ export class HybridRetriever {
       // Entity co-occurrence cannot establish a relationship or event. A relation
       // question is sufficient only when one retrieved source sentence states the
       // requested participants together with a relation/event predicate.
-      const relationQuestion = /\b(?:related|relationship|relation|between|fight|fought|battle|married|marry|son of|daughter of|brother of|sister of|wife of|husband of|meet|met|meeting)\b/i.test(queryText);
       const relationEntities = Array.from(new Set(allCandidateEntities.map(name => name.toLowerCase()).filter(name => name.length >= 3)));
       if (relationQuestion && relationEntities.length >= 2) {
         const relationPredicate = /\b(?:related|relation|fight|fought|battle|duel|combat|vanquish(?:ed|es|ing)?|defeat(?:ed|s|ing)?|married|marry|meet|met|meeting|son|daughter|brother|sister|wife|husband|guru|teacher|student|pupil|disciple)\b/i;
@@ -1500,6 +1656,7 @@ export class HybridRetriever {
         scoreGap,
         confidence,
         hasSufficientEvidence,
+        channelCandidates,
         retrievalPath: databaseTimeout
           ? 'database_timeout_fallback'
           : mahabharataFallbackUsed
@@ -1527,7 +1684,9 @@ export class HybridRetriever {
         },
       };
     } catch (err: any) {
-      console.error('[HybridRetriever Error]:', err.message);
+      console.error('[HybridRetriever Error]: Retrieval failed.', {
+        errorCode: typeof err?.code === 'string' && /^[A-Z0-9_]{2,32}$/.test(err.code) ? err.code : 'UNKNOWN',
+      });
       return {
         passages: [],
         corpusDoesNotEstablish: true,
@@ -1539,7 +1698,7 @@ export class HybridRetriever {
         retrievalPath: databaseTimeout ? 'database_timeout_fallback' : 'none',
         databaseLatencyMs,
         fallbackUsed: databaseTimeout || mahabharataFallbackUsed,
-        fallbackReason: [this.gitaFallbackReason, mahabharataFallbackReason, err.message].filter(Boolean).join('; '),
+        fallbackReason: [this.gitaFallbackReason, mahabharataFallbackReason, 'retrieval_failed'].filter(Boolean).join('; '),
       };
     }
   }

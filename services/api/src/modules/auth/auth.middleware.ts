@@ -33,7 +33,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     return res.status(401).json({
       error: {
         code: 'INVALID_TOKEN',
-        message: err.message,
+        message: 'The session is invalid or has expired. Please sign in again.',
       },
     });
   }

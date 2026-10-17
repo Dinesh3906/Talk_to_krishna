@@ -20,7 +20,7 @@ router.get('/parvas', async (_req: Request, res: Response) => {
     return res.status(200).json({ data: result.rows });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'SOURCES_ERROR', message: `Failed to query Parvas from database: ${err.message}` },
+      error: { code: 'SOURCES_ERROR', message: 'Could not load source coverage. Please try again.' },
     });
   }
 });
@@ -45,7 +45,7 @@ router.get('/gita', async (_req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'SOURCES_ERROR', message: `Failed to query Bhagavad Gita from database: ${err.message}` },
+      error: { code: 'SOURCES_ERROR', message: 'Could not load Gita sources. Please try again.' },
     });
   }
 });
@@ -108,7 +108,7 @@ router.get('/coverage', async (_req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({
-      error: { code: 'COVERAGE_ERROR', message: `Failed to compute coverage audit: ${err.message}` },
+      error: { code: 'COVERAGE_ERROR', message: 'Could not compute source coverage. Please try again.' },
     });
   }
 });

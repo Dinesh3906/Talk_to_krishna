@@ -27,6 +27,12 @@ export function sanitizeConversationalText(text: string): string {
   cleaned = cleaned.replace(/```[a-zA-Z]*/g, '');
   cleaned = cleaned.replace(/`/g, '');
 
+  // Normalize HTML breaks (<br>, <br/>, <br />) to standard newlines
+  cleaned = cleaned.replace(/<\s*\/?\s*br\s*\/?>/gi, '\n');
+
+  // Strip any remaining HTML tags
+  cleaned = cleaned.replace(/<[^>]+>/g, '');
+
   // Convert markdown tables to clean readable prose
   cleaned = cleaned.replace(/^[ \t]*\|.*?\|[ \t]*$/gm, (match) => {
     if (/^[ \t]*\|[-:\s|]+\|[ \t]*$/.test(match)) {
@@ -34,10 +40,10 @@ export function sanitizeConversationalText(text: string): string {
     }
     const cells = match
       .split('|')
-      .map((c) => c.trim())
+      .map((c) => c.replace(/<\s*\/?\s*br\s*\/?>/gi, ', ').replace(/<[^>]+>/g, '').replace(/^[ \t]*[•\-\*][ \t]*/gm, '').trim())
       .filter((c) => c.length > 0);
 
-    if (cells.some((c) => /^(action|why it helps|how to start|theme|key takeaway)$/i.test(c))) {
+    if (cells.some((c) => /^(action|why it helps|how to start|theme|key takeaway|area|resource|tool|equipment|adaptive equipment|benefit|support)$/i.test(c))) {
       return '';
     }
     if (cells.length >= 2) {
@@ -46,8 +52,8 @@ export function sanitizeConversationalText(text: string): string {
     return cells.join(', ');
   });
 
-  // Strip leading bullet hyphens / asterisks
-  cleaned = cleaned.replace(/^[ \t]*[-*+][ \t]+/gm, '');
+  // Strip leading bullet hyphens, asterisks, or unicode bullet points
+  cleaned = cleaned.replace(/^[ \t]*[•\-*+][ \t]+/gm, '');
 
   // Normalize excessive newlines
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');

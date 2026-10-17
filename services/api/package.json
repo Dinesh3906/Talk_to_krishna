@@ -21,6 +21,9 @@
     "ingest:raghavendra": "tsx src/modules/ingestion/run-raghavendra-ingestion-cli.ts",
     "ingest:kaushik": "tsx src/modules/ingestion/run-kaushik-ingestion-cli.ts",
     "db:migrate": "tsx src/db/migrate.ts",
+    "eval:retrieval:offline": "tsx scripts/evaluate-offline-retrieval.ts",
+    "eval:bge:component": "tsx scripts/evaluate-bge-component-retrieval.ts",
+    "eval:live": "tsx scripts/live-evaluation-harness.ts",
     "test": "vitest run --no-file-parallelism"
   },
   "dependencies": {
@@ -39,7 +42,7 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.4",
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.0",
     "google-auth-library": "^10.9.1",
@@ -55,6 +58,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.4",
-    "tsx": "^4.19.3"
+    "tsx": "^4.19.3",
+    "vitest": "^5.0.5"
   }
 }

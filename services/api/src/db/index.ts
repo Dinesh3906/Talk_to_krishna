@@ -30,7 +30,9 @@ export const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('[PostgreSQL Pool Error]: Unexpected error on idle client', err);
+  const errorCode = (err as Error & { code?: unknown }).code;
+  const code = typeof errorCode === 'string' && /^[A-Z0-9_]{2,32}$/.test(errorCode) ? errorCode : 'UNKNOWN';
+  console.error('[PostgreSQL Pool Error]: Unexpected error on idle client', { errorCode: code });
 });
 
 // Non-blocking pool pre-warm to ensure zero-latency first queries
@@ -39,7 +41,8 @@ Promise.all([pool.query('SELECT 1'), pool.query('SELECT 1'), pool.query('SELECT 
     console.log('[PostgreSQL Pool]: Connection pool (3 sockets) pre-warmed and ready.');
   })
   .catch((err) => {
-    console.warn('[PostgreSQL Pool]: Initial pre-warm probe:', err.message);
+    const code = typeof err?.code === 'string' && /^[A-Z0-9_]{2,32}$/.test(err.code) ? err.code : 'UNKNOWN';
+    console.warn('[PostgreSQL Pool]: Initial pre-warm probe failed.', { errorCode: code });
   });
 
 export const db = drizzle(pool, { schema });

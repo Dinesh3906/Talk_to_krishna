@@ -1,0 +1,19 @@
+{
+  "corpus": "data/mahabharata/corpus/gita_700_canonical.json plus the checked-in Mahabharata episode index",
+  "labelBasis": "Expected Gita IDs and text are read from the canonical JSON corpus. The Mahabharata episode target is read from the checked-in episode index. Database-only commentary labels are identified but excluded from offline metrics.",
+  "cases": [
+    { "id": "gita-exact-2-62", "category": "exact_verse", "query": "What does Bhagavad Gita 2.62 teach?", "expectedPassageIds": ["BG_2.62"], "execution": "offline" },
+    { "id": "gita-exact-2-63", "category": "exact_verse", "query": "What does Bhagavad Gita 2.63 say anger causes?", "expectedPassageIds": ["BG_2.63"], "execution": "offline" },
+    { "id": "gita-exact-6-26", "category": "exact_verse", "query": "Explain Bhagavad Gita 6.26.", "expectedPassageIds": ["BG_6.26"], "execution": "offline" },
+    { "id": "gita-transliteration-ascii", "category": "transliteration", "query": "Dhyayato visayan pumsah sangas tesupajayate", "expectedPassageIds": ["BG_2.62"], "execution": "offline" },
+    { "id": "gita-transliteration-iast", "category": "transliteration", "query": "dhyāyato viṣhayān puṁsaḥ saṅgas teṣhūpajāyate", "expectedPassageIds": ["BG_2.62"], "execution": "offline" },
+    { "id": "gita-paraphrase-original-miss", "category": "paraphrase", "query": "What happens when someone repeatedly thinks about objects of desire?", "expectedPassageIds": ["BG_2.62"], "execution": "offline", "baselineEvidence": "2026-10-17 audit: expected BG_2.62 was absent from top 3; unrelated Debroy passages ranked above it and confidence was high." },
+    { "id": "gita-paraphrase-mind-wandering", "category": "paraphrase", "query": "How can the mind be brought back when it wanders?", "expectedPassageIds": ["BG_6.26"], "execution": "offline" },
+    { "id": "gita-commentary-2-47", "category": "commentary", "query": "What does Madhva's commentary say about Bhagavad Gita 2.47?", "expectedReference": "Bhagavad Gita 2.47 commentary", "expectedSourceTypes": ["gita_raghavendra_vivruti", "gita_ashok_kaushik"], "execution": "requires_database", "reason": "Commentary chunks are stored in PostgreSQL; no isolated database is available." },
+    { "id": "mahabharata-narrative-bhishma-grief", "category": "mahabharata_narrative", "query": "How did Bhishma comfort Yudhishthira when he grieved?", "expectedPassageIds": ["bhishma-shanti-parva-grief"], "execution": "offline" },
+    { "id": "ambiguous-path", "category": "ambiguous", "query": "What is the right path?", "expectedPassageIds": [], "execution": "offline", "expectedAbstention": true },
+    { "id": "absent-modern-topic", "category": "absent_evidence", "query": "How does the Bhagavad Gita explain quantum computers?", "expectedPassageIds": [], "execution": "offline", "expectedAbstention": true },
+    { "id": "similar-desire-sequence", "category": "similar_but_distinct", "query": "What arises from contemplation of sense objects in Bhagavad Gita 2.62?", "expectedPassageIds": ["BG_2.62"], "execution": "offline" },
+    { "id": "similar-anger-consequence", "category": "similar_but_distinct", "query": "What does Bhagavad Gita 2.63 say anger leads to?", "expectedPassageIds": ["BG_2.63"], "execution": "offline" }
+  ]
+}
