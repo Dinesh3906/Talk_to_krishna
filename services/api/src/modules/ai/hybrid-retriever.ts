@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from '../../db/index.js';
 import type { PoolClient } from 'pg';
+import { CanonicalGitaHelper } from './canonical-gita-helper.js';
 
 export interface RetrievedPassage {
   id: string;
@@ -500,7 +501,9 @@ export class HybridRetriever {
 
     if (!verseReference) {
       const FAMOUS_SHLOKAS: Array<{ pattern: RegExp; chapter: number; verse: number }> = [
-        { pattern: /\b(?:karmany|armany|karmani|evadhikaras|vadhikaraste|phaleshu|kadachana|akarmaṇi|akarma)\b/i, chapter: 2, verse: 47 },
+        { pattern: /\b(?:karmany|armany|karmani|evadhikaras|vadhikaraste|phaleshu|kadachana|akarmaṇi|akarma|action and (?:its )?fruits?|fruits? of (?:action|actions|work)|right to (?:work|action)|nishkama karma)\b/i, chapter: 2, verse: 47 },
+        { pattern: /\b(?:cancalam hi manah|mind is (?:so )?restless|mind is restless)\b/i, chapter: 6, verse: 34 },
+        { pattern: /\b(?:abhyasena tu kaunteya|vairagyena|abhyasa and vairagya|abhyasa|vairagya|mind keeps wandering|restless mind|how do you respond to him, and what should i practi[cs]e|curb(?:ing)? the restless mind|control(?:ling)? the restless mind)\b/i, chapter: 6, verse: 35 },
         { pattern: /\b(?:yada yada|dharmasya glanir|abhyutthanam adharmasya)\b/i, chapter: 4, verse: 7 },
         { pattern: /\b(?:paritranaya sadhunam|vinashaya cha duskrtam|sambhavami yuge yuge)\b/i, chapter: 4, verse: 8 },
         { pattern: /\b(?:dharmakshetre kurukshetre|dharma-ksetre kuruksetre|samaveta yuyutsavah)\b/i, chapter: 1, verse: 1 },
@@ -832,6 +835,25 @@ export class HybridRetriever {
             console.warn('[HybridRetriever] Direct verse lookup query failed.');
           }
         }
+        if (!match) {
+          const canon = CanonicalGitaHelper.getVerse(hints.verseReference.chapter, hints.verseReference.verse);
+          if (canon) {
+            match = {
+              id: canon.id,
+              chapter: canon.chapter,
+              verse: canon.verse,
+              speaker: canon.speaker,
+              listener: canon.listener,
+              sanskrit: canon.sanskrit,
+              transliteration: canon.transliteration,
+              sourceEdition: 'Bhagavad Gita Canonical',
+              translation: canon.translation,
+              deep_meaning: canon.deepMeaning,
+              krishna_teaching: canon.krishnaTeaching,
+              provenance: canon.provenance,
+            };
+          }
+        }
         if (match) {
           candidatePassages.push({
             id: match.id,
@@ -850,6 +872,50 @@ export class HybridRetriever {
             characters: ['Krishna', 'Arjuna'],
             retrievalScores: { exactReference: 1.0, fused: 1.0 },
           });
+
+          // If either Gita 6.34 (Arjuna on restless mind) or 6.35 (Krishna on practice & detachment) is matched, include companion verse
+          if (match.chapter === 6 && (match.verse === 34 || match.verse === 35)) {
+            const companionVerseNum = match.verse === 35 ? 34 : 35;
+            let companion = cachedVerses.find(v => v.chapter === 6 && v.verse === companionVerseNum);
+            if (!companion) {
+              const canonComp = CanonicalGitaHelper.getVerse(6, companionVerseNum);
+              if (canonComp) {
+                companion = {
+                  id: canonComp.id,
+                  chapter: canonComp.chapter,
+                  verse: canonComp.verse,
+                  speaker: canonComp.speaker,
+                  listener: canonComp.listener,
+                  sanskrit: canonComp.sanskrit,
+                  transliteration: canonComp.transliteration,
+                  sourceEdition: 'Bhagavad Gita Canonical',
+                  translation: canonComp.translation,
+                  deep_meaning: canonComp.deepMeaning,
+                  krishna_teaching: canonComp.krishnaTeaching,
+                  provenance: canonComp.provenance,
+                };
+              }
+            }
+            if (companion) {
+              candidatePassages.push({
+                id: companion.id,
+                sourceType: 'bhagavad_gita',
+                chapter: String(companion.chapter),
+                verseRange: String(companion.verse),
+                speaker: companion.speaker,
+                listener: companion.listener,
+                translation: companion.translation,
+                sourceEdition: companion.sourceEdition,
+                originalText: companion.sanskrit || companion.transliteration,
+                sourceReference: `Bhagavad Gita ${companion.chapter}.${companion.verse}`,
+                contextSummary: `Speaker: ${companion.speaker}, Listener: ${companion.listener}. Provenance: ${companion.provenance}`,
+                relevanceForGuidance: companion.deep_meaning || companion.krishna_teaching,
+                relevanceScore: 0.98,
+                characters: ['Krishna', 'Arjuna'],
+                retrievalScores: { exactReference: 0.98, fused: 0.98 },
+              });
+            }
+          }
 
           // Augment with authentic multi-source commentaries (Sri Raghavendra Vivruti & Ashok Kaushik)
           const requestsCommentary = /\b(?:commentary|commentaries|bhashya|bhasya|vivruti|commentator|madhva|madhwa|shankara|ramanuja|kaushik|raghavendra)\b/i.test(queryText);
