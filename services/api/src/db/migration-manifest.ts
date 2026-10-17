@@ -60,8 +60,9 @@ export function loadMigrationManifest(migrationsDir = DEFAULT_MIGRATIONS_DIR): M
   }
 
   for (const entry of manifest.migrations) {
-    const sql = fs.readFileSync(path.join(migrationsDir, entry.file));
-    const actualChecksum = crypto.createHash('sha256').update(sql).digest('hex');
+    const rawSql = fs.readFileSync(path.join(migrationsDir, entry.file), 'utf8');
+    const normalizedSql = rawSql.replace(/\r\n/g, '\n');
+    const actualChecksum = crypto.createHash('sha256').update(normalizedSql).digest('hex');
     if (actualChecksum !== entry.sha256) {
       throw new Error(`Migration checksum does not match the reviewed manifest: ${entry.file}`);
     }
@@ -108,9 +109,14 @@ export async function assertSchemaCompatible(queryable: Queryable): Promise<void
     if (!expected.has(version)) {
       throw new Error(`Database migration ${version} is not present in this release manifest. Reconcile migration history before starting the API.`);
     }
-    const recordedChecksum = row.checksum;
-    if (recordedChecksum && String(recordedChecksum).trim().toLowerCase() !== expected.get(version)?.sha256) {
-      throw new Error(`Database migration checksum mismatch for ${version}. Reconcile migration history before starting the API.`);
+    const recordedChecksum = row.checksum ? String(row.checksum).trim().toLowerCase() : null;
+    const expectedChecksum = expected.get(version)?.sha256;
+    if (recordedChecksum && recordedChecksum !== expectedChecksum) {
+      const isKnownLegacyWindowsHash = version === '0010_citation_evidence_provenance.sql' &&
+        recordedChecksum === 'dbe34b09133e36c8a5aaee80228d3e60354f177b0f00c179b6644a26222b41c0';
+      if (!isKnownLegacyWindowsHash) {
+        throw new Error(`Database migration checksum mismatch for ${version}. Reconcile migration history before starting the API.`);
+      }
     }
   }
 

@@ -10,6 +10,6 @@
     { "file": "0007_conversation_memory_and_segments.sql", "sha256": "66cc2c999e562090b9ff315d1f277d5552e59344103b715d37afccebf5e4cce4" },
     { "file": "0008_persistent_safety_state.sql", "sha256": "f594a50f1aa0cd5c8f5d7adf68d5ab0f6332a999afb5fd502123acb20c0746dd" },
     { "file": "0009_expand_varchar_lengths.sql", "sha256": "43988ad09db8feb2951868675b9bc9e51507c858949822d701cb63cadab3688a" },
-    { "file": "0010_citation_evidence_provenance.sql", "sha256": "dbe34b09133e36c8a5aaee80228d3e60354f177b0f00c179b6644a26222b41c0" }
+    { "file": "0010_citation_evidence_provenance.sql", "sha256": "232bcf1ddf0d5dd241d139b58b187e52a5e773da69525172738897973ef402e5" }
   ]
 }
