@@ -83,9 +83,29 @@ export class CanonicalGitaHelper {
     return map.get(`${chapter}.${verse}`) || null;
   }
 
+  public static parseWordNumber(word: string): number | null {
+    const numMap: Record<string, number> = {
+      one: 1, first: 1, two: 2, second: 2, three: 3, third: 3, four: 4, fourth: 4,
+      five: 5, fifth: 5, six: 6, sixth: 6, seven: 7, seventh: 7, eight: 8, eighth: 8,
+      nine: 9, ninth: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+      fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+      thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70,
+    };
+    const clean = word.toLowerCase().trim().replace(/[\u2010-\u2015-]/g, '-');
+    if (/^\d+$/.test(clean)) return parseInt(clean, 10);
+    if (numMap[clean]) return numMap[clean];
+    if (clean.includes('-')) {
+      const parts = clean.split('-');
+      if (parts.length === 2 && numMap[parts[0]] && numMap[parts[1]]) {
+        return numMap[parts[0]] + numMap[parts[1]];
+      }
+    }
+    return null;
+  }
+
   public static extractVerseReferences(text: string): { match: string; chapter: number; verse: number; sentence: string }[] {
     const results: { match: string; chapter: number; verse: number; sentence: string }[] = [];
-    // Matches "Bhagavad Gita 4.17", "Gita 4:17", "BG 2.47", "Chapter 4, Verse 17", "BG 4:17"
+    // 1. Matches digits: "Bhagavad Gita 4.17", "Gita 4:17", "BG 2.47", "Chapter 4, Verse 17", "BG 4:17"
     const regex = /\b(?:(?:Bhagavad\s*Gita|Gita|BG)\s*(?:Chapter\s*)?(\d{1,2})[.:,]?\s*(?:Verse\s*)?(\d{1,2})|Chapter\s*(\d{1,2})[,\s]+(?:Verse\s*)?(\d{1,2}))\b/gi;
     for (const m of text.matchAll(regex)) {
       const chStr = m[1] || m[3];
@@ -102,6 +122,26 @@ export class CanonicalGitaHelper {
         });
       }
     }
+
+    // 2. Matches English written words: "chapter two, verse forty-seven" or "Gita chapter six, verse thirty-five"
+    const wordRegex = /\b(?:(?:Bhagavad\s*Gita|Gita|BG)\s*)?chapter\s+([\w\u2010-\u2015\-]+)[,\s]+verse\s+([\w\u2010-\u2015\-]+)\b/gi;
+    for (const m of text.matchAll(wordRegex)) {
+      const ch = this.parseWordNumber(m[1]);
+      const v = this.parseWordNumber(m[2]);
+      if (ch && v && ch >= 1 && ch <= 18 && v >= 1 && v <= 78) {
+        const alreadyFound = results.some(r => r.chapter === ch && r.verse === v);
+        if (!alreadyFound) {
+          const sentence = this.extractSentence(text, m.index || 0, m[0].length);
+          results.push({
+            match: m[0],
+            chapter: ch,
+            verse: v,
+            sentence,
+          });
+        }
+      }
+    }
+
     return results;
   }
 

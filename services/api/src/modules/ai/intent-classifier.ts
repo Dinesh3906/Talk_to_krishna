@@ -292,14 +292,14 @@ export class IntentClassifier {
         emotionalState = 'peace';
       }
 
-      let thematicKeywords = ['attachment', 'Moha', 'Raga', 'longing', 'separation', 'impermanence', 'peace', 'solace', '2.62', '2.71', '12.13'];
+      let thematicKeywords = ['attachment', 'Moha', 'Raga', 'longing', 'separation', 'impermanence', 'peace', 'solace'];
       let extractedThemes = ['attachment', 'loss', 'resilience', 'impermanence'];
 
       if (isBereavement) {
-        thematicKeywords = ['grief', 'death', 'mother', 'sorrow', 'lamentation', 'weeping', 'bereaved', 'departed', 'solace', '2.11', '2.20'];
+        thematicKeywords = ['grief', 'death', 'mother', 'sorrow', 'lamentation', 'weeping', 'bereaved', 'departed', 'solace'];
         extractedThemes = ['atman', 'grief', 'immortality', 'solace'];
       } else if (isInfidelityGuilt) {
-        thematicKeywords = ['guilt', 'remorse', 'repentance', 'Pashchattapa', 'Satya', 'truth', 'atonement', 'redemption', 'righteousness', '9.30', '9.31', '18.66'];
+        thematicKeywords = ['guilt', 'remorse', 'repentance', 'Pashchattapa', 'Satya', 'truth', 'atonement', 'redemption', 'righteousness'];
         extractedThemes = ['satya', 'dharma', 'repentance', 'redemption'];
       }
 
@@ -341,36 +341,36 @@ export class IntentClassifier {
     if (hasAnger || hasJealousy || hasFear || hasGrief) {
       let emotionalState: EmotionalState = 'grief';
       let themes = ['fear', 'self-mastery', 'restraint', 'peace', 'dharma', 'atman', 'solace'];
-      let thematicKeywords: string[] = ['Arjuna', 'dejection', 'grief', 'sorrow', 'Vishada', 'effort', 'duty', 'Nishkama', 'fruits of action', 'solace', '2.47', '2.14', '2.3', '6.5', '6.40'];
+      let thematicKeywords: string[] = ['Arjuna', 'dejection', 'grief', 'sorrow', 'Vishada', 'effort', 'duty', 'Nishkama', 'fruits of action', 'solace'];
 
       if (hasAnger) {
         emotionalState = 'anger';
         themes = ['anger', 'self-mastery', 'restraint', 'dharma', 'krodha'];
-        thematicKeywords = ['anger', 'wrath', 'fury', 'destruction', 'intellect', 'Krodha', 'peace', 'restraint', 'Sauptika', '2.63', '16.21'];
+        thematicKeywords = ['anger', 'wrath', 'fury', 'destruction', 'intellect', 'Krodha', 'peace', 'restraint', 'Sauptika'];
       } else if (hasJealousy) {
         emotionalState = 'jealousy';
         themes = ['jealousy', 'contentment', 'dharma'];
-        thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma', '2.48'];
+        thematicKeywords = ['envy', 'jealousy', 'covet', 'contentment', 'dharma'];
       } else if (hasAcademicOrPerformanceFailure) {
         emotionalState = 'fear';
         themes = ['duty', 'action', 'attachment', 'karma yoga', 'perseverance', 'equanimity', 'solace'];
-        thematicKeywords = ['Arjuna', 'duty', 'action', 'attachment', 'fruits of action', 'results', 'effort', 'svadharma', 'perseverance', '2.47', '2.48', '6.40'];
+        thematicKeywords = ['Arjuna', 'duty', 'action', 'attachment', 'fruits of action', 'results of action', 'results', 'effort', 'svadharma', 'perseverance'];
       } else if (hasRestlessMind) {
         emotionalState = 'confusion';
         themes = ['mind_control', 'dhyana_yoga', 'meditation', 'abhyasa', 'vairagya', 'peace', 'equanimity'];
-        thematicKeywords = ['Arjuna', 'restless', 'mind', 'control', 'Abhyasa', 'Vairagya', 'practice', 'detachment', 'charioteer', 'wind', 'peace', '6.26', '6.34', '6.35', '2.65'];
+        thematicKeywords = ['Arjuna', 'restless', 'mind', 'control', 'Abhyasa', 'Vairagya', 'practice', 'detachment', 'charioteer', 'wind', 'peace'];
       } else if (hasFear) {
         emotionalState = 'fear';
         themes = ['fear', 'courage', 'equanimity', 'refuge'];
-        thematicKeywords = ['Arjuna', 'restless', 'mind', 'fear', 'steadfast', 'equanimity', 'refuge', '2.14', '6.5', '18.66'];
+        thematicKeywords = ['Arjuna', 'restless', 'mind', 'fear', 'steadfast', 'equanimity', 'refuge'];
       } else if (hasDisabilityOrBodyLimitation) {
         emotionalState = 'loneliness';
         themes = ['atman', 'deha', 'dignity', 'inner worth', 'ashtavakra', 'equal vision', 'impermanence'];
-        thematicKeywords = ['Ashtavakra', 'Deha', 'Atman', 'body', 'soul', 'garment', 'inner worth', 'Janaka', '2.22', '2.13', '13.1', '5.18'];
+        thematicKeywords = ['Ashtavakra', 'Deha', 'Atman', 'body', 'soul', 'garment', 'inner worth', 'Janaka'];
       } else if (/\b(alone|lonely|loneliness|isolated|nobody knows me|surrounded by people|ignore|ignored|ignores|nobody likes me|unseen|invisible|short|ugly|height|body image)\b/i.test(text)) {
         emotionalState = 'loneliness';
         themes = ['atman', 'dignity', 'impermanence', 'inner worth', 'equal vision'];
-        thematicKeywords = ['Karna', 'outer appearance', 'garment', 'Atman', 'soul', 'rejection', 'dignity', 'equal vision', '2.22', '5.18', '9.29', '2.13'];
+        thematicKeywords = ['Karna', 'outer appearance', 'garment', 'Atman', 'soul', 'rejection', 'dignity', 'equal vision'];
       }
 
       return {
@@ -384,9 +384,9 @@ export class IntentClassifier {
         reasoningNote: hasDisabilityOrBodyLimitation
           ? 'Physical limitation or disability inquiry. Solace grounded in Atman vs Deha and the story of Ashtavakra.'
           : hasAcademicOrPerformanceFailure
-          ? 'Academic failure anxiety or parental disappointment. Grounding in Bhagavad Gita 2.47/2.48 right action without attachment to fruits.'
+          ? 'Academic failure anxiety or parental disappointment. Grounding in retrieved Gita evidence about duty and attachment to outcomes.'
           : hasRestlessMind
-          ? 'Restless mind inquiry. Grounding in Bhagavad Gita 6.26/6.34/6.35 on steady practice (Abhyasa) and detachment (Vairagya).'
+          ? 'Restless mind inquiry. Grounding in retrieved Gita evidence about steady practice (Abhyasa) and detachment (Vairagya).'
           : 'Emotional distress requiring deep comfort with Mahabharata/Gita solace as Lord Krishna.',
       };
     }
@@ -399,8 +399,8 @@ export class IntentClassifier {
 
     if (isCompulsion) {
       const thematicKeywords = isSexCompulsion
-        ? ['Arjuna', 'Kama', 'desire', 'senses', 'restless mind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', 'Indriyas', '3.37', '3.41', '3.43', '2.62', '2.63', '6.35']
-        : ['Arjuna', 'senses', 'restless mind', 'wind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', '6.34', '6.35', '2.67', '6.5'];
+        ? ['Arjuna', 'Kama', 'desire', 'senses', 'restless mind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint', 'Indriyas']
+        : ['Arjuna', 'senses', 'restless mind', 'wind', 'self-mastery', 'Abhyasa', 'Vairagya', 'restraint'];
       const themes = isSexCompulsion
         ? ['self-mastery', 'kama', 'restraint', 'peace', 'abhyasa', 'vairagya']
         : ['self-mastery', 'restraint', 'peace', 'abhyasa', 'vairagya'];
@@ -428,7 +428,7 @@ export class IntentClassifier {
         mahabharataRelevant: true,
         relevanceScore: 0.8,
         extractedCharacters: characters,
-        thematicKeywords: ['wealth', 'fortune', 'contentment', 'purpose', 'Lokasangraha', 'Artha', '2.48', '3.20'],
+        thematicKeywords: ['wealth', 'fortune', 'contentment', 'purpose', 'Lokasangraha', 'Artha'],
         extractedThemes: ['purpose', 'discernment', 'equanimity', 'lokasangraha'],
         reasoningNote: 'Sudden good fortune / celebration. Greet with warmth, joy, and companionable Gita wisdom on abundance.',
       };

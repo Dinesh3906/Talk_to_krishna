@@ -21,6 +21,7 @@ import { useChatStore } from '../store/chat.store';
 import { useAuthStore } from '../store/auth.store';
 import { darkTheme } from '../theme/colors';
 import { ChatDrawer } from '../components/ChatDrawer';
+import { DaanPetiModal } from '../components/DaanPetiModal';
 import {
   Menu,
   Plus,
@@ -79,6 +80,7 @@ export default function DirectChatScreen() {
 
   const [inputMessage, setInputMessage] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [daanPetiOpen, setDaanPetiOpen] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
@@ -125,7 +127,7 @@ export default function DirectChatScreen() {
       conversationId = newConv.id;
     }
 
-    await sendMessageStream(conversationId, text, user?.preferredName || user?.displayName);
+    await sendMessageStream(conversationId, text, user?.preferredName);
   };
 
   const handleCopy = async (text: string) => {
@@ -151,6 +153,16 @@ export default function DirectChatScreen() {
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
         activeConversationId={activeConversation?.id}
+        onOpenDaanPeti={() => {
+          setDrawerOpen(false);
+          setDaanPetiOpen(true);
+        }}
+      />
+
+      {/* Daan Peti Modal */}
+      <DaanPetiModal
+        visible={daanPetiOpen}
+        onClose={() => setDaanPetiOpen(false)}
       />
 
       {/* Top Navigation Bar (ChatGPT / Gemini style) */}

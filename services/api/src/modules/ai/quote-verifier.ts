@@ -72,17 +72,13 @@ export class QuoteVerifier {
       const textContainsSnippet = translationSnippet.length >= 10 && verifiedContent.toLowerCase().includes(translationSnippet);
       const claimSupportsPassage = supportedEvidenceIds.has(passage.id);
 
-      const isGitaFamily = passage.sourceType === 'bhagavad_gita' ||
-        passage.sourceType === 'gita' ||
-        passage.sourceType === 'gita_raghavendra_vivruti' ||
-        passage.sourceType === 'gita_ashok_kaushik';
-      const isDirectlyReferenced = textContainsSnippet || refMentioned || Boolean(verseMentioned) ||
-        (isGitaFamily && (verifiedContent.toLowerCase().includes('gita') || (passage.chapter && verifiedContent.toLowerCase().includes(`chapter ${passage.chapter}`))));
-
       const isRejected = rejectedVerseRefs.has(ref) ||
         (passage.chapter && passage.verseRange && rejectedVerseRefs.has(`bhagavad gita ${passage.chapter}.${passage.verseRange}`));
 
-      if (claimSupportsPassage && isDirectlyReferenced && !isRejected) {
+      // The validator's claim-to-evidence link is the citation contract. Requiring
+      // another textual mention of "Gita" dropped valid citations for grounded
+      // paraphrases that identified Krishna's teaching without naming the book again.
+      if (claimSupportsPassage && !isRejected) {
         let quoteType: QuoteType = 'inspired_guidance';
 
         if (textContainsSnippet) {

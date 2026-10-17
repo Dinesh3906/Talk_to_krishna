@@ -200,7 +200,7 @@ router.post('/:id/messages', async (req: Request, res: Response) => {
     });
   }
 
-  const { content, preferredName } = parseResult.data;
+  const { content } = parseResult.data;
 
   // Verify conversation ownership
   const conv = await db.query.conversations.findFirst({
@@ -231,8 +231,9 @@ router.post('/:id/messages', async (req: Request, res: Response) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
+  let eventSequence = 0;
   const sendEvent = (chunk: StreamChunk) => {
-    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    res.write(`data: ${JSON.stringify({ ...chunk, eventId: `${conversationId}:${++eventSequence}` })}\n\n`);
     (res as any).flush?.();
   };
 
@@ -241,7 +242,9 @@ router.post('/:id/messages', async (req: Request, res: Response) => {
       userId,
       conversationId,
       userMessage: content,
-      preferredName: preferredName || req.user?.preferredName,
+      // Only the authenticated profile can authorize personalization; never trust a
+      // caller-supplied name in the message body.
+      preferredName: req.user?.preferredName,
       onStreamChunk: sendEvent,
     });
     if (process.env.NODE_ENV === 'test' && process.env.TALK_TO_KRISHNA_EVALUATION_TRACE === 'true') {

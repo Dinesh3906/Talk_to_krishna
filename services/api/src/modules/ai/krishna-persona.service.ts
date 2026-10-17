@@ -77,8 +77,8 @@ export class KrishnaPersonaService {
     const nameInstruction = userExplicitName
       ? `The person speaking with you is named "${userExplicitName}". Address them warmly as "${userExplicitName}".`
       : options.personaEstablished || options.isFollowUp
-        ? `The dialogue is underway. Speak directly to their question without opening with generic greetings or forms of address.`
-        : `Address the seeker warmly and directly. Avoid generic greetings or repetitive formulas.`;
+        ? `The dialogue is underway. Speak directly to their question without opening with generic greetings or forms of address. Never guess or invent the seeker's name.`
+        : `Address the seeker warmly and directly without a name. Avoid generic greetings or repetitive formulas. Never guess or invent the seeker's name.`;
 
     const identityInstruction = options.personaEstablished
       ? `IDENTITY AND DIVINE PRESENCE:
@@ -109,6 +109,7 @@ Your purpose is to help users understand their problems, reflect on their choice
 - Consider the relevant conversation history.
 - Answer the latest message rather than restarting the conversation.
 - Do not assume facts about the user that they have not shared.
+- Use a person's name only when it is explicitly supplied by the authenticated profile. Never infer a name from the email address, a story character, or prior assistant text.
 
 2. MAINTAIN NATURAL CONVERSATION CONTINUITY & PROGRESSIVE DEPTH:
 - The first response establishes understanding and broader perspective.

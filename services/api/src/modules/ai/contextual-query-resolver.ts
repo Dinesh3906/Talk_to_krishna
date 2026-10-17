@@ -82,8 +82,9 @@ export class ContextualQueryResolver {
     }
 
     // 3. Resolve Target Character
-    const character = resolution.referentCharacter || (activeEntities.length > 0 ? activeEntities[0] : undefined);
-    const entitiesForRetrieval = character ? [character] : [...activeEntities];
+    const rawCharacter = resolution.referentCharacter || (activeEntities.length > 0 ? activeEntities[0] : undefined);
+    const character = typeof rawCharacter === 'string' ? rawCharacter : undefined;
+    const entitiesForRetrieval = character ? [character] : activeEntities.filter((e): e is string => typeof e === 'string');
 
     // 4. Clean Query Tokens
     const words = text
@@ -153,6 +154,33 @@ export class ContextualQueryResolver {
       if (/\b(breakup|broke up|ex|girlfriend|boyfriend|partner|marriage|divorce|separated)\b/i.test(combinedPriorUser)) {
         if (/\b(miss|missing|still love|aches|empty|remember|can't forget)\b/i.test(lower)) {
           queryTerms.push('attachment', 'longing', 'heartbreak', 'impermanence', 'grief');
+        }
+      }
+
+      // Anger & Insult / Conflict Resolution
+      if (/\b(anger|angry|krodha|rage|wrath|furious)\b/i.test(combinedPriorUser)) {
+        if (/\b(insult|insults|insulted|disrespect|offend|offense|provoke|provocation|apply)\b/i.test(lower)) {
+          queryTerms.push('anger', 'krodha', 'forbearance', 'kshama', 'wrath', 'buddhi', 'insult', 'tolerance', 'equanimity');
+        }
+      }
+    }
+
+    // An explicit follow-up may add no scriptural vocabulary of its own (for
+    // example, "How can I apply that when someone insults me?"). Carry forward
+    // only compact topic/theme anchors, never prior assistant assertions.
+    const hasContextReference = resolution.isFollowUp ||
+      /\b(?:that|this|it|those|these|there|then|same|he|she|they|his|her|their)\b/i.test(lower);
+    if (hasContextReference) {
+      const genericTopics = new Set(['general reflection', 'general guidance', 'reflection', 'guidance', 'conversation']);
+      const topicAnchors = [
+        ...(contextState?.recentUserTopics || []).slice(-2),
+        ...(activeTopic && !genericTopics.has(activeTopic.toLowerCase()) ? [activeTopic] : []),
+        ...(contextState?.previouslyUsedThemes || []).slice(-3),
+      ];
+      for (const anchor of topicAnchors) {
+        const normalized = anchor.trim();
+        if (normalized.length >= 3 && !queryTerms.some(term => term.toLowerCase() === normalized.toLowerCase())) {
+          queryTerms.push(normalized);
         }
       }
     }

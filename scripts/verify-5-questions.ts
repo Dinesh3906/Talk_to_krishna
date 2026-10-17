@@ -22,8 +22,8 @@ interface TurnResult {
 }
 
 async function runVerification() {
-  const baseUrl = 'https://talk-to-krishna-w4tb.onrender.com/api/v1';
-  console.log('Connecting to Live Render API:', baseUrl);
+  const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:4000/api/v1';
+  console.log('Connecting to API:', baseUrl);
 
   // 1. Authenticate anonymously
   const authRes = await fetch(`${baseUrl}/auth/anonymous`, {
@@ -142,8 +142,10 @@ async function runVerification() {
             accumulatedContent = data.content;
           } else if (data.type === 'metadata') {
             metadata = data.metadata;
-          } else if (data.type === 'citations') {
-            citations = data.citations;
+          } else if (data.type === 'citation' && data.citation) {
+            citations.push(data.citation);
+          } else if (data.type === 'citations' && Array.isArray(data.citations)) {
+            citations.push(...data.citations);
           }
         } catch {}
       }

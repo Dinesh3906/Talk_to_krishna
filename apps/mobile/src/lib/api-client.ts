@@ -1,4 +1,5 @@
 import { StreamChunk } from '@talk-to-krisna/shared';
+import { SseJsonDecoder } from './sse-decoder';
 
 let activeBaseUrl: string | null = null;
 
@@ -184,7 +185,19 @@ export async function streamChatMessage(
   xhr.timeout = 45000;
 
   let seenBytes = 0;
-  let buffer = '';
+  const decoder = new SseJsonDecoder();
+
+  const dispatchChunks = (chunks: StreamChunk[]) => {
+    for (const chunk of chunks) {
+      if (chunk.type === 'error') {
+        const code = (chunk.errorCode as SanctuaryErrorCode) || 'MODEL_ERROR';
+        onError(new SanctuaryError(code, chunk.error || 'Krishna’s reflection could not be generated.'));
+        return false;
+      }
+      onChunk(chunk);
+    }
+    return true;
+  };
 
   const processIncomingText = () => {
     try {
@@ -193,30 +206,7 @@ export async function streamChatMessage(
 
       const newText = responseText.substring(seenBytes);
       seenBytes = responseText.length;
-      buffer += newText;
-
-      const lines = buffer.split('\n');
-      // Retain incomplete trailing line in buffer
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data: ')) {
-          const dataStr = trimmed.slice(6).trim();
-          if (dataStr === '[DONE]') continue;
-          try {
-            const chunk: StreamChunk = JSON.parse(dataStr);
-            if (chunk.type === 'error') {
-              const code = (chunk.errorCode as SanctuaryErrorCode) || 'MODEL_ERROR';
-              onError(new SanctuaryError(code, chunk.error || 'Krishna’s reflection could not be generated.'));
-              return;
-            }
-            onChunk(chunk);
-          } catch {
-            // Incomplete JSON or malformed chunk in stream buffer
-          }
-        }
-      }
+      dispatchChunks(decoder.push(newText));
     } catch {
       // In some native runtimes, accessing responseText during early LOADING throws
     }
@@ -237,22 +227,7 @@ export async function streamChatMessage(
     // Ensure all remaining bytes are processed
     processIncomingText();
 
-    // If any final data remains in buffer, process it
-    if (buffer.trim().startsWith('data: ')) {
-      const dataStr = buffer.trim().slice(6).trim();
-      if (dataStr && dataStr !== '[DONE]') {
-        try {
-          const chunk: StreamChunk = JSON.parse(dataStr);
-          if (chunk.type === 'error') {
-            const code = (chunk.errorCode as SanctuaryErrorCode) || 'MODEL_ERROR';
-            onError(new SanctuaryError(code, chunk.error || 'Krishna’s reflection could not be generated.'));
-            return;
-          }
-          onChunk(chunk);
-        } catch {}
-      }
-      buffer = '';
-    }
+    if (!dispatchChunks(decoder.finish())) return;
 
     if (xhr.status >= 200 && xhr.status < 300) {
       onDone();

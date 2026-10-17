@@ -157,12 +157,14 @@ export type StreamChunkType =
   | 'telemetry'
   | 'evaluation'
   | 'debug'
+  | 'complete'
   | 'done'
   | 'replace'
   | 'error';
 
 export interface StreamChunk {
   type: StreamChunkType;
+  eventId?: string;
   messageId?: string;
   conversationId?: string;
   token?: string;
@@ -174,11 +176,23 @@ export interface StreamChunk {
     quoteType?: QuoteType;
   };
   citation?: Citation;
+  /** Authoritative persisted assistant message, including citations for this exact answer. */
+  message?: Message;
   reflectionQuestion?: string;
   telemetry?: {
     requestId: string;
     totalLatencyMs: number;
     retrievedChunkCount: number;
+    selectedChunkCount?: number;
+    retrievalLatencyMs?: number;
+    generationLatencyMs?: number;
+    modelFirstTokenLatencyMs?: number;
+    firstVisibleTextLatencyMs?: number;
+    retrievalStatus?: string;
+    retrievalPath?: string;
+    citationValidationStatus?: 'passed' | 'no_scriptural_claims' | 'failed';
+    insufficientEvidenceReason?: string;
+    completionStatus?: 'completed' | 'failed';
   };
   evaluation?: {
     auditRecord: Record<string, unknown>;

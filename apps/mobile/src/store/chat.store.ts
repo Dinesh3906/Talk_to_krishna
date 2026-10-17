@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Conversation, Message, Citation, StreamChunk } from '@talk-to-krisna/shared';
 import { apiFetch, streamChatMessage } from '../lib/api-client';
 import { sanitizeConversationalText } from '../lib/sanitizer';
+import { applyAssistantStreamChunk, createAssistantStreamState, toAssistantMessage } from '../lib/assistant-stream-state';
 
 interface ChatState {
   conversations: Conversation[];
@@ -11,6 +12,7 @@ interface ChatState {
   streamingContent: string;
   streamingCitations: Citation[];
   streamingMetadata: { intent?: string; emotion?: string; isMahabharataRelevant?: boolean } | null;
+  activeStreamId: string | null;
   error: string | null;
 
   fetchConversations: () => Promise<void>;
@@ -29,6 +31,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContent: '',
   streamingCitations: [],
   streamingMetadata: null,
+  activeStreamId: null,
   error: null,
 
   fetchConversations: async () => {
@@ -45,7 +48,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const conv: Conversation & { messages: Message[] } = await apiFetch(`/conversations/${id}`);
-      set({ activeConversation: conv, isLoading: false });
+      set({
+        activeConversation: conv,
+        isLoading: false,
+        isStreaming: false,
+        streamingContent: '',
+        streamingCitations: [],
+        streamingMetadata: null,
+        activeStreamId: null,
+      });
     } catch (err: any) {
       set({ isLoading: false, error: err.message });
     }
@@ -62,6 +73,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         conversations: [created, ...state.conversations],
         activeConversation: { ...created, messages: [] },
         isLoading: false,
+        isStreaming: false,
+        streamingContent: '',
+        streamingCitations: [],
+        streamingMetadata: null,
+        activeStreamId: null,
       }));
       return created;
     } catch (err: any) {
@@ -84,6 +100,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessageStream: async (conversationId: string, content: string, preferredName?: string) => {
+    const streamId = `${conversationId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     const userMsg: Message = {
       id: `temp-${Date.now()}`,
       conversationId,
@@ -105,50 +122,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
       streamingContent: '',
       streamingCitations: [],
       streamingMetadata: null,
+      activeStreamId: streamId,
       error: null,
     }));
 
-    let accumulatedContent = '';
-    let accumulatedCitations: Citation[] = [];
+    let streamState = createAssistantStreamState(conversationId);
+    const isCurrentStream = () => get().activeStreamId === streamId && get().activeConversation?.id === conversationId;
 
     await streamChatMessage(
       conversationId,
       content,
       preferredName,
       (chunk: StreamChunk) => {
-        if ((chunk.type as string) === 'replace' && (chunk as any).content) {
-          accumulatedContent = (chunk as any).content;
-          set({ streamingContent: sanitizeConversationalText(accumulatedContent) });
-        } else if (chunk.type === 'token' && chunk.token) {
-          accumulatedContent += chunk.token;
-          set({ streamingContent: sanitizeConversationalText(accumulatedContent) });
-        } else if (chunk.type === 'citation' && chunk.citation) {
-          accumulatedCitations.push(chunk.citation);
-          set({ streamingCitations: [...accumulatedCitations] });
-        } else if (chunk.type === 'metadata' && chunk.metadata) {
-          set({ streamingMetadata: chunk.metadata });
-        } else if (chunk.type === 'error' && chunk.error) {
-          set({ error: chunk.error, isStreaming: false });
+        if (!isCurrentStream()) return;
+        streamState = applyAssistantStreamChunk(streamState, chunk);
+        const nextState: Partial<ChatState> = {};
+        if (chunk.type === 'token' || chunk.type === 'replace' || chunk.type === 'complete') {
+          nextState.streamingContent = sanitizeConversationalText(streamState.content);
+          nextState.streamingCitations = streamState.citations;
         }
+        if (chunk.type === 'citation' || chunk.type === 'complete') {
+          nextState.streamingCitations = streamState.citations;
+        }
+        if (chunk.type === 'metadata' && chunk.metadata) nextState.streamingMetadata = chunk.metadata;
+        set(nextState);
       },
       (err: Error) => {
-        set({ error: err.message, isStreaming: false });
+        if (!isCurrentStream()) return;
+        set({
+          error: err.message,
+          isStreaming: false,
+          streamingContent: '',
+          streamingCitations: [],
+          streamingMetadata: null,
+          activeStreamId: null,
+        });
       },
       () => {
-        // Stream completed: only add message if we actually received content
-        const finalContent = sanitizeConversationalText(accumulatedContent).trim();
-        if (finalContent) {
-          const assistantMsg: Message = {
-            id: `msg-${Date.now()}`,
-            conversationId,
-            sender: 'krishna',
-            content: finalContent,
-            citations: accumulatedCitations,
-            createdAt: new Date().toISOString(),
-          };
-
+        if (!isCurrentStream()) return;
+        const assistantMsg = toAssistantMessage(streamState, conversationId, `msg-${Date.now()}`, new Date().toISOString());
+        if (assistantMsg) {
           set((state) => ({
             activeConversation: state.activeConversation
+              && state.activeConversation.id === conversationId
               ? {
                   ...state.activeConversation,
                   messages: [...state.activeConversation.messages, assistantMsg],
@@ -158,6 +174,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             streamingContent: '',
             streamingCitations: [],
             streamingMetadata: null,
+            activeStreamId: null,
           }));
         } else {
           set((state) => ({
@@ -165,6 +182,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             streamingContent: '',
             streamingCitations: [],
             streamingMetadata: null,
+            activeStreamId: null,
             error: state.error || 'The divine presence is temporarily quiet. Please check connection and try again.',
           }));
         }
@@ -176,6 +194,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearActiveConversation: () => {
-    set({ activeConversation: null, streamingContent: '', streamingCitations: [], error: null });
+    set({
+      activeConversation: null,
+      isStreaming: false,
+      streamingContent: '',
+      streamingCitations: [],
+      streamingMetadata: null,
+      activeStreamId: null,
+      error: null,
+    });
   },
 }));

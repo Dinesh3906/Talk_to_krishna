@@ -16,9 +16,9 @@ describe('Live RAG Grounding & Persona Integrity: Study Anxiety & Restless Mind'
     expect(classification.emotionalState).toBe('fear');
     expect(classification.mahabharataRelevant).toBe(true);
     expect(classification.thematicKeywords).toBeDefined();
-    expect(classification.thematicKeywords).toContain('2.47');
     expect(classification.thematicKeywords).toContain('effort');
     expect(classification.thematicKeywords).toContain('svadharma');
+    expect(classification.thematicKeywords).toContain('fruits of action');
   });
 
   it('2. Correctly classifies Scenario B (Restless Mind) as eligible for Gita RAG', () => {
@@ -26,7 +26,7 @@ describe('Live RAG Grounding & Persona Integrity: Study Anxiety & Restless Mind'
     expect(classification.intentCategory).toBe('emotional_distress');
     expect(classification.mahabharataRelevant).toBe(true);
     expect(classification.thematicKeywords).toBeDefined();
-    expect(classification.thematicKeywords).toContain('6.26');
+    expect(classification.thematicKeywords).toContain('restless');
     expect(classification.thematicKeywords).toContain('Abhyasa');
     expect(classification.thematicKeywords).toContain('Vairagya');
   });

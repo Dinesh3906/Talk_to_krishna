@@ -11,12 +11,16 @@ import {
   TouchableWithoutFeedback,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth.store';
 import { useChatStore } from '../store/chat.store';
 import { darkTheme } from '../theme/colors';
 import { KrishnaAvatar } from './KrishnaAvatar';
+import { DaanPetiModal } from './DaanPetiModal';
+
+const daanPetiBoxImg = require('../../assets/images/daan-peti-box.png');
 import {
   Plus,
   MessageSquare,
@@ -26,6 +30,7 @@ import {
   User as UserIcon,
   Sparkles,
   ChevronRight,
+  HeartHandshake,
 } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -37,6 +42,7 @@ interface ChatDrawerProps {
   onSelectConversation: (id: string) => void;
   onNewChat: () => void;
   activeConversationId?: string;
+  onOpenDaanPeti?: () => void;
 }
 
 export function ChatDrawer({
@@ -45,12 +51,14 @@ export function ChatDrawer({
   onSelectConversation,
   onNewChat,
   activeConversationId,
+  onOpenDaanPeti,
 }: ChatDrawerProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { conversations, fetchConversations, deleteConversation, isLoading } = useChatStore();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showDaanPeti, setShowDaanPeti] = useState(false);
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -149,6 +157,28 @@ export function ChatDrawer({
             <Text style={styles.newChatText}>New Conversation</Text>
           </TouchableOpacity>
 
+          {/* Daan Peti (दान पेटी) Button */}
+          <TouchableOpacity
+            style={styles.daanPetiButton}
+            onPress={() => {
+              setShowDaanPeti(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.daanPetiIconBadge}>
+              <Image
+                source={daanPetiBoxImg}
+                style={styles.daanPetiLogo}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.daanPetiTextWrap}>
+              <Text style={styles.daanPetiTitle}>दान पेटी • Daan Peti</Text>
+              <Text style={styles.daanPetiSub}>Offerings for Society • समाज कल्याण</Text>
+            </View>
+            <ChevronRight size={16} color={darkTheme.primary} />
+          </TouchableOpacity>
+
           {/* Conversations Section Header */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionHeaderText}>PAST REFLECTIONS</Text>
@@ -239,6 +269,9 @@ export function ChatDrawer({
             </TouchableOpacity>
           </View>
         </Animated.View>
+
+        {/* Fallback Daan Peti Modal */}
+        <DaanPetiModal visible={showDaanPeti} onClose={() => setShowDaanPeti(false)} />
       </View>
     </Modal>
   );
@@ -472,5 +505,47 @@ const styles = StyleSheet.create({
     color: darkTheme.textMuted,
     fontSize: 11,
     marginTop: 1,
+  },
+  daanPetiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    gap: 10,
+  },
+  daanPetiIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: darkTheme.primary,
+    overflow: 'hidden',
+  },
+  daanPetiLogo: {
+    width: 34,
+    height: 34,
+  },
+  daanPetiTextWrap: {
+    flex: 1,
+  },
+  daanPetiTitle: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  daanPetiSub: {
+    color: darkTheme.primary,
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

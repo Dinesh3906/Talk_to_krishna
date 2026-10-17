@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq, desc, asc, and } from 'drizzle-orm';
+import { eq, desc, asc, and, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { conversations, messages, messageCitations, userProfiles, userMemories, mahabharataChunks } from '../../db/schema.js';
 import { AIProviderFactory } from './ai-provider.factory.js';
@@ -23,6 +23,7 @@ import { ResponsePlanner } from './response-planner.js';
 import { AntiRepetitionGuard } from './anti-repetition-guard.js';
 import { EmotionalInterpretation } from './emotional-interpretation.js';
 import { SafetyResponseValidator, SafetyResponseAudit } from './safety-response-validator.js';
+import { removeUnverifiedOpeningAddress } from './response-name-guard.js';
 
 export interface OrchestrationOptions {
   userId: string;
@@ -39,6 +40,7 @@ export interface OrchestrationAuditRecord {
   channel_candidates: Record<string, RetrievalCandidateTrace[]>;
   retrieval_confidence: 'high' | 'medium' | 'low';
   evidence_sufficient: boolean;
+  retrieval_status: string;
   corpus_does_not_establish?: boolean;
   top_score: number;
   score_gap: number;
@@ -156,7 +158,7 @@ export class AIOrchestratorService {
   public static async execute(options: OrchestrationOptions): Promise<OrchestrationResult> {
     const startTime = Date.now();
     const requestId = uuidv4();
-    const { userId, conversationId, userMessage } = options;
+    const { userId, conversationId, userMessage, preferredName } = options;
 
     const emit = (chunk: StreamChunk) => {
       if (options.onStreamChunk) {
@@ -231,6 +233,7 @@ export class AIOrchestratorService {
           contextual_query: userMessage,
           channel_candidates: {},
           retrieval_confidence: 'low',
+          retrieval_status: 'crisis_intervened',
           evidence_sufficient: false,
           top_score: 0,
           score_gap: 0,
@@ -366,6 +369,7 @@ export class AIOrchestratorService {
     let retrievalConfidence: 'high' | 'medium' | 'low' = 'low';
     let hasSufficientEvidence = false;
     let retrievalPath: OrchestrationAuditRecord['retrieval_path'] = 'none';
+    let retrievalStatus = 'not_required';
     let retrievalQuery = userMessage;
     let retrievalChannelCandidates: Record<string, RetrievalCandidateTrace[]> = {};
     let retrievalTopScore = 0;
@@ -418,6 +422,7 @@ export class AIOrchestratorService {
       databaseLatencyMs = retrievalResult.databaseLatencyMs || 0;
       fallbackUsed = retrievalResult.fallbackUsed || false;
       fallbackReason = retrievalResult.fallbackReason;
+      retrievalStatus = retrievalResult.retrievalStatus || (hasSufficientEvidence ? 'evidence_selected' : 'below_threshold');
       retrievalTimings = retrievalResult.timings;
 
       // For strict factual scripture queries without characters or evidence, mark does not establish.
@@ -545,6 +550,16 @@ export class AIOrchestratorService {
     const targetMaxTokens = responsePlan.targetTokens;
 
     const streamFilter = new StreamTokenFilter();
+    const requiresClaimBuffering = corpusDoesNotEstablish ||
+      !hasSufficientEvidence ||
+      classification.intentCategory === 'factual_scripture' ||
+      classification.isAntiHallucinationProbe ||
+      classification.isChallenging ||
+      retrievedPassages.length === 0;
+
+    let modelFirstTokenLatencyMs: number | undefined;
+    let firstVisibleTextLatencyMs: number | undefined;
+
     try {
       const completionResult = await aiProvider.streamCompletion(
         {
@@ -553,17 +568,27 @@ export class AIOrchestratorService {
           maxTokens: targetMaxTokens,
         },
         (token: string) => {
+          if (!modelFirstTokenLatencyMs) {
+            modelFirstTokenLatencyMs = Date.now() - generationStartTime;
+          }
           generatedContent += token;
-          const cleanToken = streamFilter.push(token);
-          if (cleanToken) {
-            emit({ type: 'token', token: cleanToken });
+          if (!requiresClaimBuffering) {
+            const cleanToken = streamFilter.push(token);
+            if (cleanToken) {
+              if (!firstVisibleTextLatencyMs) {
+                firstVisibleTextLatencyMs = Date.now() - generationStartTime;
+              }
+              emit({ type: 'token', token: cleanToken });
+            }
           }
         }
       );
 
-      const trailing = streamFilter.flush();
-      if (trailing) {
-        emit({ type: 'token', token: trailing });
+      if (!requiresClaimBuffering) {
+        const trailing = streamFilter.flush();
+        if (trailing) {
+          emit({ type: 'token', token: trailing });
+        }
       }
 
       promptTokens = completionResult.promptTokens;
@@ -832,7 +857,13 @@ export class AIOrchestratorService {
       emit({ type: 'replace', content: quoteResult.verifiedContent });
     }
 
-    if (isCopyrightRefusal || quoteResult.verifiedContent !== generatedContent) {
+    quoteResult.verifiedContent = removeUnverifiedOpeningAddress(
+      quoteResult.verifiedContent,
+      preferredName,
+      retrievedPassages.flatMap(p => p.characters || []),
+    );
+
+    if (requiresClaimBuffering || isCopyrightRefusal || quoteResult.verifiedContent !== generatedContent) {
       emit({ type: 'replace', content: quoteResult.verifiedContent });
     }
 
@@ -901,6 +932,23 @@ export class AIOrchestratorService {
         console.warn('[AIOrchestratorService] Citation persistence failed.');
       }
     }
+
+    const assistantPayload: Message = {
+      id: savedMessage.id,
+      conversationId,
+      sender: 'krishna',
+      content: quoteResult.verifiedContent,
+      intentCategory: classification.intentCategory,
+      emotionalState: classification.emotionalState,
+      citations: quoteResult.citations,
+      createdAt: (savedMessage.createdAt instanceof Date ? savedMessage.createdAt : new Date(savedMessage.createdAt)).toISOString(),
+    };
+    emit({
+      type: 'complete',
+      conversationId,
+      messageId: savedMessage.id,
+      message: assistantPayload,
+    });
 
     // Step 10: Asynchronous Multi-Tier Memory Recording (State + Topic Segments)
     const resolvedChar = referenceResolution.referentCharacter || conversationState.activeEntities[0];
@@ -972,6 +1020,7 @@ export class AIOrchestratorService {
       contextual_query: queryPlan.contextualQuery,
       channel_candidates: retrievalChannelCandidates,
       retrieval_confidence: retrievalConfidence,
+      retrieval_status: retrievalStatus,
       evidence_sufficient: hasSufficientEvidence,
       corpus_does_not_establish: corpusDoesNotEstablish,
       top_score: retrievalTopScore,
@@ -1020,10 +1069,50 @@ export class AIOrchestratorService {
         requestId,
         totalLatencyMs,
         retrievedChunkCount: retrievedPassages.length,
+        selectedChunkCount: quoteResult.citations.length,
+        retrievalLatencyMs,
+        generationLatencyMs,
+        modelFirstTokenLatencyMs,
+        firstVisibleTextLatencyMs,
+        retrievalStatus,
+        retrievalPath,
+        citationValidationStatus: quoteResult.hasUngroundedScriptureClaim ? 'failed' : (quoteResult.citations.length > 0 ? 'passed' : 'no_scriptural_claims'),
+        insufficientEvidenceReason: !hasSufficientEvidence ? fallbackReason : undefined,
+        completionStatus: 'completed',
       },
     });
 
     emit({ type: 'done', conversationId, messageId: savedMessage.id });
+
+    const allCandidates = Object.values(retrievalChannelCandidates).flat();
+    TelemetryService.recordRagDiagnostics({
+      requestId,
+      conversationId,
+      retrievalQuery,
+      retrievalStatus,
+      retrievalPath,
+      retrievedChunkCount: retrievedPassages.length,
+      selectedEvidence: retrievedPassages.map(p => ({
+        id: p.id,
+        sourceType: p.sourceType,
+        sourceReference: p.sourceReference,
+        score: p.relevanceScore || 0,
+      })),
+      candidates: allCandidates.map((c, idx) => ({
+        id: c.id,
+        sourceType: c.sourceType,
+        sourceReference: c.sourceReference,
+        rank: idx + 1,
+        score: c.candidateScore,
+      })),
+      retrievalLatencyMs,
+      generationLatencyMs,
+      modelFirstTokenLatencyMs,
+      firstVisibleTextLatencyMs,
+      citationValidationStatus: quoteResult.hasUngroundedScriptureClaim ? 'failed' : (quoteResult.citations.length > 0 ? 'passed' : 'no_scriptural_claims'),
+      insufficientEvidenceReason: !hasSufficientEvidence ? fallbackReason : undefined,
+      completionStatus: 'completed',
+    });
 
     // Step 11: Privacy-Preserving Telemetry Logging
     await TelemetryService.record({
