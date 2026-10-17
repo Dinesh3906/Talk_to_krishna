@@ -1,6 +1,6 @@
 {
   "name": "talk-to-krisna",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "private": true,
   "description": "Production-quality mobile application & RAG conversational AI inspired by Lord Krishna and the Mahabharata",
   "workspaces": [

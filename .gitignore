@@ -53,3 +53,18 @@ apps/mobile/*.png
 /assets/
 screenshot*.png
 .tmp*
+releases/
+
+# Agent and IDE configuration
+.agent/
+.agents/
+.gemini/
+.gsd/
+GSD-STYLE.md
+PROJECT_RULES.md
+VERSION
+adapters/
+model_capabilities.yaml
+scripts/search_repo.*
+scripts/setup_search.*
+scripts/validate-*
