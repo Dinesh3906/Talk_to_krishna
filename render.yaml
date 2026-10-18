@@ -32,7 +32,13 @@ services:
       - key: DISABLE_LOCAL_EMBEDDING
         value: "true"
       - key: EMAIL_PROVIDER
-        value: smtp
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: ajay390620@gmail.com
+      - key: BREVO_SENDER_NAME
+        value: "Talk to Krishna"
       - key: SMTP_USER
         value: ajay390620@gmail.com
       - key: SMTP_FROM

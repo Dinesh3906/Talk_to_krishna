@@ -185,12 +185,22 @@ describe('OTP secret exposure regression', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('EMAIL_PROVIDER', 'console');
     OtpProviderFactory.resetProvider();
-    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=smtp or EMAIL_PROVIDER=resend/);
+    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=brevo, EMAIL_PROVIDER=smtp, or EMAIL_PROVIDER=resend/);
 
     vi.stubEnv('EMAIL_PROVIDER', '');
     vi.stubEnv('RESEND_API_KEY', '');
+    vi.stubEnv('BREVO_API_KEY', '');
     OtpProviderFactory.resetProvider();
-    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=smtp or EMAIL_PROVIDER=resend/);
+    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=brevo, EMAIL_PROVIDER=smtp, or EMAIL_PROVIDER=resend/);
+  });
+
+  it('allows brevo provider in production when configured', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('EMAIL_PROVIDER', 'brevo');
+    vi.stubEnv('BREVO_API_KEY', 'xkeysib-mock-key-for-test-123456789');
+    OtpProviderFactory.resetProvider();
+    const provider = OtpProviderFactory.getProvider();
+    expect(provider.name).toBe('brevo');
   });
 
   it('allows smtp provider in production when configured', () => {

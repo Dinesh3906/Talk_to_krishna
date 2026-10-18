@@ -2,6 +2,7 @@ import { OtpDeliveryProvider } from './otp-delivery.interface.js';
 import { ConsoleOtpProvider } from './console-otp.provider.js';
 import { ResendOtpProvider } from './resend-otp.provider.js';
 import { SmtpOtpProvider } from './smtp-otp.provider.js';
+import { BrevoOtpProvider } from './brevo-otp.provider.js';
 
 export class OtpProviderFactory {
   private static instance: OtpDeliveryProvider | null = null;
@@ -12,22 +13,31 @@ export class OtpProviderFactory {
     }
 
     const configuredProvider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+    const hasBrevoConfig = !!(process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim().length > 5);
     const hasSmtpConfig = !!(process.env.SMTP_USER || process.env.GMAIL_USER || process.env.SMTP_HOST);
     const hasResendConfig = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123');
 
     const providerType =
       configuredProvider ||
-      (hasSmtpConfig ? 'smtp' : hasResendConfig ? 'resend' : 'console');
+      (hasBrevoConfig ? 'brevo' : hasSmtpConfig ? 'smtp' : hasResendConfig ? 'resend' : 'console');
 
-    if (process.env.NODE_ENV === 'production' && providerType !== 'resend' && providerType !== 'smtp') {
-      throw new Error('Production authentication requires EMAIL_PROVIDER=smtp or EMAIL_PROVIDER=resend.');
+    if (
+      process.env.NODE_ENV === 'production' &&
+      providerType !== 'brevo' &&
+      providerType !== 'resend' &&
+      providerType !== 'smtp'
+    ) {
+      throw new Error('Production authentication requires EMAIL_PROVIDER=brevo, EMAIL_PROVIDER=smtp, or EMAIL_PROVIDER=resend.');
     }
 
-    if (providerType !== 'resend' && providerType !== 'smtp' && providerType !== 'console') {
+    if (providerType !== 'brevo' && providerType !== 'resend' && providerType !== 'smtp' && providerType !== 'console') {
       throw new Error(`Unsupported EMAIL_PROVIDER: ${providerType}`);
     }
 
     switch (providerType) {
+      case 'brevo':
+        this.instance = new BrevoOtpProvider();
+        return this.instance;
       case 'smtp':
         this.instance = new SmtpOtpProvider();
         return this.instance;
@@ -44,11 +54,14 @@ export class OtpProviderFactory {
 
   public static getSecondaryProvider(): OtpDeliveryProvider | null {
     const primary = this.getProvider();
-    if (primary.name === 'smtp' && process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123') {
-      return new ResendOtpProvider();
+    if (primary.name !== 'brevo' && process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim().length > 5) {
+      return new BrevoOtpProvider();
     }
-    if (primary.name === 'resend' && !!(process.env.SMTP_USER || process.env.GMAIL_USER || process.env.SMTP_HOST)) {
+    if (primary.name !== 'smtp' && !!(process.env.SMTP_USER || process.env.GMAIL_USER || process.env.SMTP_HOST)) {
       return new SmtpOtpProvider();
+    }
+    if (primary.name !== 'resend' && process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123') {
+      return new ResendOtpProvider();
     }
     return null;
   }
