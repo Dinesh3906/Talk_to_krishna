@@ -17,9 +17,12 @@ export class OtpProviderFactory {
     const hasSmtpConfig = !!(process.env.SMTP_USER || process.env.GMAIL_USER || process.env.SMTP_HOST);
     const hasResendConfig = !!(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123');
 
+    // If Brevo is configured, prioritize it over SMTP because SMTP ports (465/587) are firewalled on Render Free tier
     const providerType =
-      configuredProvider ||
-      (hasBrevoConfig ? 'brevo' : hasSmtpConfig ? 'smtp' : hasResendConfig ? 'resend' : 'console');
+      hasBrevoConfig && (!configuredProvider || configuredProvider === 'brevo' || configuredProvider === 'smtp')
+        ? 'brevo'
+        : configuredProvider ||
+          (hasBrevoConfig ? 'brevo' : hasSmtpConfig ? 'smtp' : hasResendConfig ? 'resend' : 'console');
 
     if (
       process.env.NODE_ENV === 'production' &&
