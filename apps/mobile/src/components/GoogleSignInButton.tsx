@@ -172,7 +172,20 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
 
     setLoading(true);
+    let idToken: string | null = null;
+    let googleUser: GoogleSignInUserInfo | undefined;
+
     try {
+      // Re-configure before signing in to guarantee webClientId is active
+      try {
+        GoogleSignin.configure({
+          webClientId: clientId,
+          offlineAccess: false,
+        });
+      } catch (cErr) {
+        console.warn('[GoogleSignInButton] Configure pre-signin warning:', cErr);
+      }
+
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
       const response = await GoogleSignin.signIn();
@@ -182,17 +195,27 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       }
 
       // Extract ID token across library version structures
-      const idToken =
+      idToken =
         response && 'data' in response && response.data
           ? response.data.idToken
           : (response as any)?.idToken;
+
+      // If idToken was not returned in response.data, attempt recovery via getTokens()
+      if (!idToken) {
+        try {
+          const tokens = await GoogleSignin.getTokens();
+          idToken = tokens?.idToken || null;
+        } catch (tErr) {
+          console.warn('[GoogleSignInButton] getTokens fallback error:', tErr);
+        }
+      }
 
       const rawUser =
         response && 'data' in response && response.data?.user
           ? response.data.user
           : (response as any)?.user;
 
-      const googleUser = rawUser
+      googleUser = rawUser
         ? {
             id: rawUser.id,
             email: rawUser.email,
@@ -203,17 +226,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           }
         : undefined;
 
-      if (idToken) {
-        await onSuccess(idToken, googleUser);
-      } else {
-        throw new Error('Google Sign-In did not return an ID token.');
+      if (!idToken) {
+        throw new Error('Google Sign-In completed, but no ID token was returned by Google Play Services.');
       }
     } catch (error: any) {
-      // Clear any cached credentials on failure so next attempt is fresh
-      try {
-        await GoogleSignin.signOut();
-      } catch {}
-
       if (isErrorWithCode && isErrorWithCode(error)) {
         if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
           return;
@@ -228,12 +244,14 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       }
 
       const errCode = (error as any)?.code;
+      const errMsg = typeof error?.message === 'string' ? error.message : '';
+
+      // Only treat as DEVELOPER_ERROR if errCode is explicitly 10 or message explicitly contains DEVELOPER_ERROR
       const isDevError =
-        errCode === statusCodes?.DEVELOPER_ERROR ||
         errCode === '10' ||
         errCode === 10 ||
-        error.message?.includes('DEVELOPER_ERROR') ||
-        error.message?.includes('10');
+        (Boolean(statusCodes?.DEVELOPER_ERROR) && errCode === statusCodes?.DEVELOPER_ERROR) ||
+        errMsg.includes('DEVELOPER_ERROR');
 
       if (isDevError) {
         const errorDetail =
@@ -270,6 +288,19 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
       console.error('[GoogleSignInButton] Native sign-in error:', error);
       onError(error.message || 'Google Sign-In failed.');
+      return;
+    } finally {
+      if (!idToken) {
+        setLoading(false);
+      }
+    }
+
+    // Isolate backend session creation outside the Play Services catch block
+    try {
+      await onSuccess(idToken, googleUser);
+    } catch (backendError: any) {
+      console.error('[GoogleSignInButton] Backend authentication error:', backendError);
+      onError(backendError.message || 'Failed to authenticate with server. Please try again.');
     } finally {
       setLoading(false);
     }
