@@ -77,16 +77,18 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   disabled = false,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<'idle' | 'google' | 'sanctuary'>('idle');
   const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   useEffect(() => {
-    // Native mobile: initialize GoogleSignin with configured Web Client ID
+    // Native mobile: initialize GoogleSignin and pre-warm Play Services cache on mount
     if (Platform.OS !== 'web' && clientId && GoogleSignin) {
       try {
         GoogleSignin.configure({
           webClientId: clientId,
           offlineAccess: false,
         });
+        GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: false }).catch(() => {});
       } catch (err) {
         console.warn('[GoogleSignInButton] GoogleSignin.configure error:', err);
       }
@@ -108,12 +110,14 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
               callback: async (response) => {
                 if (response.credential) {
                   setLoading(true);
+                  setLoadingStage('sanctuary');
                   try {
                     await onSuccess(response.credential);
                   } catch (err: any) {
                     onError(err.message || 'Google sign-in failed');
                   } finally {
                     setLoading(false);
+                    setLoadingStage('idle');
                   }
                 }
               },
@@ -127,12 +131,14 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           callback: async (response) => {
             if (response.credential) {
               setLoading(true);
+              setLoadingStage('sanctuary');
               try {
                 await onSuccess(response.credential);
               } catch (err: any) {
                 onError(err.message || 'Google sign-in failed');
               } finally {
                 setLoading(false);
+                setLoadingStage('idle');
               }
             }
           },
@@ -172,22 +178,15 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     }
 
     setLoading(true);
+    setLoadingStage('google');
     let idToken: string | null = null;
     let googleUser: GoogleSignInUserInfo | undefined;
 
     try {
-      // Re-configure before signing in to guarantee webClientId is active
-      try {
-        GoogleSignin.configure({
-          webClientId: clientId,
-          offlineAccess: false,
-        });
-      } catch (cErr) {
-        console.warn('[GoogleSignInButton] Configure pre-signin warning:', cErr);
-      }
-
+      // Pre-flight check Play Services
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
+      // Launch native account picker immediately with zero pre-prompt delays
       const response = await GoogleSignin.signIn();
 
       if (response && response.type === 'cancelled') {
@@ -292,10 +291,12 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     } finally {
       if (!idToken) {
         setLoading(false);
+        setLoadingStage('idle');
       }
     }
 
-    // Isolate backend session creation outside the Play Services catch block
+    // Isolate backend session creation with active user feedback
+    setLoadingStage('sanctuary');
     try {
       await onSuccess(idToken, googleUser);
     } catch (backendError: any) {
@@ -303,7 +304,14 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       onError(backendError.message || 'Failed to authenticate with server. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingStage('idle');
     }
+  };
+
+  const getButtonText = () => {
+    if (!loading) return 'Continue with Google';
+    if (loadingStage === 'sanctuary') return 'Entering Sanctuary...';
+    return 'Connecting to Google...';
   };
 
   return (
@@ -322,7 +330,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           </View>
         )}
         <Text style={styles.buttonText}>
-          {loading ? 'Connecting to Google...' : 'Continue with Google'}
+          {getButtonText()}
         </Text>
       </View>
     </TouchableOpacity>

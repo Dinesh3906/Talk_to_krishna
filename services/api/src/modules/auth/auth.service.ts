@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, or } from 'drizzle-orm';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../../db/index.js';
 import { users, userProfiles, otpVerifications } from '../../db/schema.js';
@@ -25,6 +25,8 @@ const JWT_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const BCRYPT_SALT_ROUNDS = 10; // OWASP compliant, 4x faster than 12 on CPU
 
 const googleOAuthClient = new OAuth2Client();
+// Pre-warm Google OAuth federated certificates asynchronously to eliminate first-request latency
+void googleOAuthClient.getFederatedSignonCertsAsync().catch(() => {});
 
 export class AuthService {
   /**
@@ -557,78 +559,67 @@ export class AuthService {
     const displayName = (payload.name as string) || (payload.given_name as string) || email.split('@')[0];
     const preferredName = (payload.given_name as string) || displayName.split(' ')[0];
 
-    // 1. Check if user already exists with this Google ID
+    // 1. Single unified query to check either Google ID or matching email
     let userRecord = await db.query.users.findFirst({
-      where: eq(users.googleId, googleId),
+      where: or(eq(users.googleId, googleId), eq(users.email, email)),
     });
 
-    if (userRecord) {
-      const [updated] = await db
-        .update(users)
-        .set({
-          avatarUrl: userRecord.avatarUrl || avatarUrl,
-          isVerified: true,
-          lastLoginAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userRecord.id))
-        .returning();
-      userRecord = updated;
-    } else {
-      // 2. Check if user exists by email to link Google account
-      const userByEmail = await db.query.users.findFirst({
-        where: eq(users.email, email),
-      });
+    let profileRecord: any = null;
 
-      if (userByEmail) {
-        const [updated] = await db
+    if (userRecord) {
+      // User exists: update Google ID, avatar, and last login concurrently with profile fetch
+      const [updatedList, existingProfile] = await Promise.all([
+        db
           .update(users)
           .set({
-            googleId,
-            avatarUrl: userByEmail.avatarUrl || avatarUrl,
+            googleId: userRecord.googleId || googleId,
+            avatarUrl: userRecord.avatarUrl || avatarUrl,
             isVerified: true,
             lastLoginAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(users.id, userByEmail.id))
-          .returning();
-        userRecord = updated;
-      } else {
-        // 3. Create a new verified user record
-        const [createdUser] = await db
-          .insert(users)
-          .values({
-            email,
-            googleId,
-            avatarUrl,
-            displayName,
-            preferredName,
-            isAnonymous: false,
-            isVerified: true,
-            tokenVersion: 1,
-            lastLoginAt: new Date(),
-          })
-          .returning();
+          .where(eq(users.id, userRecord.id))
+          .returning(),
+        db.query.userProfiles.findFirst({
+          where: eq(userProfiles.userId, userRecord.id),
+        }),
+      ]);
 
-        userRecord = createdUser;
+      userRecord = updatedList[0] || userRecord;
+      profileRecord = existingProfile;
+    } else {
+      // 2. New user: insert user and default profile
+      const [createdUser] = await db
+        .insert(users)
+        .values({
+          email,
+          googleId,
+          avatarUrl,
+          displayName,
+          preferredName,
+          isAnonymous: false,
+          isVerified: true,
+          tokenVersion: 1,
+          lastLoginAt: new Date(),
+        })
+        .returning();
 
-        await db
-          .insert(userProfiles)
-          .values({
-            userId: createdUser.id,
-            reflectionDepth: 'balanced',
-            mahabharataDensity: 'contextual',
-            themePreference: 'dark',
-            enableLongTermMemory: false,
-            preferredLanguage: 'en',
-          })
-          .returning();
-      }
+      userRecord = createdUser;
+
+      const [createdProfile] = await db
+        .insert(userProfiles)
+        .values({
+          userId: createdUser.id,
+          reflectionDepth: 'balanced',
+          mahabharataDensity: 'contextual',
+          themePreference: 'dark',
+          enableLongTermMemory: false,
+          preferredLanguage: 'en',
+        })
+        .returning();
+
+      profileRecord = createdProfile;
     }
-
-    const profileRecord = await db.query.userProfiles.findFirst({
-      where: eq(userProfiles.userId, userRecord.id),
-    });
 
     const token = this.generateToken(
       userRecord.id,
