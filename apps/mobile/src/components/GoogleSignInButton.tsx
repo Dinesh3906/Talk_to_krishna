@@ -237,12 +237,22 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
       if (isDevError) {
         const errorDetail =
-          'Google Cloud Console requires an Android OAuth Client ID matching:\n\n' +
+          'Google Sign-In requires an Android OAuth Client ID in Google Cloud Console:\n\n' +
+          '• Project ID: 557211276662\n' +
           '• Package Name: com.talktokrishna.ai\n' +
-          '• Debug SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n' +
-          '• Release SHA-1: 60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6\n\n' +
-          'Please register this SHA-1 in Google Cloud Console project 557211276662 under APIs & Services > Credentials.';
-        Alert.alert('Configuration Required', errorDetail, [
+          '• Release SHA-1 (APK): 60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6\n' +
+          '• Debug SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
+          'Tap "Copy Release SHA-1" below and register it in Google Cloud Console > APIs & Services > Credentials > Create Credentials > OAuth client ID > Android.';
+        Alert.alert('Google Sign-In Setup Required', errorDetail, [
+          {
+            text: 'Copy Release SHA-1 (APK)',
+            onPress: async () => {
+              try {
+                await Clipboard.setStringAsync('60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6');
+                Alert.alert('Copied!', 'Release SHA-1 copied to clipboard. Paste this into Google Cloud Console.');
+              } catch {}
+            },
+          },
           {
             text: 'Copy Debug SHA-1',
             onPress: async () => {
@@ -252,18 +262,9 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
               } catch {}
             },
           },
-          {
-            text: 'Copy Release SHA-1',
-            onPress: async () => {
-              try {
-                await Clipboard.setStringAsync('60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6');
-                Alert.alert('Copied!', 'Release SHA-1 copied to clipboard.');
-              } catch {}
-            },
-          },
-          { text: 'OK', style: 'cancel' },
+          { text: 'Close', style: 'cancel' },
         ]);
-        onError('Google Sign-In configuration: SHA-1 fingerprint mismatch (DEVELOPER_ERROR 10).');
+        onError('Google Sign-In setup: Please register Release SHA-1 (60:DE:24:C0:E4...) in Google Cloud Console.');
         return;
       }
 
