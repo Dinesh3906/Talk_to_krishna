@@ -49,9 +49,12 @@ router.post('/signup', async (req: Request, res: Response) => {
     const result = await AuthService.signup(parseResult.data);
     return res.status(201).json({ data: result });
   } catch (err: any) {
-    const message = err?.message === 'An account with this email address already exists.'
-      ? err.message
-      : 'Could not create the account. Please try again.';
+    const message =
+      err?.message === 'An account with this email address already exists.'
+        ? err.message
+        : typeof err?.message === 'string' && err.message.includes('verification email')
+        ? err.message
+        : 'Could not create the account. Please try again.';
     return res.status(400).json({
       error: {
         code: 'SIGNUP_FAILED',
@@ -137,10 +140,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const cooldownMessage = typeof err?.message === 'string' && /^Please wait \d+ seconds before requesting another code\.$/.test(err.message)
       ? err.message
       : undefined;
-    return res.status(cooldownMessage ? 400 : 500).json({
+    const deliveryMessage = typeof err?.message === 'string' && err.message.includes('verification')
+      ? err.message
+      : undefined;
+    return res.status(cooldownMessage || deliveryMessage ? 400 : 500).json({
       error: {
         code: 'FORGOT_PASSWORD_FAILED',
-        message: cooldownMessage || 'Could not process the password reset request. Please try again.',
+        message: cooldownMessage || deliveryMessage || 'Could not process the password reset request. Please try again.',
       },
     });
   }
@@ -191,10 +197,13 @@ router.post('/resend-otp', async (req: Request, res: Response) => {
     const cooldownMessage = typeof err?.message === 'string' && /^Please wait \d+ seconds before requesting another code\.$/.test(err.message)
       ? err.message
       : undefined;
+    const deliveryMessage = typeof err?.message === 'string' && err.message.includes('verification')
+      ? err.message
+      : undefined;
     return res.status(400).json({
       error: {
         code: 'RESEND_OTP_FAILED',
-        message: cooldownMessage || 'Could not send a verification code. Please try again.',
+        message: cooldownMessage || deliveryMessage || 'Could not send a verification code. Please try again.',
       },
     });
   }

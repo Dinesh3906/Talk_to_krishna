@@ -33,9 +33,18 @@ export function assertAuthSecretsConfigured(): void {
     if (otpPepper === jwtSecret) {
       throw new Error('OTP_PEPPER_SECRET must be different from JWT_SECRET in production.');
     }
-    const apiKey = process.env.RESEND_API_KEY;
-    if (process.env.EMAIL_PROVIDER === 'resend' && (!apiKey || apiKey === 're_123')) {
-      console.warn('[Talk to Krishna API] Warning: RESEND_API_KEY is not configured. Email OTP delivery will be disabled, but Sanctuary AI remains operational.');
+    const emailProvider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
+    if (emailProvider === 'resend') {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (!apiKey || apiKey === 're_123') {
+        console.warn('[Talk to Krishna API] Warning: RESEND_API_KEY is not configured. Email OTP delivery will be disabled, but Sanctuary AI remains operational.');
+      }
+    } else if (emailProvider === 'smtp') {
+      const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+      const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+      if (!smtpUser || !smtpPass) {
+        console.warn('[Talk to Krishna API] Warning: SMTP credentials (SMTP_USER/GMAIL_USER, SMTP_PASS/GMAIL_APP_PASSWORD) are not fully configured.');
+      }
     }
   }
 }

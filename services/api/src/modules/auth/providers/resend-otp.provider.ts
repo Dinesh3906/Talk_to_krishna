@@ -54,9 +54,9 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
     let res: any;
     try {
       res = await sendWithTimeout(fromAddress);
-    } catch {
+    } catch (err: any) {
       console.warn('[ResendOtpProvider] Email delivery failed.', { provider: this.name, operation: 'send_otp', outcome: 'error' });
-      return;
+      throw new Error(`Resend email delivery failed: ${err?.message || 'Network error'}`);
     }
 
     // If primary failed domain verification, mark cooldown and try fallback once
@@ -75,9 +75,9 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
       });
       try {
         res = await sendWithTimeout(fallbackFrom);
-      } catch {
+      } catch (err: any) {
         console.warn('[ResendOtpProvider] Email delivery failed.', { provider: this.name, operation: 'send_otp', outcome: 'error' });
-        return;
+        throw new Error(`Resend email delivery failed on fallback: ${err?.message || 'Network error'}`);
       }
     }
 
@@ -87,7 +87,7 @@ export class ResendOtpProvider implements OtpDeliveryProvider {
         operation: 'send_otp',
         outcome: 'rejected',
       });
-      return;
+      throw new Error(`Resend email delivery was rejected: ${res.error.message || 'Rejected'}`);
     }
 
     console.log('[ResendOtpProvider] Email delivered.', { provider: this.name, operation: 'send_otp', outcome: 'success' });

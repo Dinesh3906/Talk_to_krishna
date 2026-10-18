@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendEmail, authMocks } = vi.hoisted(() => ({
+const { sendEmail, sendMailMock, authMocks } = vi.hoisted(() => ({
   sendEmail: vi.fn(),
+  sendMailMock: vi.fn(),
   authMocks: {
     signup: vi.fn(),
     verifySignupOtp: vi.fn(),
@@ -14,6 +15,13 @@ vi.mock('resend', () => ({
     public readonly emails = { send: sendEmail };
   },
 }));
+vi.mock('nodemailer', () => ({
+  default: {
+    createTransport: vi.fn(() => ({
+      sendMail: sendMailMock,
+    })),
+  },
+}));
 vi.mock('../auth.service.js', () => ({ AuthService: authMocks }));
 vi.mock('../../../db/index.js', () => ({ db: {} }));
 vi.mock('../../../db/schema.js', () => ({ userProfiles: {} }));
@@ -21,6 +29,7 @@ vi.mock('drizzle-orm', () => ({ eq: vi.fn() }));
 
 import express from 'express';
 import { ResendOtpProvider } from '../providers/resend-otp.provider.js';
+import { SmtpOtpProvider } from '../providers/smtp-otp.provider.js';
 import { ConsoleOtpProvider } from '../providers/console-otp.provider.js';
 import { OtpProviderFactory } from '../providers/otp-provider.factory.js';
 import authRouter from '../auth.controller.js';
@@ -100,7 +109,7 @@ describe('OTP secret exposure regression', () => {
       destination: 'synthetic-user@example.invalid',
       code: syntheticOtp,
       purpose: OtpPurposeEnum.enum.PASSWORD_RESET,
-    })).resolves.toBeUndefined();
+    })).rejects.toThrow();
 
     expect(capturedLoggerOutput(loggerSpies)).not.toContain(syntheticOtp);
   });
@@ -114,7 +123,37 @@ describe('OTP secret exposure regression', () => {
       destination: 'synthetic-user@example.invalid',
       code: syntheticOtp,
       purpose: OtpPurposeEnum.enum.LOGIN_VERIFICATION,
-    })).resolves.toBeUndefined();
+    })).rejects.toThrow();
+
+    expect(capturedLoggerOutput(loggerSpies)).not.toContain(syntheticOtp);
+  });
+
+  it('delivers successfully via SmtpOtpProvider without logging the OTP', async () => {
+    sendMailMock.mockResolvedValue({ messageId: 'synthetic-smtp-id' });
+    const loggerSpies = [vi.spyOn(console, 'log').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})];
+    const provider = new SmtpOtpProvider({ user: 'test@gmail.com', pass: 'secretpass123' });
+
+    await provider.sendOtp({
+      destination: 'synthetic-user@example.invalid',
+      code: syntheticOtp,
+      purpose: OtpPurposeEnum.enum.SIGNUP_VERIFICATION,
+    });
+
+    expect(sendMailMock).toHaveBeenCalledOnce();
+    expect(sendMailMock.mock.calls[0][0].html).toContain(syntheticOtp);
+    expect(capturedLoggerOutput(loggerSpies)).not.toContain(syntheticOtp);
+  });
+
+  it('handles SMTP provider rejection without logging echoed OTP text', async () => {
+    sendMailMock.mockRejectedValue(new Error(`smtp rejection with ${syntheticOtp}`));
+    const loggerSpies = [vi.spyOn(console, 'log').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})];
+    const provider = new SmtpOtpProvider({ user: 'test@gmail.com', pass: 'secretpass123' });
+
+    await expect(provider.sendOtp({
+      destination: 'synthetic-user@example.invalid',
+      code: syntheticOtp,
+      purpose: OtpPurposeEnum.enum.PASSWORD_RESET,
+    })).rejects.toThrow();
 
     expect(capturedLoggerOutput(loggerSpies)).not.toContain(syntheticOtp);
   });
@@ -146,12 +185,22 @@ describe('OTP secret exposure regression', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('EMAIL_PROVIDER', 'console');
     OtpProviderFactory.resetProvider();
-    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=resend/);
+    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=smtp or EMAIL_PROVIDER=resend/);
 
     vi.stubEnv('EMAIL_PROVIDER', '');
     vi.stubEnv('RESEND_API_KEY', '');
     OtpProviderFactory.resetProvider();
-    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=resend/);
+    expect(() => OtpProviderFactory.getProvider()).toThrow(/requires EMAIL_PROVIDER=smtp or EMAIL_PROVIDER=resend/);
+  });
+
+  it('allows smtp provider in production when configured', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('EMAIL_PROVIDER', 'smtp');
+    vi.stubEnv('SMTP_USER', 'test@gmail.com');
+    vi.stubEnv('SMTP_PASS', 'secretpass123');
+    OtpProviderFactory.resetProvider();
+    const provider = OtpProviderFactory.getProvider();
+    expect(provider.name).toBe('smtp');
   });
 
   it('fails closed when production JWT secret is missing or explicit OTP pepper is invalid', () => {

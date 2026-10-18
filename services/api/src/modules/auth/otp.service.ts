@@ -118,7 +118,7 @@ export class OtpService {
   }
 
   /**
-   * Creates, hashes, persists, and delivers an OTP (delivery is non-blocking to prevent UI hangs)
+   * Creates, hashes, persists, and delivers an OTP with delivery verification
    */
   public static async createAndSendOtp(
     destination: string,
@@ -129,10 +129,29 @@ export class OtpService {
   ): Promise<void> {
     const { plaintextCode } = await this.createOtpRecord(destination, purpose, userId, enforceCooldown);
 
-    // Non-blocking asynchronous delivery so client response is instant
-    void this.deliverOtp(destination, purpose, plaintextCode, preferredName).catch(() => {
-      console.error('[OtpService] Async OTP delivery failed.', { operation: 'send_otp', purpose });
-    });
+    try {
+      await this.deliverOtp(destination, purpose, plaintextCode, preferredName);
+    } catch (err: any) {
+      console.error('[OtpService] OTP delivery failed; invalidating active OTP record.', {
+        operation: 'send_otp',
+        purpose,
+        error: err?.message,
+      });
+
+      // Invalidate the unconsumed OTP so the user does not have an undelivered active code
+      await db
+        .update(otpVerifications)
+        .set({ consumedAt: new Date() })
+        .where(
+          and(
+            eq(otpVerifications.destination, destination.trim().toLowerCase()),
+            eq(otpVerifications.purpose, purpose),
+            isNull(otpVerifications.consumedAt)
+          )
+        );
+
+      throw err;
+    }
   }
 
   /**

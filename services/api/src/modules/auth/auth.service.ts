@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../../db/index.js';
-import { users, userProfiles } from '../../db/schema.js';
+import { users, userProfiles, otpVerifications } from '../../db/schema.js';
 import {
   RegisterDto,
   SignupDto,
@@ -119,10 +119,29 @@ export class AuthService {
       OtpService.createOtpRecord(normalizedEmail, 'SIGNUP_VERIFICATION', createdUser.id, false),
     ]);
 
-    // 4. Non-blocking asynchronous delivery so UI transition is instant (< 400ms)
-    void OtpService.deliverOtp(normalizedEmail, 'SIGNUP_VERIFICATION', plaintextCode, preferredName || undefined).catch(
-      () => console.error('[AuthService] Background OTP delivery failed.', { operation: 'send_otp', purpose: 'SIGNUP_VERIFICATION' })
-    );
+    // 4. Deliver OTP and ensure delivery succeeds before informing user
+    try {
+      await OtpService.deliverOtp(normalizedEmail, 'SIGNUP_VERIFICATION', plaintextCode, preferredName || undefined);
+    } catch (err: any) {
+      console.error('[AuthService] Background OTP delivery failed on signup.', {
+        operation: 'send_otp',
+        purpose: 'SIGNUP_VERIFICATION',
+        error: err?.message,
+      });
+
+      await db
+        .update(otpVerifications)
+        .set({ consumedAt: new Date() })
+        .where(
+          and(
+            eq(otpVerifications.destination, normalizedEmail),
+            eq(otpVerifications.purpose, 'SIGNUP_VERIFICATION'),
+            isNull(otpVerifications.consumedAt)
+          )
+        );
+
+      throw new Error('We could not send the verification email. Please check your email address or try again later.');
+    }
 
     return {
       message: 'A verification code has been sent to your email. Please verify your account.',
@@ -419,9 +438,11 @@ export class AuthService {
         );
       } catch (err: any) {
         // If cooldown error, throw it so user knows to wait
-        if (err.message.includes('Please wait')) {
+        if (err?.message?.includes('Please wait')) {
           throw err;
         }
+        console.error('[AuthService] Forgot password delivery failed.', { error: err?.message });
+        throw new Error('We could not send the reset verification code. Please try again later.');
       }
     }
 
@@ -476,12 +497,20 @@ export class AuthService {
       where: eq(users.email, normalizedEmail),
     });
 
-    await OtpService.createAndSendOtp(
-      normalizedEmail,
-      dto.purpose,
-      userRecord?.id,
-      userRecord?.preferredName || undefined
-    );
+    try {
+      await OtpService.createAndSendOtp(
+        normalizedEmail,
+        dto.purpose,
+        userRecord?.id,
+        userRecord?.preferredName || undefined
+      );
+    } catch (err: any) {
+      if (err?.message?.includes('Please wait')) {
+        throw err;
+      }
+      console.error('[AuthService] Resend OTP delivery failed.', { error: err?.message });
+      throw new Error('We could not send the verification code. Please try again later.');
+    }
 
     return {
       message: 'A new verification code has been sent.',

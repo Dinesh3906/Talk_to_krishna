@@ -30,11 +30,21 @@ services:
       - key: DISABLE_LOCAL_EMBEDDING
         value: "true"
       - key: EMAIL_PROVIDER
-        value: resend
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
-        value: "Talk to Krishna <contact@codealgo.live>"
+        sync: false
 
 databases:
   - name: talk-to-krisna-db

@@ -48,6 +48,7 @@
     "google-auth-library": "^10.9.1",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.1.2",
     "openai": "^4.85.4",
     "pdf-parse": "^1.1.1",
     "pg": "^8.13.3",
@@ -57,6 +58,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
     "drizzle-kit": "^0.30.4",
     "tsx": "^4.19.3",
     "vitest": "^5.0.5"
