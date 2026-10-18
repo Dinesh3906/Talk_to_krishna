@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useChatStore } from '../../store/chat.store';
 import { darkTheme } from '../../theme/colors';
@@ -11,6 +11,23 @@ export default function ConversationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeConversation, fetchConversationDetails } = useChatStore();
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/conversations');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     if (id) {
       fetchConversationDetails(id);
@@ -20,7 +37,7 @@ export default function ConversationDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <ArrowLeft color={darkTheme.textPrimary} size={20} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>

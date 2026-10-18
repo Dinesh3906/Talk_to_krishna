@@ -31,6 +31,8 @@ import {
   Sparkles,
   ChevronRight,
   HeartHandshake,
+  BookOpen,
+  Crown,
 } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -239,6 +241,40 @@ export function ChatDrawer({
                 <Text style={styles.popoverName}>{user?.displayName || 'Seeker'}</Text>
                 <Text style={styles.popoverEmail}>{user?.email || 'Guest Mode'}</Text>
               </View>
+              <View style={styles.popoverDivider} />
+              <TouchableOpacity
+                style={styles.popoverAction}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  onClose();
+                  router.push('/profile');
+                }}
+              >
+                <UserIcon size={16} color={darkTheme.primary} />
+                <Text style={styles.popoverLinkText}>My Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.popoverAction}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  onClose();
+                  router.push('/about');
+                }}
+              >
+                <BookOpen size={16} color={darkTheme.primary} />
+                <Text style={styles.popoverLinkText}>Canonical Sources</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.popoverAction}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  onClose();
+                  router.push('/subscription');
+                }}
+              >
+                <Crown size={16} color={darkTheme.accent} />
+                <Text style={styles.popoverLinkText}>Sādhak Fellowship</Text>
+              </TouchableOpacity>
               <View style={styles.popoverDivider} />
               <TouchableOpacity style={styles.popoverAction} onPress={handleLogout}>
                 <LogOut size={16} color="#EF4444" />
@@ -457,8 +493,13 @@ const styles = StyleSheet.create({
   popoverAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 10,
+    paddingVertical: 7,
+  },
+  popoverLinkText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '500',
   },
   popoverLogoutText: {
     color: '#EF4444',

@@ -15,6 +15,7 @@ import {
   Share,
   StatusBar,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useChatStore } from '../store/chat.store';
@@ -34,6 +35,7 @@ import {
   X,
   ShieldCheck,
   Compass,
+  ArrowLeft,
 } from 'lucide-react-native';
 import { Message, Citation } from '@talk-to-krisna/shared';
 import { KrishnaAvatar } from '../components/KrishnaAvatar';
@@ -106,6 +108,31 @@ export default function DirectChatScreen() {
     return () => sub.remove();
   }, []);
 
+  // System Hardware Back Button Handler
+  useEffect(() => {
+    const onBackPress = () => {
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        return true;
+      }
+      if (daanPetiOpen) {
+        setDaanPetiOpen(false);
+        return true;
+      }
+      if (selectedCitation) {
+        setSelectedCitation(null);
+        return true;
+      }
+      if (activeConversation?.messages && activeConversation.messages.length > 0) {
+        clearActiveConversation();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [drawerOpen, daanPetiOpen, selectedCitation, activeConversation]);
+
   const handleNewChat = () => {
     clearActiveConversation();
     setInputMessage('');
@@ -167,29 +194,55 @@ export default function DirectChatScreen() {
 
       {/* Top Navigation Bar (ChatGPT / Gemini style) */}
       <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => setDrawerOpen(true)}
-          activeOpacity={0.7}
-        >
-          <Menu size={22} color="#F8FAFC" />
-        </TouchableOpacity>
+        {messages.length > 0 ? (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleNewChat}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowLeft size={22} color="#F8FAFC" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setDrawerOpen(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Menu size={22} color="#F8FAFC" />
+          </TouchableOpacity>
+        )}
 
         <View style={styles.headerTitleContainer}>
           <KrishnaAvatar size={28} />
           <View>
             <Text style={styles.headerTitle}>Talk to Krishna</Text>
-            <Text style={styles.headerSub}>Divine Sanctuary</Text>
+            <Text style={styles.headerSub}>
+              {messages.length > 0 ? 'Divine Guidance' : 'Divine Sanctuary'}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={handleNewChat}
-          activeOpacity={0.7}
-        >
-          <Plus size={22} color={darkTheme.primary} />
-        </TouchableOpacity>
+        {messages.length > 0 ? (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setDrawerOpen(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Menu size={22} color={darkTheme.textSecondary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleNewChat}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Plus size={22} color={darkTheme.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Main Conversation Canvas */}

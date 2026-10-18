@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/auth.store';
@@ -21,6 +22,23 @@ export default function ProfileScreen() {
 
   const [preferredName, setPreferredName] = useState(user?.preferredName || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/chat');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleSavePreferredName = async () => {
     if (!preferredName.trim()) return;
@@ -60,6 +78,19 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Top Header with Back Button */}
+      <View style={styles.topNavHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <ArrowLeft size={22} color="#F8FAFC" />
+        </TouchableOpacity>
+        <Text style={styles.topNavTitle}>Seeker Profile</Text>
+        <View style={{ width: 22 }} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header Summary */}
         <View style={styles.avatarCard}>
@@ -236,5 +267,27 @@ const styles = StyleSheet.create({
     color: darkTheme.danger,
     fontSize: 14,
     fontWeight: '700',
+  },
+  topNavHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: darkTheme.surfaceBorder,
+    backgroundColor: '#0B0F19',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  topNavTitle: {
+    color: '#F8FAFC',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

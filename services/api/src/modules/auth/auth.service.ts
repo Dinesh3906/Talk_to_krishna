@@ -63,7 +63,32 @@ export class AuthService {
 
     if (existingUser) {
       if (existingUser.isVerified) {
-        throw new Error('An account with this email address already exists.');
+        if (!existingUser.passwordHash) {
+          // User exists via Google Sign-In and wants to create an email/password login
+          await db
+            .update(users)
+            .set({
+              passwordHash,
+              displayName: dto.displayName?.trim() || existingUser.displayName,
+              preferredName: dto.preferredName?.trim() || existingUser.preferredName,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, existingUser.id));
+
+          await OtpService.createAndSendOtp(
+            normalizedEmail,
+            'SIGNUP_VERIFICATION',
+            existingUser.id,
+            existingUser.preferredName || undefined
+          );
+
+          return {
+            message: 'A verification code has been sent to your email to verify and link your password.',
+            email: normalizedEmail,
+            isVerified: false,
+          };
+        }
+        throw new Error('An account with this email address already exists. Please tap Sign In or use Forgot Password to reset it.');
       }
 
       // User registered previously but never verified: update password & resend OTP

@@ -10,8 +10,10 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../store/auth.store';
 import { darkTheme } from '../../theme/colors';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
@@ -75,6 +77,58 @@ export default function LoginScreen() {
     }, 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
+
+  // Universal Back Navigation Handler
+  const handleGoBack = (): boolean => {
+    if (mode === 'verify_otp') {
+      setMode('signup');
+      setLocalError(null);
+      setInfoMessage(null);
+      return true;
+    }
+    if (mode === 'forgot_reset') {
+      setMode('forgot_email');
+      setLocalError(null);
+      setInfoMessage(null);
+      return true;
+    }
+    if (mode === 'forgot_email') {
+      setMode('login');
+      setLocalError(null);
+      setInfoMessage(null);
+      return true;
+    }
+    if (mode === 'signup') {
+      setMode('login');
+      setLocalError(null);
+      setInfoMessage(null);
+      return true;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return true;
+    }
+    try {
+      router.replace('/(auth)/onboarding');
+      return true;
+    } catch {}
+    return false;
+  };
+
+  const getBackTitle = (): string => {
+    if (mode === 'verify_otp') return 'Back to Edit Details';
+    if (mode === 'forgot_reset') return 'Back to Email';
+    if (mode === 'forgot_email') return 'Back to Sign In';
+    if (mode === 'signup') return 'Back to Sign In';
+    return 'Back to Welcome';
+  };
+
+  // Hardware Back Button listener for Android
+  useEffect(() => {
+    const onBackPress = () => handleGoBack();
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [mode]);
 
   const handleLoginSubmit = async () => {
     setLocalError(null);
@@ -226,6 +280,16 @@ export default function LoginScreen() {
             <Text style={styles.appTagline}>Timeless wisdom for the modern mind</Text>
           </View>
 
+          {/* Top Back Navigation Bar */}
+          <TouchableOpacity
+            style={styles.topBackBar}
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={18} color={darkTheme.primary} />
+            <Text style={styles.topBackBarText}>{getBackTitle()}</Text>
+          </TouchableOpacity>
+
           {/* Mode Switcher Tabs (Only in standard login/signup mode) */}
           {(mode === 'login' || mode === 'signup') && (
             <View style={styles.tabContainer}>
@@ -270,6 +334,28 @@ export default function LoginScreen() {
           {(localError || error) && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{localError || error}</Text>
+              {(localError || error)?.includes('already exists') && (
+                <View style={styles.errorActionRow}>
+                  <TouchableOpacity
+                    style={styles.errorActionBtn}
+                    onPress={() => {
+                      setMode('login');
+                      setLocalError(null);
+                    }}
+                  >
+                    <Text style={styles.errorActionBtnText}>Switch to Sign In</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.errorActionBtn, styles.errorActionBtnSecondary]}
+                    onPress={() => {
+                      setMode('forgot_email');
+                      setLocalError(null);
+                    }}
+                  >
+                    <Text style={styles.errorActionBtnText}>Forgot Password?</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -373,6 +459,8 @@ export default function LoginScreen() {
               <Text style={styles.cardTitle}>Verify Your Email</Text>
               <Text style={styles.cardSubtitle}>
                 Enter the 6-digit code sent to <Text style={styles.highlightText}>{email}</Text>
+                {'\n\n'}
+                <Text style={styles.spamNote}>Please check your Inbox and Spam/Junk folder.</Text>
               </Text>
 
               <View style={styles.inputGroup}>
@@ -786,5 +874,46 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: darkTheme.textSecondary,
     fontSize: 13,
+  },
+  topBackBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+  },
+  topBackBarText: {
+    color: darkTheme.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  errorActionBtn: {
+    backgroundColor: '#1E293B',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: darkTheme.primary,
+    marginHorizontal: 4,
+  },
+  errorActionBtnSecondary: {
+    borderColor: '#475569',
+  },
+  errorActionBtnText: {
+    color: darkTheme.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  spamNote: {
+    color: darkTheme.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });

@@ -15,6 +15,7 @@ import {
   Alert,
   Image,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -84,6 +85,43 @@ export default function ChatScreen() {
     });
     return () => sub.remove();
   }, []);
+
+  const handleGoBack = () => {
+    if (selectedCitation) {
+      setSelectedCitation(null);
+      return;
+    }
+    if (quoteCardMessage) {
+      setQuoteCardMessage(null);
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/conversations');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedCitation) {
+        setSelectedCitation(null);
+        return true;
+      }
+      if (quoteCardMessage) {
+        setQuoteCardMessage(null);
+        return true;
+      }
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/conversations');
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [selectedCitation, quoteCardMessage]);
 
   const handleSend = () => {
     if (!inputMessage.trim() || isStreaming) return;
@@ -174,7 +212,7 @@ export default function ChatScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.headerButton} onPress={handleGoBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <ArrowLeft color={darkTheme.textPrimary} size={20} />
         </TouchableOpacity>
         <View style={styles.headerAvatarContainer}>

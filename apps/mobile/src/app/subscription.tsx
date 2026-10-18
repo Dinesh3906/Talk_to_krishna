@@ -1,11 +1,28 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { darkTheme } from '../theme/colors';
-import { Crown, Check, Sparkles } from 'lucide-react-native';
+import { Crown, Check, Sparkles, ArrowLeft } from 'lucide-react-native';
 
 export default function SubscriptionScreen() {
   const router = useRouter();
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/chat');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleSelectPlan = (planName: string) => {
     Alert.alert(
@@ -16,6 +33,19 @@ export default function SubscriptionScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {/* Top Header with Back Button */}
+      <View style={styles.topNavHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <ArrowLeft size={22} color="#F8FAFC" />
+        </TouchableOpacity>
+        <Text style={styles.topNavTitle}>Sādhak Fellowship</Text>
+        <View style={{ width: 22 }} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <View style={styles.crownCircle}>
@@ -202,5 +232,27 @@ const styles = StyleSheet.create({
     color: '#0B0F19',
     fontSize: 15,
     fontWeight: '700',
+  },
+  topNavHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: darkTheme.surfaceBorder,
+    backgroundColor: '#0B0F19',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  topNavTitle: {
+    color: '#F8FAFC',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

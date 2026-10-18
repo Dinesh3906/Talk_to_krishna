@@ -109,12 +109,28 @@ export class OtpService {
   ): Promise<void> {
     const normalizedDest = destination.trim().toLowerCase();
     const provider = OtpProviderFactory.getProvider();
-    await provider.sendOtp({
-      destination: normalizedDest,
-      code,
-      purpose,
-      preferredName,
-    });
+    try {
+      await provider.sendOtp({
+        destination: normalizedDest,
+        code,
+        purpose,
+        preferredName,
+      });
+    } catch (primaryErr: any) {
+      console.warn(`[OtpService] Primary provider ${provider.name} failed:`, primaryErr?.message);
+      const secondary = OtpProviderFactory.getSecondaryProvider();
+      if (secondary) {
+        console.log(`[OtpService] Attempting automatic failover to ${secondary.name}...`);
+        await secondary.sendOtp({
+          destination: normalizedDest,
+          code,
+          purpose,
+          preferredName,
+        });
+        return;
+      }
+      throw primaryErr;
+    }
   }
 
   /**

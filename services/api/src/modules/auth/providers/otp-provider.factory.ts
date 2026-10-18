@@ -42,6 +42,17 @@ export class OtpProviderFactory {
     }
   }
 
+  public static getSecondaryProvider(): OtpDeliveryProvider | null {
+    const primary = this.getProvider();
+    if (primary.name === 'smtp' && process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123') {
+      return new ResendOtpProvider();
+    }
+    if (primary.name === 'resend' && !!(process.env.SMTP_USER || process.env.GMAIL_USER || process.env.SMTP_HOST)) {
+      return new SmtpOtpProvider();
+    }
+    return null;
+  }
+
   public static setProviderForTesting(provider: OtpDeliveryProvider): void {
     this.instance = provider;
   }

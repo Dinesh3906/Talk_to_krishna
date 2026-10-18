@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/auth.store';
@@ -31,6 +32,19 @@ export default function SettingsScreen() {
   const [depth, setDepth] = useState<ReflectionDepth>(profile?.reflectionDepth || 'balanced');
   const [density, setDensity] = useState<MahabharataDensity>(profile?.mahabharataDensity || 'contextual');
   const [memoryEnabled, setMemoryEnabled] = useState(profile?.enableLongTermMemory || false);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+      router.replace('/(tabs)');
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleUpdateDepth = async (newDepth: ReflectionDepth) => {
     setDepth(newDepth);

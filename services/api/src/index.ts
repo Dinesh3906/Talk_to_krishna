@@ -90,8 +90,11 @@ app.get('/api/v1/health', async (_req: Request, res: Response) => {
     return res.status(200).json({
       status: 'healthy',
       database: dbCheck.rows.length > 0 ? 'connected' : 'unhealthy',
+      emailProvider: process.env.EMAIL_PROVIDER || 'not_explicitly_set',
+      hasSmtpConfig: Boolean(process.env.SMTP_USER || process.env.GMAIL_USER),
+      hasResendConfig: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 're_123'),
       timestamp: new Date().toISOString(),
-      version: '1.1.1-canonical-gita-grounding',
+      version: '1.1.2-canonical-gita-grounding',
     });
   } catch (err: any) {
     return res.status(503).json({

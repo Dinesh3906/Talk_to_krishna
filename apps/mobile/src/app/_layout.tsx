@@ -56,10 +56,10 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)/onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="conversations/[id]" options={{ title: 'Reflection Record' }} />
-          <Stack.Screen name="profile" options={{ title: 'Seeker Profile' }} />
-          <Stack.Screen name="subscription" options={{ title: 'Sadhak Fellowship' }} />
-          <Stack.Screen name="about" options={{ title: 'Canonical Sources' }} />
+          <Stack.Screen name="conversations/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="profile" options={{ headerShown: false }} />
+          <Stack.Screen name="subscription" options={{ headerShown: false }} />
+          <Stack.Screen name="about" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>
