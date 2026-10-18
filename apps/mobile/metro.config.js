@@ -13,6 +13,7 @@ config.resolver.nodeModulesPaths = [
 ];
 
 config.resolver.extraNodeModules = {
+  'metro-runtime': path.resolve(monorepoRoot, 'node_modules/metro-runtime'),
   'react-native-svg': path.resolve(monorepoRoot, 'node_modules/react-native-svg'),
   react: path.resolve(monorepoRoot, 'node_modules/react'),
   'react-native': path.resolve(monorepoRoot, 'node_modules/react-native'),
