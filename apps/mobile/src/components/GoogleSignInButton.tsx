@@ -173,23 +173,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
     setLoading(true);
     try {
-      // Re-ensure configuration is applied before initiating prompt
-      try {
-        GoogleSignin.configure({
-          webClientId: clientId,
-          offlineAccess: false,
-          scopes: ['email', 'profile'],
-        });
-      } catch (configErr) {
-        console.warn('[GoogleSignInButton] configure warning:', configErr);
-      }
-
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
-      // Clear any stale cached account state from previous attempts to ensure clean picker
-      try {
-        await GoogleSignin.signOut();
-      } catch {}
 
       const response = await GoogleSignin.signIn();
 
@@ -225,6 +209,11 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         throw new Error('Google Sign-In did not return an ID token.');
       }
     } catch (error: any) {
+      // Clear any cached credentials on failure so next attempt is fresh
+      try {
+        await GoogleSignin.signOut();
+      } catch {}
+
       if (isErrorWithCode && isErrorWithCode(error)) {
         if (error.code === statusCodes?.SIGN_IN_CANCELLED) {
           return;
@@ -250,26 +239,25 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         const errorDetail =
           'Google Cloud Console requires an Android OAuth Client ID matching:\n\n' +
           '• Package Name: com.talktokrishna.ai\n' +
-          '• Release SHA-1 (APK): 60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6\n' +
-          '• Play Store SHA-1: 54:69:38:F2:E7:BA:3D:C4:29:82:71:31:53:C5:F5:CD:84:86:23:81\n' +
-          '• Debug SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
-          'Add in Google Cloud Console (project 557211276662) under APIs & Services > Credentials > Create Credentials > OAuth Client ID > Android.';
-        Alert.alert('Google Sign-In SHA-1 Required', errorDetail, [
+          '• Debug SHA-1: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n' +
+          '• Release SHA-1: 60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6\n\n' +
+          'Please register this SHA-1 in Google Cloud Console project 557211276662 under APIs & Services > Credentials.';
+        Alert.alert('Configuration Required', errorDetail, [
+          {
+            text: 'Copy Debug SHA-1',
+            onPress: async () => {
+              try {
+                await Clipboard.setStringAsync('5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25');
+                Alert.alert('Copied!', 'Debug SHA-1 copied to clipboard.');
+              } catch {}
+            },
+          },
           {
             text: 'Copy Release SHA-1',
             onPress: async () => {
               try {
                 await Clipboard.setStringAsync('60:DE:24:C0:E4:38:AB:5C:4A:39:3E:9B:69:E2:A0:F3:69:97:E9:F6');
                 Alert.alert('Copied!', 'Release SHA-1 copied to clipboard.');
-              } catch {}
-            },
-          },
-          {
-            text: 'Copy Play Store SHA-1',
-            onPress: async () => {
-              try {
-                await Clipboard.setStringAsync('54:69:38:F2:E7:BA:3D:C4:29:82:71:31:53:C5:F5:CD:84:86:23:81');
-                Alert.alert('Copied!', 'Play Store SHA-1 copied to clipboard.');
               } catch {}
             },
           },
